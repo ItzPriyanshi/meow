@@ -1,1 +1,21 @@
-Pac
+
+{
+  "name": "elysia-youtube-downloader",
+  "version": "1.0.0",
+  "description": "A simple YouTube video/audio downloader API using Elysia and youtubei.js",
+  "main": "index.ts",
+  "scripts": {
+    "start": "bun run index.ts"
+  },
+  "dependencies": {
+    "elysia": "latest",
+    "youtubei.js": "latest",
+    "ffmpeg-static": "latest"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "keywords": ["youtube", "download", "api", "elysia", "bun"],
+  "author": "Shikaki || Priyanshi Kaur",
+  "license": "MIT"
+}
