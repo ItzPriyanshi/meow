@@ -11,7 +11,8 @@
     "youtubei.js": "latest",
     "ffmpeg-static": "latest",
     "cheerio": "latest",
-    "perf_hooks": "latest"
+    "perf_hooks": "latest",
+    "json-custom-numbers": "latest"
   },
   "devDependencies": {
     "bun-types": "latest"
