@@ -2,7 +2,7 @@ import { performance } from 'perf_hooks';
 import fetch from 'node-fetch';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import cheerio from 'cheerio';
+import { load } from 'cheerio';
 
 const TIKTOK_BASE_URL = "https://www.tiktok.com";
 const GENERIC_USER_AGENT =
