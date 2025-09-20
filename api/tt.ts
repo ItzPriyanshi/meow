@@ -59,10 +59,13 @@ async function fetchAndParsePage(postId: string): Promise<{ jsonData: any, cooki
   const cookies = response.headers.getSetCookie();
   const cookieString = cookies.map(cookie => cookie.split(';')[0]).join('; ');
   const html = await response.text();
-  const match = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/);
+  
+  // ⬅️ CORRECTED LINE: Use a more reliable regex pattern to find the JSON
+  const match = html.match(/<script id="SIGI_STATE" type="application\/json">([\s\S]*?)<\/script>/);
   const jsonString = match ? match[1] : null;
+
   if (!jsonString) {
-    throw new Error("Could not find __UNIVERSAL_DATA_FOR_REHYDRATION__ JSON data in the response.");
+    throw new Error("Could not find required JSON data in the response.");
   }
   return { jsonData: JSON.parse(jsonString), cookieString };
 }
