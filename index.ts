@@ -9,6 +9,8 @@ import fbHandler from './api/fb';
 import pinHandler from './api/pin';
 import ttHandler from './api/tt';
 import xHandler from './api/x';
+import { staticPlugin } from '@elysiajs/static'; // Added this line
+
 const PORT = 3040;
 const BUN_IDLE_TIMEOUT = 255;
 const EXPIRATION_SECONDS = 180;
@@ -196,6 +198,12 @@ const app = new Elysia()
             message: error.toString()
         };
     })
+    .use(
+        staticPlugin({
+            dir: join(process.cwd(), 'temp'),
+            prefix: '/api/tt/stream'
+        })
+    ) // Added this block
     .get('/robots.txt', () => new Response(['User-agent: *', 'Disallow: /'].join('\n'), {
         headers: { 'Content-Type': 'text/plain' }
     }))
@@ -588,14 +596,24 @@ const app = new Elysia()
             url: t.String()
         })
     })
-    .get('/tt', async ({
-        query
-    }) => {
-        const {
-            url
-        } = query;
+    .get('/tt', async ({ query, request }) => {
+        const { url } = query;
         if (!url) throw new Error('Missing URL');
-        return await ttHandler(url);
+        const extractionResult = await ttHandler(url);
+        if (!extractionResult || !extractionResult.media?.length) {
+            throw new Error('Failed to extract media.');
+        }
+        const media = extractionResult.media[0];
+        const filename = media.url.split('/').pop();
+        const requestUrl = new URL(request.url);
+        return {
+            status: 'ok',
+            title: extractionResult.title,
+            author: extractionResult.author,
+            thumbnail: extractionResult.thumbnail,
+            mediaType: media.type,
+            tunnelUrl: `${requestUrl.protocol}//${requestUrl.host}/api/tt/stream/${filename}`
+        };
     }, {
         query: t.Object({
             url: t.String()
