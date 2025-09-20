@@ -1,4 +1,3 @@
-
 {
   "name": "elysia-youtube-downloader",
   "version": "1.0.0",
@@ -10,12 +9,20 @@
   "dependencies": {
     "elysia": "latest",
     "youtubei.js": "latest",
-    "ffmpeg-static": "latest"
+    "ffmpeg-static": "latest",
+    "cheerio": "latest",
+    "perf_hooks": "latest"
   },
   "devDependencies": {
     "bun-types": "latest"
   },
-  "keywords": ["youtube", "download", "api", "elysia", "bun"],
+  "keywords": [
+    "youtube",
+    "download",
+    "api",
+    "elysia",
+    "bun"
+  ],
   "author": "Shikaki || Priyanshi Kaur",
   "license": "MIT"
 }
