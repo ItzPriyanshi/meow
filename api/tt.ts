@@ -2,7 +2,7 @@ import { performance } from 'perf_hooks';
 import fetch from 'node-fetch';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { load } from 'cheerio';
+import { URL } from 'url';
 
 const TIKTOK_BASE_URL = "https://www.tiktok.com";
 const GENERIC_USER_AGENT =
@@ -25,34 +25,12 @@ export type ExtractionResult = {
   postId?: string;
 };
 
-// Extract post ID from TikTok URL
-function getPostId(url: string): string | null {
-  const match = url.match(/\/(?:video|photo)\/(\d+)/);
-  return match ? match[1] : null;
-}
+// Simple in-memory cache for 3 minutes
+const cache = new Map<string, { data: ExtractionResult, timestamp: number }>();
+const CACHE_EXPIRATION_MS = 3 * 60 * 1000;
 
-// Fetch TikTok page and extract JSON metadata
-async function fetchTikTokPage(postId: string): Promise<{ jsonData: any; cookieString: string }> {
-  const scraperUrl = `${TIKTOK_BASE_URL}/@i/video/${postId}`;
-  const start = performance.now();
-
-  const res = await fetch(scraperUrl, { headers: { "User-Agent": GENERIC_USER_AGENT } });
-  if (!res.ok) throw new Error(`Failed to fetch video page: ${res.status} ${res.statusText}`);
-
-  const cookieString = res.headers.get('set-cookie') || '';
-  const html = await res.text();
-
-  // Extract JSON from <script id="SIGI_STATE">
-  const $ = cheerio.load(html);
-  const script = $('#SIGI_STATE').html();
-  if (!script) throw new Error('Unable to extract TikTok metadata.');
-  const jsonData = JSON.parse(script);
-
-  return { jsonData, cookieString };
-}
-
-// Download media to temp folder
-async function downloadMedia(url: string, postId: string): Promise<string> {
+// Function to download media from a URL
+async function downloadMedia(url: string, postId: string, mediaType: 'video' | 'photo'): Promise<string> {
   const tempDir = join(process.cwd(), 'temp');
   await mkdir(tempDir, { recursive: true });
 
@@ -60,70 +38,139 @@ async function downloadMedia(url: string, postId: string): Promise<string> {
   if (!res.ok) throw new Error(`Failed to download media: ${res.status}`);
 
   const buffer = Buffer.from(await res.arrayBuffer());
-  const filePath = join(tempDir, `${postId}.mp4`);
+  const fileExtension = mediaType === 'video' ? 'mp4' : 'jpeg';
+  const filename = `${postId}.${fileExtension}`;
+  const filePath = join(tempDir, filename);
   await writeFile(filePath, buffer);
-  return filePath;
+  return filename;
 }
 
-// Main scraping function
-async function scrapeTikTok(initialUrl: string): Promise<ExtractionResult> {
+function getPostId(url: string): string | null {
+  const match = url.match(/(?:video|photo)\/(\d+)/);
+  return match ? match[1] : null;
+}
+
+async function fetchAndParsePage(postId: string): Promise<{ jsonData: any, cookieString: string }> {
+  const scraperUrl = `${TIKTOK_BASE_URL}/@i/video/${postId}`;
+  const response = await fetch(scraperUrl, { headers: { "User-Agent": GENERIC_USER_AGENT } });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch video page: ${response.status} ${response.statusText}`);
+  }
+  const cookies = response.headers.getSetCookie();
+  const cookieString = cookies.map(cookie => cookie.split(';')[0]).join('; ');
+  const html = await response.text();
+  const match = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/);
+  const jsonString = match ? match[1] : null;
+  if (!jsonString) {
+    throw new Error("Could not find __UNIVERSAL_DATA_FOR_REHYDRATION__ JSON data in the response.");
+  }
+  return { jsonData: JSON.parse(jsonString), cookieString };
+}
+
+export async function scrapeTikTok(initialUrl: string): Promise<ExtractionResult> {
+  const timings = { fetchTime: 0, processTime: 0, totalTime: 0 };
   const totalStartTime = performance.now();
-  const postId = getPostId(initialUrl);
-  if (!postId)
-    return {
-      status: 'invalid_url',
-      timings: { fetchTime: 0, processTime: 0, totalTime: 0 }
-    };
-
-  let fetchTime = 0,
-    processTime = 0;
-
+  let resolvedUrl = initialUrl;
   try {
-    const startFetch = performance.now();
-    const { jsonData, cookieString } = await fetchTikTokPage(postId);
-    fetchTime = performance.now() - startFetch;
-
-    const startProcess = performance.now();
-    const videoData = jsonData.ItemModule[postId];
-    if (!videoData)
+    let postId = getPostId(initialUrl);
+    if (!postId) {
+      console.log(`[TikTok] Resolving short URL: ${initialUrl}`);
+      const fetchStartTime = performance.now();
+      try {
+        const response = await fetch(initialUrl, {
+          method: 'HEAD',
+          redirect: 'follow',
+          headers: { 'User-Agent': GENERIC_USER_AGENT }
+        });
+        resolvedUrl = response.url;
+        timings.fetchTime += performance.now() - fetchStartTime;
+        console.log(`[TikTok] Resolved to: ${resolvedUrl}`);
+        postId = getPostId(resolvedUrl);
+      } catch (e: any) {
+        timings.totalTime = performance.now() - totalStartTime;
+        return { status: 'invalid_url', timings };
+      }
+    }
+    if (!postId) {
+      timings.totalTime = performance.now() - totalStartTime;
+      return { status: 'invalid_url', timings };
+    }
+    const pageFetchStartTime = performance.now();
+    const { jsonData: jsonResponse, cookieString } = await fetchAndParsePage(postId);
+    timings.fetchTime += performance.now() - pageFetchStartTime;
+    const processStartTime = performance.now();
+    const videoDetail = jsonResponse?.__DEFAULT_SCOPE__?.["webapp.video-detail"];
+    if (!videoDetail || videoDetail.statusMsg || !videoDetail.itemInfo?.itemStruct) {
+      timings.totalTime = performance.now() - totalStartTime;
+      return { status: 'not_found', timings };
+    }
+    const itemStruct = videoDetail.itemInfo.itemStruct;
+    const author = itemStruct.author?.uniqueId || 'unknown_author';
+    const title = itemStruct.desc || '';
+    const mediaUrls: CleanedMedia[] = [];
+    let thumbnail: string | undefined;
+    if (itemStruct.imagePost?.images) {
+      thumbnail = itemStruct.imagePost.images[0]?.imageURL?.urlList?.[0];
+      for (const image of itemStruct.imagePost.images) {
+        const imageUrl = image?.imageURL?.urlList?.[0];
+        if (imageUrl) mediaUrls.push({ type: 'photo', url: imageUrl });
+      }
+      const audioUrl = itemStruct.music?.playUrl;
+      if (audioUrl) mediaUrls.push({ type: 'audio', url: audioUrl });
+    } else if (itemStruct.video?.playAddr) {
+      thumbnail = itemStruct.video.cover;
+      mediaUrls.push({ type: 'video', url: itemStruct.video.playAddr });
+    }
+    timings.processTime = performance.now() - processStartTime;
+    timings.totalTime = performance.now() - totalStartTime;
+    if (mediaUrls.length > 0) {
       return {
-        status: 'not_found',
-        timings: { fetchTime, processTime: 0, totalTime: performance.now() - totalStartTime }
+        status: 'success',
+        author,
+        title,
+        thumbnail,
+        media: mediaUrls,
+        timings,
+        cookieString,
+        postId,
       };
-
-    const mediaUrl = videoData.video?.playAddr || videoData.video?.downloadAddr;
-    if (!mediaUrl) throw new Error('Video URL not found in metadata.');
-
-    const downloadedFile = await downloadMedia(mediaUrl, postId);
-    processTime = performance.now() - startProcess;
-
-    return {
-      status: 'success',
-      author: videoData.author,
-      title: videoData.desc,
-      thumbnail: videoData.video?.cover,
-      media: [{ type: 'video', url: downloadedFile }],
-      cookieString,
-      postId,
-      timings: {
-        fetchTime,
-        processTime,
-        totalTime: performance.now() - totalStartTime
-      }
-    };
-  } catch (err: any) {
-    return {
-      status: 'fetch_error',
-      timings: {
-        fetchTime,
-        processTime,
-        totalTime: performance.now() - totalStartTime
-      }
-    };
+    } else {
+      return { status: 'not_found', timings };
+    }
+  } catch (error: any) {
+    console.error("[TikTok Scraper Error]", error.message);
+    timings.totalTime = performance.now() - totalStartTime;
+    return { status: 'fetch_error', timings };
   }
 }
 
-// Exported handler for index.ts
+// Exported handler that manages cache and downloads
 export default async function handler(url: string) {
-  return await scrapeTikTok(url);
+  const cacheKey = url;
+  const cachedItem = cache.get(cacheKey);
+
+  if (cachedItem && (Date.now() - cachedItem.timestamp < CACHE_EXPIRATION_MS)) {
+    console.log(`[TikTok] Cache HIT for URL: ${url}`);
+    return cachedItem.data;
+  }
+
+  console.log(`[TikTok] Cache MISS for URL: ${url}. Fetching...`);
+  const result = await scrapeTikTok(url);
+
+  if (result.status === 'success' && result.media && result.media.length > 0) {
+    const media = result.media[0];
+    try {
+      const filename = await downloadMedia(media.url, result.postId!, media.type as 'video' | 'photo');
+      const newUrl = new URL(url);
+      // Constructing the new URL to be served from your host
+      media.url = `${newUrl.protocol}//${newUrl.host}/api/tt/stream/${filename}`;
+    } catch (e: any) {
+      console.error(`[TikTok Download Error]`, e.message);
+      result.status = 'fetch_error';
+      result.media = [];
+    }
+  }
+
+  cache.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
 }
