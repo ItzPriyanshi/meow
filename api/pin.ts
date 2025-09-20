@@ -22,125 +22,76 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
     const totalStartTime = performance.now();
 
     try {
-
         const fetchStartTime = performance.now();
-        const response = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
+        const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
         timings.fetchTime = performance.now() - fetchStartTime;
 
-        if (!response.ok) {
-            if (response.status === 404) {
-                return { status: 'not_found', timings: { ...timings, totalTime: performance.now() - totalStartTime } };
-            }
-
-            throw new Error(`Request failed with status: ${response.status}`);
+        if (!res.ok) {
+            if (res.status === 404) return { status: 'not_found', timings: { ...timings, totalTime: performance.now() - totalStartTime } };
+            throw new Error(`Request failed with status: ${res.status}`);
         }
-        const html = await response.text();
 
+        const html = await res.text();
         const processStartTime = performance.now();
         const $ = cheerio.load(html);
 
-        let title: string | undefined;
-        let author: string | undefined;
-        let thumbnail: string | undefined;
-        let videoUrl: string | null = null;
-        let imageUrl: string | undefined;
-
-        const videoTagSrc = $("video source[src], video[src]").attr("src");
-        if (videoTagSrc && videoTagSrc.includes("pinimg.com")) {
-            videoUrl = videoTagSrc;
-        }
-
-        let ldJsonData: any = null;
-        $('script[type="application/ld+json"]').each((_i, el) => {
-            try {
-                const scriptContent = $(el).html();
-                if (scriptContent) {
-                    const jsonData = JSON.parse(scriptContent);
-
-                    if (jsonData["@type"] && (jsonData["@type"].includes("Video") || jsonData["@type"].includes("Pin"))) {
-                        ldJsonData = jsonData;
-                        return false; 
-                    }
-                }
-            } catch (e) {  }
-        });
-
-        if (ldJsonData) {
-
-            title = ldJsonData.name || ldJsonData.headline;
-            author = ldJsonData.author?.name || ldJsonData.creator?.name;
-            thumbnail = ldJsonData.thumbnailUrl || ldJsonData.image;
-            imageUrl = ldJsonData.image || ldJsonData.thumbnailUrl;
-
-            if (!videoUrl) {
-                videoUrl = ldJsonData.contentUrl || ldJsonData.embedUrl || null;
-            }
-        } else {
-
-            thumbnail = $('meta[property="og:image"]').attr("content");
-            imageUrl = thumbnail; 
-            const ogTitle = $('meta[property="og:title"]').attr("content");
-            if (ogTitle) {
-                title = ogTitle.split('|')[0].trim();
-                author = $('meta[property="og:see_also"]').attr("href")?.split('/').filter(Boolean).pop() || undefined;
-            }
-        }
-
-        if (!title) {
-            title = $('div[data-test-id="pinTitle"] h1').text().trim() || undefined;
-        }
-
-        if (!videoUrl) {
-            $("script").each((_i, el) => {
-                const scriptContent = $(el).html();
-                if (scriptContent && scriptContent.includes('"video_list"')) {
-
-                    const jsonMatch = scriptContent.match(/"video_list":\{.*?"url":"(.*?)"/s);
-                    if (jsonMatch && jsonMatch[1]) {
-
-                        videoUrl = jsonMatch[1].replace(/\\u002F/g, "/");
-                        return false; 
-                    }
-                }
-            });
-        }
-
-        if (videoUrl && videoUrl.includes(".m3u8")) {
-            videoUrl = videoUrl.replace("/hls/", "/expMp4/").replace(".m3u8", "_t1.mp4");
-        }
+        let title = $('meta[property="og:title"]').attr("content") || $('title').text().trim();
+        let author = $('meta[name="author"]').attr("content");
+        let thumbnail = $('meta[property="og:image"]').attr("content");
 
         const media: CleanedMedia[] = [];
-        if (videoUrl) {
-            media.push({ type: 'video', url: videoUrl });
-        } else if (imageUrl) {
 
-            media.push({ type: 'photo', url: imageUrl });
+        // Try video via HTML first
+        const videoTag = $("video source[src], video[src]").attr("src");
+        if (videoTag) media.push({ type: 'video', url: videoTag });
+
+        // Fallback to JSON API for protected videos/images
+        const pinIdMatch = url.match(/pin\/(\d+)/);
+        if (pinIdMatch) {
+            const pinId = pinIdMatch[1];
+            const apiRes = await fetch(`https://www.pinterest.com/pin/${pinId}/?format=json`, {
+                headers: {
+                    "User-Agent": USER_AGENT,
+                    "Accept": "application/json, text/javascript, */*; q=0.01",
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            });
+
+            if (apiRes.ok) {
+                const jsonText = await apiRes.text();
+                const cleanJson = jsonText.replace(/^for\(;;\);/, '');
+                const data = JSON.parse(cleanJson);
+                const pinData = Object.values(data?.props?.initialReduxState?.pins || {})[0];
+
+                if (pinData) {
+                    title = title || pinData.title || pinData.description;
+                    author = author || pinData.pinner?.username || pinData.pinner?.full_name;
+                    thumbnail = thumbnail || pinData.images?.orig?.url;
+
+                    if (pinData.videos?.video_list) {
+                        const bestVideo = Object.values(pinData.videos.video_list).sort((a: any, b: any) => b.height - a.height)[0];
+                        if (bestVideo?.url) media.push({ type: 'video', url: bestVideo.url });
+                    } else if (pinData.images?.orig?.url && media.length === 0) {
+                        media.push({ type: 'photo', url: pinData.images.orig.url });
+                    }
+                }
+            }
         }
 
         timings.processTime = performance.now() - processStartTime;
         timings.totalTime = performance.now() - totalStartTime;
 
-        if (media.length === 0) {
+        if (media.length === 0) return { status: 'not_found', timings };
 
-            return { status: 'not_found', timings };
-        }
+        return { status: 'success', author: author?.trim(), title: title?.trim(), thumbnail: thumbnail?.trim(), media, timings };
 
-        return {
-            status: 'success',
-            author: author?.trim(),
-            title: title?.trim(),
-            thumbnail: thumbnail?.trim(),
-            media,
-            timings
-        };
-
-    } catch (error: any) {
-        console.error("[Pinterest Scraper Error]", error.message);
+    } catch (err: any) {
+        console.error("[Pinterest Scraper Error]", err.message);
         timings.totalTime = performance.now() - totalStartTime;
         return { status: 'fetch_error', timings };
     }
 }
 
 export default async function handler(url: string) {
-  return await scrapePinterest(url);
+    return await scrapePinterest(url);
 }
