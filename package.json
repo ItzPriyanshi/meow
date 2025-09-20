@@ -1,29 +1,41 @@
 {
-  "name": "elysia-youtube-downloader",
+  "name": "elysia-tiktok-scraper",
   "version": "1.0.0",
   "description": "A simple YouTube video/audio downloader API using Elysia and youtubei.js",
   "main": "index.ts",
   "scripts": {
-    "start": "bun run index.ts"
+    "start": "bun run index.ts",
+    "dev": "bun run --watch index.ts"
   },
   "dependencies": {
     "axios": "latest",
     "elysia": "latest",
+    "cheerio": "latest",
     "youtubei.js": "latest",
     "ffmpeg-static": "latest",
-    "cheerio": "latest",
-    "perf_hooks": "latest",
-    "json-custom-numbers": "latest"
+    "fluent-ffmpeg": "latest",
+    "fs": "latest",
+    "path": "latest",
+    "stream": "latest",
+    "http": "latest",
+    "socket.io": "latest",
+    "perf_hooks": "latest"
   },
   "devDependencies": {
-    "bun-types": "latest"
+    "bun-types": "latest",
+    "@types/node": "latest",
+    "@types/fluent-ffmpeg": "latest",
+    "@types/cheerio": "latest"
   },
   "keywords": [
-    "youtube",
+    "tiktok",
     "download",
+    "scraper",
     "api",
     "elysia",
-    "bun"
+    "bun",
+    "streaming",
+    "video"
   ],
   "author": "Shikaki || Priyanshi Kaur",
   "license": "MIT"
