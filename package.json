@@ -11,10 +11,11 @@
     "elysia": "latest",
     "youtubei.js": "latest",
     "ffmpeg-static": "latest",
-    "cheerio": "latest",
     "perf_hooks": "latest",
     "json-custom-numbers": "latest",
-    "@elysiajs/static": "latest"
+    "@elysiajs/static": "latest",
+    "node-fetch": "latest",
+    "@types/node-fetch": "latest"
   },
   "devDependencies": {
     "bun-types": "latest"
