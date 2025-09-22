@@ -1,4 +1,5 @@
 import { Elysia, t } from 'elysia';
+import { staticPlugin } from '@elysiajs/static';
 import { Innertube } from 'youtubei.js';
 import ffmpeg from 'ffmpeg-static';
 import { mkdir, rmdir } from 'node:fs/promises';
@@ -194,6 +195,12 @@ function scheduleSessionCleanup(sessionId: string, delayMs: number) {
   }, delayMs);
 }
 
+// ----------------------------------------------------
+// Start of the modified code block
+// ----------------------------------------------------
+
+const publicDir = join(process.cwd(), 'public');
+
 const app = new Elysia()
   .onStart(async () => {
     const cookieFileContent = await getCookieFileContent(COOKIE_FILE_PATH);
@@ -202,6 +209,11 @@ const app = new Elysia()
     });
     console.log('✅ Innertube ready with shared session.');
   })
+  .use(staticPlugin({
+    assets: publicDir,
+    prefix: '/',
+    indexHTML: true
+  }))
   .onAfterHandle(({ response, set }) => {
     if (typeof response === 'object' && response !== null && !(response instanceof Response)) {
       set.headers['Content-Type'] = 'application/json;charset=utf-8';
@@ -218,6 +230,16 @@ const app = new Elysia()
     };
   })
   .get('/robots.txt', () => new Response(['User-agent: *', 'Disallow: /'].join('\n'), { headers: { 'Content-Type': 'text/plain' } }))
+  .get('/dashboard', () =>
+    new Response(Bun.file(join(publicDir, 'dashboard.html')).stream(), {
+      headers: { 'Content-Type': 'text/html' }
+    })
+  )
+  .get('/uptime', () =>
+    new Response(Bun.file(join(publicDir, 'uptime.html')).stream(), {
+      headers: { 'Content-Type': 'text/html' }
+    })
+  )
   .get('/', async ({ query, request }) => {
     const {
       url: videoUrl,
@@ -646,23 +668,13 @@ const app = new Elysia()
     query: t.Object({ url: t.String(), scale: t.Optional(t.String()) })
   });
 
-const publicDir = join(process.cwd(), 'public');
-
-app.static('/', publicDir, {
-  index: 'home.html'
-});
-
-app.get('/dashboard', () => new Response(Bun.file(join(publicDir, 'dashboard.html')).stream(), {
-  headers: { 'Content-Type': 'text/html' }
-}));
-
-app.get('/uptime', () => new Response(Bun.file(join(publicDir, 'uptime.html')).stream(), {
-  headers: { 'Content-Type': 'text/html' }
-}));
-
 app.listen({
   port: PORT,
   idleTimeout: BUN_IDLE_TIMEOUT
 });
 
 console.log(`🦊 Elysia YouTube API running at http://localhost:${app.server?.port}`);
+
+// ----------------------------------------------------
+// End of the modified code block
+// ----------------------------------------------------
