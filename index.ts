@@ -1,9 +1,8 @@
 import { Elysia, t } from 'elysia';
 import { Innertube } from 'youtubei.js';
 import ffmpeg from 'ffmpeg-static';
-import { join } from 'node:path';
-import { readFileSync } from 'node:fs';
 import { mkdir, rmdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import instaHandler from './api/insta';
 import fbHandler from './api/fb';
@@ -649,30 +648,21 @@ const app = new Elysia()
 
 const publicDir = join(process.cwd(), 'public');
 
-app
-  .get('/', () => {
-    return new Response(readFileSync(join(publicDir, 'home.html')), {
-      headers: { 'Content-Type': 'text/html' }
-    });
-  })
-  .get('/dashboard', () => {
-    return new Response(readFileSync(join(publicDir, 'dashboard.html')), {
-      headers: { 'Content-Type': 'text/html' }
-    });
-  })
-  .get('/uptime', () => {
-    return new Response(readFileSync(join(publicDir, 'uptime.html')), {
-      headers: { 'Content-Type': 'text/html' }
-    });
-  })
-  .get('/style.css', () => {
-    return new Response(readFileSync(join(publicDir, 'style.css')), {
-      headers: { 'Content-Type': 'text/css' }
-    });
-  })
-  .listen({
-    port: PORT,
-    idleTimeout: BUN_IDLE_TIMEOUT
-  });
+app.static('/', publicDir, {
+  index: 'home.html'
+});
+
+app.get('/dashboard', () => new Response(Bun.file(join(publicDir, 'dashboard.html')).stream(), {
+  headers: { 'Content-Type': 'text/html' }
+}));
+
+app.get('/uptime', () => new Response(Bun.file(join(publicDir, 'uptime.html')).stream(), {
+  headers: { 'Content-Type': 'text/html' }
+}));
+
+app.listen({
+  port: PORT,
+  idleTimeout: BUN_IDLE_TIMEOUT
+});
 
 console.log(`🦊 Elysia YouTube API running at http://localhost:${app.server?.port}`);
