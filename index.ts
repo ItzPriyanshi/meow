@@ -9,6 +9,8 @@ import fbHandler from './api/fb';
 import pinHandler from './api/pin';
 import ttHandler from './api/tt';
 import xHandler from './api/x';
+import { ppRoute } from './api/pp';
+
 const PORT = 3040;
 const BUN_IDLE_TIMEOUT = 255;
 const EXPIRATION_SECONDS = 180;
@@ -16,7 +18,9 @@ const MAX_CONCURRENT_DOWNLOADS = 16;
 const DOWNLOAD_CHUNK_SIZE_MB = 10;
 const COOKIE_FILE_PATH = 'cookies.txt';
 const CACHE_EXPIRATION_MS = 3 * 60 * 1000;
+
 type YTFormat = NonNullable<Awaited<ReturnType<Innertube['getBasicInfo']>>['streaming_data']>['formats'][number] & { content_length: number, is_original?: boolean, deciphered_url?: string };
+
 interface DownloadTask {
     index: number;
     format: YTFormat;
@@ -25,6 +29,7 @@ interface DownloadTask {
     description: string;
     retries: number;
 }
+
 interface DownloadSession {
     status: 'pending' | 'downloading' | 'merging' | 'completed' | 'error';
     videoFormat?: YTFormat;
@@ -41,28 +46,29 @@ interface DownloadSession {
     createdAt: number;
     cleanupTimeoutId: NodeJS.Timeout | null;
 }
+
 interface CacheEntry {
     timestamp: number;
     data: any;
 }
+
 const downloadSessions = new Map<string, DownloadSession>();
 const infoCache = new Map<string, CacheEntry>();
 let yt: Innertube;
+
 async function getCookieFileContent(cookieFilePath: string): Promise<string> {
     const cookieFile = Bun.file(cookieFilePath);
     if (!(await cookieFile.exists())) {
-        console.warn(`🔴 WARNING: Cookie file not found at '${cookieFilePath}'`);
         return '';
     }
     try {
         const content = await cookieFile.text();
-        console.log(`✅ Cookies loaded from ${cookieFilePath}`);
         return content;
     } catch (err) {
-        console.error('Error reading cookies:', err);
         return '';
     }
 }
+
 function getVideoId(url: string): string | null {
     try {
         const u = new URL(url);
@@ -75,12 +81,14 @@ function getVideoId(url: string): string | null {
     } catch (e) {}
     return null;
 }
+
 function formatBytes(bytes: number, decimals = 2): string {
     if (!bytes) return '0 Bytes';
     const k = 1024,
         i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${['Bytes', 'KiB', 'MiB', 'GiB'][i]}`;
 }
+
 function formatDuration(totalSeconds: number): string {
     if (totalSeconds >= 60) {
         const m = Math.floor(totalSeconds / 60);
@@ -89,11 +97,11 @@ function formatDuration(totalSeconds: number): string {
     const s = Math.floor(totalSeconds);
     return `${s} second${s > 1 ? 's' : ''}`;
 }
+
 async function downloadAndCombineManager(sessionId: string, tasks: DownloadTask[], destinationFile: string) {
     const startTime = performance.now();
     const totalSize = tasks.reduce((sum, t) => sum + (t.end - t.start + 1), 0);
     const actualWorkers = Math.min(tasks.length, MAX_CONCURRENT_DOWNLOADS);
-    console.log(`[${sessionId}] Starting combined download of ${tasks.length} chunks for ${destinationFile.split('/').pop()}... (Using ${actualWorkers} workers)`);
     const downloadedChunks = new Map<number, Buffer>();
     let chunksWritten = 0;
     const writer = Bun.file(destinationFile).writer();
@@ -116,7 +124,6 @@ async function downloadAndCombineManager(sessionId: string, tasks: DownloadTask[
                 }
                 return;
             } catch (e) {
-                console.error(`[${sessionId}] Worker ${workerId} FAILED task ${task.description} attempt ${attempt + 1}`);
                 if (attempt < task.retries) {
                     attempt++;
                     await new Promise(r => setTimeout(r, 250 * attempt));
@@ -138,58 +145,43 @@ async function downloadAndCombineManager(sessionId: string, tasks: DownloadTask[
     });
     await Promise.all(workerPromises);
     await writer.end();
-    const endTime = performance.now(),
-        durationSec = (endTime - startTime) / 1000,
-        speed = durationSec > 0 ? totalSize / durationSec : 0;
-    console.log(`[${sessionId}] Download & Combine Complete: ${formatBytes(totalSize)} in ${durationSec.toFixed(2)}s (${formatBytes(speed)}/s)`);
 }
+
 async function cleanupSession(sessionId: string) {
     const session = downloadSessions.get(sessionId);
     if (session) {
-        console.log(`[${sessionId}] Cleaning up session...`);
         if (session.cleanupTimeoutId) clearTimeout(session.cleanupTimeoutId);
         downloadSessions.delete(sessionId);
         try {
             await rmdir(session.tempDir, { recursive: true });
-            console.log(`[${sessionId}] Removed temp dir: ${session.tempDir}`);
-        } catch (err) {
-            if (err instanceof Error && 'code' in err && err.code !== 'ENOENT') console.error(`[${sessionId}] Final cleanup error:`, err);
-        }
+        } catch (err) {}
     }
 }
+
 function scheduleSessionCleanup(sessionId: string, delayMs: number) {
     const session = downloadSessions.get(sessionId);
     if (!session) return;
     if (session.cleanupTimeoutId) clearTimeout(session.cleanupTimeoutId);
     session.cleanupTimeoutId = setTimeout(() => {
-        console.log(`[${sessionId}] Session expired after ${formatDuration(delayMs / 1000)}. Cleaning up.`);
         cleanupSession(sessionId);
     }, delayMs);
 }
+
 const app = new Elysia()
     .onStart(async () => {
         const cookieFileContent = await getCookieFileContent(COOKIE_FILE_PATH);
         yt = await Innertube.create({
             cookie: cookieFileContent
         });
-        console.log("✅ Innertube ready with shared session.");
     })
-    .onAfterHandle(({
-        response,
-        set
-    }) => {
+    .onAfterHandle(({ response, set }) => {
         if (typeof response === 'object' && response !== null && !(response instanceof Response)) {
             set.headers['Content-Type'] = 'application/json;charset=utf-8';
             return JSON.stringify(response, null, 2);
         }
         return response;
     })
-    .onError(({
-        code,
-        error,
-        set
-    }) => {
-        console.error(`Error [${code}]: ${error.toString()}`);
+    .onError(({ code, error, set }) => {
         set.status = code === 'VALIDATION' ? 400 : 500;
         return {
             status: 'error',
@@ -199,15 +191,9 @@ const app = new Elysia()
     .get('/robots.txt', () => new Response(['User-agent: *', 'Disallow: /'].join('\n'), {
         headers: { 'Content-Type': 'text/plain' }
     }))
-    .get('/', async ({
-        query,
-        request
-    }) => {
-        const {
-            url: videoUrl,
-            quality,
-            format
-        } = query;
+    .use(ppRoute)
+    .get('/', async ({ query, request }) => {
+        const { url: videoUrl, quality, format } = query;
         const isAudioRequest = format === 'm4a';
         const videoId = getVideoId(videoUrl);
         if (!videoId) throw new Error("Invalid YouTube URL.");
@@ -215,12 +201,8 @@ const app = new Elysia()
         const cacheKey = isAudioRequest ? `${videoId}-audio` : `${videoId}-video-${cappedQuality}p`;
         const cachedItem = infoCache.get(cacheKey);
         if (cachedItem && (Date.now() - cachedItem.timestamp < CACHE_EXPIRATION_MS)) {
-            console.log(`[${videoId}] Cache HIT for key: ${cacheKey}`);
             const getInfoStart = performance.now();
-            const {
-                sessionData,
-                responseData
-            } = cachedItem.data;
+            const { sessionData, responseData } = cachedItem.data;
             const newSessionId = Bun.randomUUIDv7();
             const tempDir = join(process.cwd(), 'temp', newSessionId);
             const newSession: DownloadSession = { ...sessionData,
@@ -240,9 +222,7 @@ const app = new Elysia()
                 downloadLink: `${requestUrl.protocol}//${requestUrl.host}/stream/${isAudioRequest ? 'audio' : 'video'}/${newSessionId}`
             };
         }
-        console.log(`[${videoId}] Cache MISS for key: ${cacheKey}`);
         const getInfoStart = performance.now();
-        console.log(`[${videoId}] Fetching info using shared session...`);
         const info = await yt.getInfo(videoId, {
             client: 'TV'
         });
@@ -258,7 +238,6 @@ const app = new Elysia()
         if (!audioFormat.content_length) throw new Error('Selected audio format is missing size info.');
         audioFormat.deciphered_url = audioFormat.decipher(yt.session.player);
         if (!audioFormat.deciphered_url) throw new Error("Failed to decipher audio URL.");
-        console.log(`[${videoId}] ✅ Audio URL deciphered.`);
         const sessionId = Bun.randomUUIDv7();
         const tempDir = join(process.cwd(), 'temp', sessionId);
         const audioTasks: DownloadTask[] = [];
@@ -311,7 +290,6 @@ const app = new Elysia()
             if (!videoFormat.content_length) throw new Error('Selected video format is missing size info.');
             videoFormat.deciphered_url = videoFormat.decipher(yt.session.player);
             if (!videoFormat.deciphered_url) throw new Error("Failed to decipher video URL.");
-            console.log(`[${videoId}] ✅ Video URL deciphered.`);
             const videoTasks: DownloadTask[] = [];
             for (let i = 0, start = 0; start < videoFormat.content_length; i++) {
                 const end = Math.min(start + targetChunkSizeBytes - 1, videoFormat.content_length - 1);
@@ -373,13 +351,8 @@ const app = new Elysia()
             format: t.Optional(t.String())
         })
     })
-    .get('/stream/video/:id', async ({
-        params,
-        set
-    }) => {
-        const {
-            id: sessionId
-        } = params;
+    .get('/stream/video/:id', async ({ params, set }) => {
+        const { id: sessionId } = params;
         const session = downloadSessions.get(sessionId);
         if (!session || session.isAudioOnly) {
             set.status = 404;
@@ -420,9 +393,7 @@ const app = new Elysia()
         }
         if (session.status === 'pending') {
             try {
-                await mkdir(session.tempDir, {
-                    recursive: true
-                });
+                await mkdir(session.tempDir, { recursive: true });
                 if (session.cleanupTimeoutId) clearTimeout(session.cleanupTimeoutId);
                 session.status = 'downloading';
                 await Promise.all([
@@ -431,13 +402,9 @@ const app = new Elysia()
                 ]);
                 session.status = 'merging';
                 if (!ffmpeg) throw new Error("FFmpeg path is not available.");
-                const ffmpegStart = performance.now();
                 const ffmpegArgs = [ffmpeg, '-i', session.tempVideoFile!, '-i', session.tempAudioFile, '-c', 'copy', '-movflags', '+faststart', '-y', session.finalFilePath];
-                const ffmpegProcess = Bun.spawn(ffmpegArgs, {
-                    stderr: 'pipe'
-                });
+                const ffmpegProcess = Bun.spawn(ffmpegArgs, { stderr: 'pipe' });
                 if ((await ffmpegProcess.exited) !== 0) throw new Error(`FFmpeg failed. STDERR: ${await new Response(ffmpegProcess.stderr).text()}`);
-                console.log(`[${sessionId}] FFmpeg merge successful in ${(performance.now() - ffmpegStart).toFixed(2)}ms.`);
                 session.status = 'completed';
                 await Bun.file(session.tempVideoFile!).delete();
                 await Bun.file(session.tempAudioFile).delete();
@@ -462,13 +429,8 @@ const app = new Elysia()
             id: t.String()
         })
     })
-    .get('/stream/audio/:id', async ({
-        params,
-        set
-    }) => {
-        const {
-            id: sessionId
-        } = params;
+    .get('/stream/audio/:id', async ({ params, set }) => {
+        const { id: sessionId } = params;
         const session = downloadSessions.get(sessionId);
         if (!session || !session.isAudioOnly) {
             set.status = 404;
@@ -509,23 +471,15 @@ const app = new Elysia()
         }
         if (session.status === 'pending') {
             try {
-                await mkdir(session.tempDir, {
-                    recursive: true
-                });
+                await mkdir(session.tempDir, { recursive: true });
                 if (session.cleanupTimeoutId) clearTimeout(session.cleanupTimeoutId);
                 session.status = 'downloading';
                 await downloadAndCombineManager(sessionId, session.audioTasks, session.tempAudioFile);
                 session.status = 'merging';
-                const ffmpegStart = performance.now();
-                if (!ffmpeg) {
-                    throw new Error("FFmpeg path is not available.");
-                }
+                if (!ffmpeg) throw new Error("FFmpeg path is not available.");
                 const ffmpegArgs = [ffmpeg, '-i', session.tempAudioFile, '-c', 'copy', '-y', session.finalFilePath];
-                const ffmpegProcess = Bun.spawn(ffmpegArgs, {
-                    stderr: 'pipe'
-                });
+                const ffmpegProcess = Bun.spawn(ffmpegArgs, { stderr: 'pipe' });
                 if ((await ffmpegProcess.exited) !== 0) throw new Error(`FFmpeg failed during remux. STDERR: ${await new Response(ffmpegProcess.stderr).text()}`);
-                console.log(`[${sessionId}] FFmpeg remux successful in ${(performance.now() - ffmpegStart).toFixed(2)}ms.`);
                 session.status = 'completed';
                 await Bun.file(session.tempAudioFile).delete();
                 const finalFile = Bun.file(session.finalFilePath);
@@ -549,12 +503,8 @@ const app = new Elysia()
             id: t.String()
         })
     })
-    .get('/insta', async ({
-        query
-    }) => {
-        const {
-            url
-        } = query;
+    .get('/insta', async ({ query }) => {
+        const { url } = query;
         if (!url) throw new Error('Missing URL');
         return await instaHandler(url);
     }, {
@@ -562,12 +512,8 @@ const app = new Elysia()
             url: t.String()
         })
     })
-    .get('/fb', async ({
-        query
-    }) => {
-        const {
-            url
-        } = query;
+    .get('/fb', async ({ query }) => {
+        const { url } = query;
         if (!url) throw new Error('Missing URL');
         return await fbHandler(url);
     }, {
@@ -575,12 +521,8 @@ const app = new Elysia()
             url: t.String()
         })
     })
-    .get('/pin', async ({
-        query
-    }) => {
-        const {
-            url
-        } = query;
+    .get('/pin', async ({ query }) => {
+        const { url } = query;
         if (!url) throw new Error('Missing URL');
         return await pinHandler(url);
     }, {
@@ -588,12 +530,8 @@ const app = new Elysia()
             url: t.String()
         })
     })
-    .get('/tt', async ({
-        query
-    }) => {
-        const {
-            url
-        } = query;
+    .get('/tt', async ({ query }) => {
+        const { url } = query;
         if (!url) throw new Error('Missing URL');
         return await ttHandler(url);
     }, {
@@ -601,12 +539,8 @@ const app = new Elysia()
             url: t.String()
         })
     })
-    .get('/x', async ({
-        query
-    }) => {
-        const {
-            url
-        } = query;
+    .get('/x', async ({ query }) => {
+        const { url } = query;
         if (!url) throw new Error('Missing URL');
         return await xHandler(url);
     }, {
@@ -614,8 +548,6 @@ const app = new Elysia()
             url: t.String()
         })
     })
-    .listen({
-        port: PORT,
-        idleTimeout: BUN_IDLE_TIMEOUT
-    });
+    .listen({ port: PORT, idleTimeout: BUN_IDLE_TIMEOUT });
+
 console.log(`🦊 Elysia YouTube API running at http://localhost:${app.server?.port}`);
