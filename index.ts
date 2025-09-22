@@ -1,8 +1,8 @@
 import { Elysia, t } from 'elysia';
 import { Innertube } from 'youtubei.js';
 import ffmpeg from 'ffmpeg-static';
-import { mkdir, rmdir, readFileSync } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { mkdir, rmdir } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 import instaHandler from './api/insta';
 import fbHandler from './api/fb';
