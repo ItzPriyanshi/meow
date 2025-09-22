@@ -16,13 +16,12 @@
     "@elysiajs/static": "latest",
     "node-fetch": "latest",
     "@types/node-fetch": "latest",
-    "https-proxy-agent": "latest",
-    "socks-proxy-agent": "latest",
     "cheerio": "latest",
-    "@tensorflow/tfjs-node": "latest"
+    "crypto": "latest"
   },
   "devDependencies": {
-    "bun-types": "latest"
+    "bun-types": "latest",
+    "@types/cheerio": "latest"
   },
   "keywords": [
     "youtube",
