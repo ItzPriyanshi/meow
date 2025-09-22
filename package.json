@@ -22,9 +22,7 @@
     "@tensorflow/tfjs-node": "latest"
   },
   "devDependencies": {
-    "bun-types": "latest",
-    "@types/https-proxy-agent": "latest",
-    "@types/socks-proxy-agent": "latest"
+    "bun-types": "latest"
   },
   "keywords": [
     "youtube",
