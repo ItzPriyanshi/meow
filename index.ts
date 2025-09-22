@@ -106,26 +106,26 @@ async function downloadAndCombineManager(sessionId: string, tasks: DownloadTask[
     const totalSize = tasks.reduce((sum, t) => sum + (t.end - t.start + 1), 0);
     const actualWorkers = Math.min(tasks.length, MAX_CONCURRENT_DOWNLOADS);
     console.log(`[${sessionId}] Starting combined download of ${tasks.length} chunks for ${destinationFile.split('/').pop()}... (Using ${actualWorkers} workers)`);
-    
+
     const downloadedChunks = new Map<number, Buffer>();
     let chunksWritten = 0;
     const writer = Bun.file(destinationFile).writer();
-    
+
     const processTask = async (task: DownloadTask, workerId: number) => {
         let attempt = 0;
         const url = task.format.deciphered_url;
         if (!url) throw new Error(`Task ${task.description} missing deciphered URL.`);
-        
+
         while (attempt <= task.retries) {
             try {
                 const resp = await fetch(url, {
                     headers: { 'Range': `bytes=${task.start}-${task.end}` }
                 });
                 if (!resp.ok) throw new Error(`Fetch failed with status ${resp.status}`);
-                
+
                 const buf = Buffer.from(await resp.arrayBuffer());
                 downloadedChunks.set(task.index, buf);
-                
+
                 while (downloadedChunks.has(chunksWritten)) {
                     writer.write(downloadedChunks.get(chunksWritten)!);
                     downloadedChunks.delete(chunksWritten);
@@ -157,7 +157,7 @@ async function downloadAndCombineManager(sessionId: string, tasks: DownloadTask[
 
     await Promise.all(workerPromises);
     await writer.end();
-    
+
     const endTime = performance.now(),
         durationSec = (endTime - startTime) / 1000,
         speed = durationSec > 0 ? totalSize / durationSec : 0;
@@ -184,7 +184,7 @@ function scheduleSessionCleanup(sessionId: string, delayMs: number) {
     if (!session) return;
     if (session.cleanupTimeoutId) clearTimeout(session.cleanupTimeoutId);
     session.cleanupTimeoutId = setTimeout(() => {
-        console.log(`[${sessionId}] Session expired after ${formatDuration(delayMs / 1000)}. Cleaning up.`);
+        console.log(`[${sessionId}] Session expired after ${formatDuration(delayS / 1000)}. Cleaning up.`);
         cleanupSession(sessionId);
     }, delayMs);
 }
@@ -222,11 +222,18 @@ const app = new Elysia()
     .get('/robots.txt', () => new Response(['User-agent: *', 'Disallow: /'].join('\n'), {
         headers: { 'Content-Type': 'text/plain' }
     }))
-    .get('/', async ({
+    // Serve HTML files
+    .get('/', () => Bun.file('home.html'))
+    .get('/home.html', () => Bun.file('home.html'))
+    .get('/dashboard.html', () => Bun.file('dashboard.html'))
+    .get('/uptime.html', () => Bun.file('uptime.html'))
+    // Serve CSS file
+    .get('/style.css', () => Bun.file('style.css'))
+    // API endpoints below this line
+    .get('/api/youtube', async ({
         query,
         request
     }) => {
-        // ... (rest of your YouTube handler code remains the same)
         const {
             url: videoUrl,
             quality,
@@ -235,11 +242,11 @@ const app = new Elysia()
         const isAudioRequest = format === 'm4a';
         const videoId = getVideoId(videoUrl);
         if (!videoId) throw new Error("Invalid YouTube URL.");
-        
+
         const cappedQuality = Math.min(parseInt(quality || '1080'), 1080);
         const cacheKey = isAudioRequest ? `${videoId}-audio` : `${videoId}-video-${cappedQuality}p`;
         const cachedItem = infoCache.get(cacheKey);
-        
+
         if (cachedItem && (Date.now() - cachedItem.timestamp < CACHE_EXPIRATION_MS)) {
             console.log(`[${videoId}] Cache HIT for key: ${cacheKey}`);
             const getInfoStart = performance.now();
@@ -273,30 +280,30 @@ const app = new Elysia()
         const info = await yt.getInfo(videoId, {
             client: 'TV'
         });
-        
+
         if (info.playability_status?.status !== 'OK') throw new Error(`Video not playable: ${info.playability_status?.reason}`);
         if (!info.streaming_data) throw new Error('No streaming data found.');
-        
+
         const title = info.primary_info?.title?.text || 'video';
         const channel = info.secondary_info?.owner?.author?.name || 'channel';
         const safeTitle = title.replace(/[^a-zA-Z0-9 ._-]/g, '').trim();
         const safeChannel = channel.replace(/[^a-zA-Z0-9 ._-]/g, '').trim();
-        
+
         const allM4aAudio = info.streaming_data.adaptive_formats.filter(f => f.has_audio && !f.has_video && f.mime_type?.includes('mp4a')) as YTFormat[];
         if (allM4aAudio.length === 0) throw new Error('No AAC (.m4a) audio track found.');
-        
+
         const audioFormat = allM4aAudio.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
         if (!audioFormat.content_length) throw new Error('Selected audio format is missing size info.');
-        
+
         audioFormat.deciphered_url = audioFormat.decipher(yt.session.player);
         if (!audioFormat.deciphered_url) throw new Error("Failed to decipher audio URL.");
         console.log(`[${videoId}] ✅ Audio URL deciphered.`);
-        
+
         const sessionId = Bun.randomUUIDv7();
         const tempDir = join(process.cwd(), 'temp', sessionId);
         const audioTasks: DownloadTask[] = [];
         const targetChunkSizeBytes = DOWNLOAD_CHUNK_SIZE_MB * 1024 * 1024;
-        
+
         for (let i = 0, start = 0; start < audioFormat.content_length; i++) {
             const end = Math.min(start + targetChunkSizeBytes - 1, audioFormat.content_length - 1);
             audioTasks.push({
@@ -313,7 +320,7 @@ const app = new Elysia()
         let session: DownloadSession;
         let responsePayload: any;
         const requestUrl = new URL(request.url);
-        
+
         if (isAudioRequest) {
             const finalFilename = `${safeTitle} - ${safeChannel}.m4a`;
             session = {
@@ -342,16 +349,16 @@ const app = new Elysia()
             };
         } else {
             const suitableVideos = info.streaming_data.adaptive_formats.filter(f => f.has_video && !f.has_audio && f.mime_type?.includes('avc1') && f.height && f.height <= cappedQuality).sort((a, b) => (b.height || 0) - (a.height || 0) || (b.bitrate || 0) - (a.bitrate || 0)) as YTFormat[];
-            
+
             if (suitableVideos.length === 0) throw new Error(`No suitable H.264 video stream found for ${cappedQuality}p.`);
-            
+
             const videoFormat = suitableVideos[0];
             if (!videoFormat.content_length) throw new Error('Selected video format is missing size info.');
-            
+
             videoFormat.deciphered_url = videoFormat.decipher(yt.session.player);
             if (!videoFormat.deciphered_url) throw new Error("Failed to decipher video URL.");
             console.log(`[${videoId}] ✅ Video URL deciphered.`);
-            
+
             const videoTasks: DownloadTask[] = [];
             for (let i = 0, start = 0; start < videoFormat.content_length; i++) {
                 const end = Math.min(start + targetChunkSizeBytes - 1, videoFormat.content_length - 1);
@@ -365,7 +372,7 @@ const app = new Elysia()
                 });
                 start = end + 1;
             }
-            
+
             const finalFilename = `${safeTitle} - ${safeChannel} (${videoFormat.quality_label}, h264).mp4`;
             session = {
                 status: 'pending',
@@ -397,7 +404,7 @@ const app = new Elysia()
 
         downloadSessions.set(sessionId, session);
         scheduleSessionCleanup(sessionId, EXPIRATION_SECONDS * 1000);
-        
+
         infoCache.set(cacheKey, {
             timestamp: Date.now(),
             data: {
@@ -405,7 +412,7 @@ const app = new Elysia()
                 responseData: responsePayload
             }
         });
-        
+
         return { ...responsePayload,
             cached: false,
             downloadLink: `${requestUrl.protocol}//${requestUrl.host}/stream/${isAudioRequest ? 'audio' : 'video'}/${sessionId}`
@@ -421,12 +428,11 @@ const app = new Elysia()
         params,
         set
     }) => {
-        // ... (your existing video stream handler code)
         const {
             id: sessionId
         } = params;
         const session = downloadSessions.get(sessionId);
-        
+
         if (!session || session.isAudioOnly) {
             set.status = 404;
             return {
@@ -476,7 +482,7 @@ const app = new Elysia()
                 });
                 if (session.cleanupTimeoutId) clearTimeout(session.cleanupTimeoutId);
                 session.status = 'downloading';
-                
+
                 await Promise.all([
                     downloadAndCombineManager(sessionId, session.videoTasks, session.tempVideoFile!),
                     downloadAndCombineManager(sessionId, session.audioTasks, session.tempAudioFile),
@@ -484,20 +490,20 @@ const app = new Elysia()
 
                 session.status = 'merging';
                 if (!ffmpeg) throw new Error("FFmpeg path is not available.");
-                
+
                 const ffmpegStart = performance.now();
                 const ffmpegArgs = [ffmpeg, '-i', session.tempVideoFile!, '-i', session.tempAudioFile, '-c', 'copy', '-movflags', '+faststart', '-y', session.finalFilePath];
                 const ffmpegProcess = Bun.spawn(ffmpegArgs, {
                     stderr: 'pipe'
                 });
-                
+
                 if ((await ffmpegProcess.exited) !== 0) throw new Error(`FFmpeg failed. STDERR: ${await new Response(ffmpegProcess.stderr).text()}`);
                 console.log(`[${sessionId}] FFmpeg merge successful in ${(performance.now() - ffmpegStart).toFixed(2)}ms.`);
-                
+
                 session.status = 'completed';
                 await Bun.file(session.tempVideoFile!).delete();
                 await Bun.file(session.tempAudioFile).delete();
-                
+
                 const finalFile = Bun.file(session.finalFilePath);
                 set.headers['Content-Disposition'] = `attachment; filename="${session.finalFilename}"`;
                 return new Response(finalFile.stream(), {
@@ -523,12 +529,11 @@ const app = new Elysia()
         params,
         set
     }) => {
-        // ... (your existing audio stream handler code)
         const {
             id: sessionId
         } = params;
         const session = downloadSessions.get(sessionId);
-        
+
         if (!session || !session.isAudioOnly) {
             set.status = 404;
             return {
@@ -578,26 +583,26 @@ const app = new Elysia()
                 });
                 if (session.cleanupTimeoutId) clearTimeout(session.cleanupTimeoutId);
                 session.status = 'downloading';
-                
+
                 await downloadAndCombineManager(sessionId, session.audioTasks, session.tempAudioFile);
-                
+
                 session.status = 'merging';
                 const ffmpegStart = performance.now();
                 if (!ffmpeg) {
                     throw new Error("FFmpeg path is not available.");
                 }
-                
+
                 const ffmpegArgs = [ffmpeg, '-i', session.tempAudioFile, '-c', 'copy', '-y', session.finalFilePath];
                 const ffmpegProcess = Bun.spawn(ffmpegArgs, {
                     stderr: 'pipe'
                 });
-                
+
                 if ((await ffmpegProcess.exited) !== 0) throw new Error(`FFmpeg failed during remux. STDERR: ${await new Response(ffmpegProcess.stderr).text()}`);
                 console.log(`[${sessionId}] FFmpeg remux successful in ${(performance.now() - ffmpegStart).toFixed(2)}ms.`);
-                
+
                 session.status = 'completed';
                 await Bun.file(session.tempAudioFile).delete();
-                
+
                 const finalFile = Bun.file(session.finalFilePath);
                 set.headers['Content-Disposition'] = `attachment; filename="${session.finalFilename}"`;
                 return new Response(finalFile.stream(), {
@@ -684,7 +689,6 @@ const app = new Elysia()
             url: t.String()
         })
     })
-    // ADD NEW PICSART UPSCALER ENDPOINT
     .get('/pp', async ({
         query
     }) => {
@@ -693,17 +697,15 @@ const app = new Elysia()
             scale
         } = query;
         if (!url) throw new Error('Missing image URL');
-        
-        // Validate image URL format
+
         try {
             new URL(url);
         } catch {
             throw new Error('Invalid image URL format');
         }
-        
-        // Parse scale parameter (default to 2x, max 4x)
+
         const scaleValue = scale ? Math.min(Math.max(parseInt(scale), 1), 4) : 2;
-        
+
         return await ppHandler(url, scaleValue);
     }, {
         query: t.Object({
