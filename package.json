@@ -15,10 +15,16 @@
     "json-custom-numbers": "latest",
     "@elysiajs/static": "latest",
     "node-fetch": "latest",
-    "@types/node-fetch": "latest"
+    "@types/node-fetch": "latest",
+    "https-proxy-agent": "latest",
+    "socks-proxy-agent": "latest",
+    "cheerio": "latest",
+    "@tensorflow/tfjs-node": "latest"
   },
   "devDependencies": {
-    "bun-types": "latest"
+    "bun-types": "latest",
+    "@types/https-proxy-agent": "latest",
+    "@types/socks-proxy-agent": "latest"
   },
   "keywords": [
     "youtube",
