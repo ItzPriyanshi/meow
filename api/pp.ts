@@ -10,6 +10,7 @@ type UpscaleResult = {
   job_id?: string;
   progress?: number;
   error_message?: string;
+  service_used?: string;
   timings: {
     fetchTime: number;
     processTime: number;
@@ -17,65 +18,33 @@ type UpscaleResult = {
   };
 };
 
-// Updated headers for PicsArt web interface
+// Updated headers for modern browsers
 const HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+  "Accept": "*/*",
   "Accept-Language": "en-US,en;q=0.9",
   "Accept-Encoding": "gzip, deflate, br, zstd",
-  "Referer": "https://picsart.com/image-upscale/",
-  "Origin": "https://picsart.com",
   "DNT": "1",
   "Connection": "keep-alive",
-  "Sec-Fetch-Dest": "document",
-  "Sec-Fetch-Mode": "navigate",
-  "Sec-Fetch-Site": "same-origin",
-  "Sec-Fetch-User": "?1",
-  "Sec-Ch-Ua": '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
-  "Sec-Ch-Ua-Mobile": "?0",
-  "Sec-Ch-Ua-Platform": '"Windows"',
+  "Sec-Fetch-Dest": "empty",
+  "Sec-Fetch-Mode": "cors",
+  "Sec-Fetch-Site": "cross-site",
   "Cache-Control": "no-cache",
   "Pragma": "no-cache"
 };
 
-// Rotating user agents for anti-detection
+// Rotating user agents
 const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0"
 ];
 
-// Generate realistic session data
-function generateDeviceId(): string {
-  return crypto.randomBytes(16).toString('hex');
-}
-
-function generateSessionId(): string {
-  return crypto.randomUUID();
-}
-
-function generateSessionCookies(): string {
-  const deviceId = generateDeviceId();
-  const sessionId = generateSessionId();
-  const timestamp = Date.now();
-  
-  return [
-    `device_id=${deviceId}`,
-    `session_id=${sessionId}`,
-    `timestamp=${timestamp}`,
-    `user_consent=accepted`,
-    `csrf_token=${crypto.randomBytes(32).toString('hex')}`,
-    `visit_count=${Math.floor(Math.random() * 50) + 1}`,
-    `last_activity=${Date.now()}`
-  ].join('; ');
-}
-
+// Rate limiting
 class RateLimiter {
   private requests: number[] = [];
-  private readonly maxRequests = 50;
-  private readonly timeWindow = 60000;
+  private readonly maxRequests = 3;
+  private readonly timeWindow = 60000; // 1 minute
 
   async checkLimit(): Promise<void> {
     const now = Date.now();
@@ -93,75 +62,20 @@ class RateLimiter {
 
 const rateLimiter = new RateLimiter();
 
-// Main scraper function using PicsArt's web interface
-export async function scrapePicsArtUpscale(imageUrl: string, scale: number = 2): Promise<UpscaleResult> {
-  const timings = { fetchTime: 0, processTime: 0, totalTime: 0 };
-  const totalStartTime = performance.now();
+// Upscale.media implementation (Free service)
+async function tryUpscaleMedia(imageUrl: string, scale: number): Promise<UpscaleResult> {
+  console.log('Trying Upscale.media...');
+  
+  const randomUserAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+  const headers = {
+    ...HEADERS,
+    "User-Agent": randomUserAgent,
+    "Referer": "https://www.upscale.media/",
+    "Origin": "https://www.upscale.media"
+  };
 
   try {
-    await rateLimiter.checkLimit();
-
-    // Rotate user agent and generate fresh session
-    const randomUserAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-    const sessionCookies = generateSessionCookies();
-    
-    const headers = {
-      ...HEADERS,
-      "User-Agent": randomUserAgent,
-      "Cookie": sessionCookies,
-      "X-Device-Id": generateDeviceId(),
-      "X-Session-Id": generateSessionId(),
-      "X-Request-Id": crypto.randomUUID()
-    };
-
-    const fetchStartTime = performance.now();
-
-    // Step 1: Get the upscaler page to extract necessary data
-    console.log('Loading PicsArt upscaler page...');
-    const initialResponse = await axios.get('https://picsart.com/image-upscale/', {
-      headers,
-      timeout: 15000,
-      maxRedirects: 3,
-      validateStatus: (status: number) => status < 500
-    });
-    
-    if (initialResponse.status !== 200) {
-      return {
-        status: 'access_denied',
-        error_message: `Failed to load upscaler page: ${initialResponse.status}`,
-        timings: { fetchTime: 0, processTime: 0, totalTime: performance.now() - totalStartTime }
-      };
-    }
-
-    const $ = cheerio.load(initialResponse.data);
-    
-    // Extract CSRF token and other form data
-    const csrfToken = $('meta[name="csrf-token"]').attr('content') || 
-                     $('input[name="_token"]').attr('value') ||
-                     $('meta[name="_token"]').attr('content') ||
-                     crypto.randomBytes(32).toString('hex');
-
-    // Look for upload endpoint in script tags
-    let uploadEndpoint = 'https://picsart.com/api/upscale';
-    const scripts = $('script').toArray();
-    for (const script of scripts) {
-      const content = $(script).html() || '';
-      if (content.includes('upscale') && content.includes('api')) {
-        const apiMatch = content.match(/["']([^"']*api[^"']*upscale[^"']*)["']/i);
-        if (apiMatch) {
-          uploadEndpoint = apiMatch[1].startsWith('/') ? `https://picsart.com${apiMatch[1]}` : apiMatch[1];
-          break;
-        }
-      }
-    }
-
-    console.log(`Using endpoint: ${uploadEndpoint}`);
-
-    // Step 2: Create form data for image upload
-    const formData = new FormData();
-    
-    // Try to fetch the image first to get its data
-    console.log('Fetching source image...');
+    // First, fetch the image
     const imageResponse = await axios.get(imageUrl, {
       headers: { 'User-Agent': randomUserAgent },
       responseType: 'arraybuffer',
@@ -169,137 +83,269 @@ export async function scrapePicsArtUpscale(imageUrl: string, scale: number = 2):
     });
 
     if (imageResponse.status !== 200) {
-      return {
-        status: 'fetch_error',
-        error_message: 'Failed to fetch source image',
-        timings: { fetchTime: performance.now() - fetchStartTime, processTime: 0, totalTime: performance.now() - totalStartTime }
-      };
+      throw new Error('Failed to fetch source image');
     }
 
-    // Create blob from image data
+    // Create form data
+    const formData = new FormData();
     const imageBuffer = Buffer.from(imageResponse.data);
-    const imageBlob = new Blob([imageBuffer], { type: imageResponse.headers['content-type'] || 'image/jpeg' });
+    const imageBlob = new Blob([imageBuffer], { 
+      type: imageResponse.headers['content-type'] || 'image/jpeg' 
+    });
     
     formData.append('image', imageBlob, 'image.jpg');
-    formData.append('scale', scale.toString());
-    formData.append('_token', csrfToken);
-    formData.append('output_format', 'png');
-    formData.append('enhance_quality', 'true');
-
-    // Step 3: Submit the upscale request
-    console.log('Submitting upscale request...');
-    const uploadHeaders = {
-      ...headers,
-      'Content-Type': 'multipart/form-data',
-      'X-CSRF-TOKEN': csrfToken,
-      'X-Requested-With': 'XMLHttpRequest'
-    };
-
-    const uploadResponse = await axios.post(uploadEndpoint, formData, {
-      headers: uploadHeaders,
-      timeout: 60000,
-      maxRedirects: 3,
-      validateStatus: (status: number) => status < 500
+    formData.append('scale', Math.min(scale, 4).toString()); // Max 4x for free tier
+    
+    // Submit to upscale.media
+    const uploadResponse = await axios.post('https://www.upscale.media/api/upscale', formData, {
+      headers: {
+        ...headers,
+        'Content-Type': 'multipart/form-data'
+      },
+      timeout: 60000
     });
 
-    timings.fetchTime = performance.now() - fetchStartTime;
-    const processStartTime = performance.now();
-
-    console.log(`Upload response status: ${uploadResponse.status}`);
-
-    if (uploadResponse.status === 429) {
+    if (uploadResponse.data && uploadResponse.data.output_url) {
       return {
-        status: 'quota_exceeded',
-        error_message: 'Rate limit exceeded. Try again later.',
-        timings: { fetchTime: timings.fetchTime, processTime: 0, totalTime: performance.now() - totalStartTime }
+        status: 'success',
+        original_url: imageUrl,
+        upscaled_url: uploadResponse.data.output_url,
+        service_used: 'Upscale.media',
+        timings: { fetchTime: 0, processTime: 0, totalTime: 0 }
       };
     }
 
-    if (uploadResponse.status === 402) {
+    throw new Error('No output URL received');
+    
+  } catch (error: any) {
+    console.log('Upscale.media failed:', error.message);
+    throw error;
+  }
+}
+
+// Waifu2x implementation (Free service)
+async function tryWaifu2x(imageUrl: string, scale: number): Promise<UpscaleResult> {
+  console.log('Trying Waifu2x...');
+  
+  const randomUserAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+  const headers = {
+    ...HEADERS,
+    "User-Agent": randomUserAgent,
+    "Referer": "https://waifu2x.net/",
+    "Origin": "https://waifu2x.net"
+  };
+
+  try {
+    // Fetch the source image
+    const imageResponse = await axios.get(imageUrl, {
+      headers: { 'User-Agent': randomUserAgent },
+      responseType: 'arraybuffer',
+      timeout: 30000
+    });
+
+    if (imageResponse.status !== 200) {
+      throw new Error('Failed to fetch source image');
+    }
+
+    // Create form data for waifu2x
+    const formData = new FormData();
+    const imageBuffer = Buffer.from(imageResponse.data);
+    const imageBlob = new Blob([imageBuffer], { 
+      type: imageResponse.headers['content-type'] || 'image/png' 
+    });
+    
+    formData.append('file', imageBlob, 'image.png');
+    formData.append('scale', Math.min(scale, 2).toString()); // Waifu2x typically supports 2x max
+    formData.append('noise', '1'); // Noise reduction level
+    formData.append('style', 'art'); // Art style works for most images
+    
+    // Submit to waifu2x
+    const uploadResponse = await axios.post('https://api.waifu2x.net/upscale', formData, {
+      headers: {
+        ...headers,
+        'Content-Type': 'multipart/form-data'
+      },
+      timeout: 120000 // Waifu2x can be slow
+    });
+
+    if (uploadResponse.data && uploadResponse.data.url) {
       return {
-        status: 'quota_exceeded',
-        error_message: 'Daily limit reached. Upgrade to continue.',
-        timings: { fetchTime: timings.fetchTime, processTime: 0, totalTime: performance.now() - totalStartTime }
+        status: 'success',
+        original_url: imageUrl,
+        upscaled_url: uploadResponse.data.url,
+        service_used: 'Waifu2x',
+        timings: { fetchTime: 0, processTime: 0, totalTime: 0 }
       };
     }
 
-    if (uploadResponse.status !== 200 && uploadResponse.status !== 201 && uploadResponse.status !== 202) {
+    throw new Error('No output URL received from Waifu2x');
+    
+  } catch (error: any) {
+    console.log('Waifu2x failed:', error.message);
+    throw error;
+  }
+}
+
+// Pixelcut implementation (Free service)
+async function tryPixelcut(imageUrl: string, scale: number): Promise<UpscaleResult> {
+  console.log('Trying Pixelcut...');
+  
+  const randomUserAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+  const headers = {
+    ...HEADERS,
+    "User-Agent": randomUserAgent,
+    "Referer": "https://www.pixelcut.ai/image-upscaler",
+    "Origin": "https://www.pixelcut.ai"
+  };
+
+  try {
+    // Fetch the source image
+    const imageResponse = await axios.get(imageUrl, {
+      headers: { 'User-Agent': randomUserAgent },
+      responseType: 'arraybuffer',
+      timeout: 30000
+    });
+
+    if (imageResponse.status !== 200) {
+      throw new Error('Failed to fetch source image');
+    }
+
+    // Create form data
+    const formData = new FormData();
+    const imageBuffer = Buffer.from(imageResponse.data);
+    const imageBlob = new Blob([imageBuffer], { 
+      type: imageResponse.headers['content-type'] || 'image/jpeg' 
+    });
+    
+    formData.append('image', imageBlob, 'image.jpg');
+    formData.append('scale_factor', Math.min(scale, 4).toString());
+    
+    // Submit to Pixelcut
+    const uploadResponse = await axios.post('https://api.pixelcut.ai/upscale', formData, {
+      headers: {
+        ...headers,
+        'Content-Type': 'multipart/form-data'
+      },
+      timeout: 60000
+    });
+
+    if (uploadResponse.data && uploadResponse.data.result_url) {
+      return {
+        status: 'success',
+        original_url: imageUrl,
+        upscaled_url: uploadResponse.data.result_url,
+        service_used: 'Pixelcut',
+        timings: { fetchTime: 0, processTime: 0, totalTime: 0 }
+      };
+    }
+
+    throw new Error('No result URL received');
+    
+  } catch (error: any) {
+    console.log('Pixelcut failed:', error.message);
+    throw error;
+  }
+}
+
+// Cloudinary implementation (Free tier)
+async function tryCloudinary(imageUrl: string, scale: number): Promise<UpscaleResult> {
+  console.log('Trying Cloudinary...');
+  
+  try {
+    // Cloudinary auto-upscale via URL transformation
+    const cloudinaryUrl = `https://res.cloudinary.com/demo/image/fetch/w_auto:${scale * 100},c_scale,q_auto,f_auto/${encodeURIComponent(imageUrl)}`;
+    
+    // Test if the URL works
+    const testResponse = await axios.head(cloudinaryUrl, {
+      timeout: 15000,
+      headers: { 'User-Agent': USER_AGENTS[0] }
+    });
+
+    if (testResponse.status === 200) {
+      return {
+        status: 'success',
+        original_url: imageUrl,
+        upscaled_url: cloudinaryUrl,
+        service_used: 'Cloudinary',
+        timings: { fetchTime: 0, processTime: 0, totalTime: 0 }
+      };
+    }
+
+    throw new Error('Cloudinary transformation failed');
+    
+  } catch (error: any) {
+    console.log('Cloudinary failed:', error.message);
+    throw error;
+  }
+}
+
+// Main scraper function with multiple fallbacks
+export async function scrapePicsArtUpscale(imageUrl: string, scale: number = 2): Promise<UpscaleResult> {
+  const timings = { fetchTime: 0, processTime: 0, totalTime: 0 };
+  const totalStartTime = performance.now();
+
+  try {
+    await rateLimiter.checkLimit();
+
+    // Validate image URL
+    try {
+      new URL(imageUrl);
+    } catch {
       return {
         status: 'fetch_error',
-        error_message: `Upload failed: ${uploadResponse.status} - ${uploadResponse.statusText}`,
-        timings: { fetchTime: timings.fetchTime, processTime: 0, totalTime: performance.now() - totalStartTime }
+        error_message: 'Invalid image URL format',
+        timings: { fetchTime: 0, processTime: 0, totalTime: performance.now() - totalStartTime }
       };
     }
 
-    const result = uploadResponse.data;
-    console.log('Upload result:', JSON.stringify(result, null, 2));
+    // Validate scale (1-8x max)
+    const scaleValue = Math.min(Math.max(scale, 1), 8);
+    
+    const fetchStartTime = performance.now();
 
-    // Handle different response formats
-    if (typeof result === 'object') {
-      // Direct success response
-      if (result.url || result.data?.url || result.image_url) {
-        const upscaledUrl = result.url || result.data?.url || result.image_url;
+    // Try services in order of reliability
+    const services = [
+      () => tryUpscaleMedia(imageUrl, scaleValue),
+      () => tryCloudinary(imageUrl, scaleValue),
+      () => tryWaifu2x(imageUrl, scaleValue),
+      () => tryPixelcut(imageUrl, scaleValue)
+    ];
+
+    let lastError: Error | null = null;
+
+    for (const service of services) {
+      try {
+        const result = await service();
+        timings.fetchTime = performance.now() - fetchStartTime;
+        timings.processTime = 0;
+        timings.totalTime = performance.now() - totalStartTime;
+        
         return {
-          status: 'success',
-          original_url: imageUrl,
-          upscaled_url: upscaledUrl.startsWith('http') ? upscaledUrl : `https://picsart.com${upscaledUrl}`,
-          timings: { 
-            fetchTime: timings.fetchTime, 
-            processTime: performance.now() - processStartTime,
-            totalTime: performance.now() - totalStartTime 
-          }
+          ...result,
+          timings
         };
-      }
-
-      // Processing response
-      if (result.status === 'processing' || result.job_id || result.id) {
-        return {
-          status: 'processing',
-          job_id: result.job_id || result.id,
-          progress: result.progress || 0,
-          original_url: imageUrl,
-          timings: { 
-            fetchTime: timings.fetchTime, 
-            processTime: performance.now() - processStartTime,
-            totalTime: performance.now() - totalStartTime 
-          }
-        };
-      }
-    }
-
-    // Fallback: Try to parse HTML response
-    if (typeof result === 'string') {
-      const $result = cheerio.load(result);
-      const upscaledUrl = $result('img[data-upscaled]').attr('src') || 
-                         $result('.upscaled-image').attr('src') ||
-                         $result('img[src*="upscaled"]').attr('src') ||
-                         $result('.result-image img').attr('src');
-
-      if (upscaledUrl) {
-        return {
-          status: 'success',
-          original_url: imageUrl,
-          upscaled_url: upscaledUrl.startsWith('http') ? upscaledUrl : `https://picsart.com${upscaledUrl}`,
-          timings: { 
-            fetchTime: timings.fetchTime, 
-            processTime: performance.now() - processStartTime,
-            totalTime: performance.now() - totalStartTime 
-          }
-        };
+      } catch (error: any) {
+        lastError = error;
+        console.log(`Service failed, trying next...`);
+        
+        // Add delay between service attempts
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
       }
     }
 
-    timings.processTime = performance.now() - processStartTime;
+    // All services failed
+    timings.fetchTime = performance.now() - fetchStartTime;
     timings.totalTime = performance.now() - totalStartTime;
 
     return {
-      status: 'not_found',
-      error_message: 'Could not extract upscaled image URL from response',
+      status: 'fetch_error',
+      error_message: `All upscaling services failed. Last error: ${lastError?.message || 'Unknown error'}`,
       timings
     };
 
   } catch (error: any) {
-    console.error("[PicsArt Upscaler Error]", error.message);
+    console.error("[Multi-Service Upscaler Error]", error.message);
     
     timings.totalTime = performance.now() - totalStartTime;
     
@@ -307,30 +353,6 @@ export async function scrapePicsArtUpscale(imageUrl: string, scale: number = 2):
       return {
         status: 'fetch_error',
         error_message: 'Request timeout - server took too long to respond',
-        timings
-      };
-    }
-
-    if (error.response?.status === 429) {
-      return {
-        status: 'quota_exceeded',
-        error_message: 'Rate limit exceeded. Try again in a few minutes.',
-        timings
-      };
-    }
-
-    if (error.response?.status === 403) {
-      return {
-        status: 'access_denied',
-        error_message: 'Access denied. IP might be blocked or detection triggered.',
-        timings
-      };
-    }
-
-    if (error.response?.status === 402) {
-      return {
-        status: 'quota_exceeded',
-        error_message: 'Daily quota exceeded. Service may require subscription.',
         timings
       };
     }
