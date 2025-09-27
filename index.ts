@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import { Innertube } from 'youtubei.js';
+import { Innertube, UniversalCache } from 'youtubei.js';
 import ffmpeg from 'ffmpeg-static';
 import { mkdir, rmdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -168,9 +168,11 @@ function scheduleSessionCleanup(sessionId: string, delayMs: number) {
 }
 const app = new Elysia()
     .onStart(async () => {
-        const cookieFileContent = await getCookieFileContent(COOKIE_FILE_PATH);
+        const cookie = await getCookieFileContent(COOKIE_FILE_PATH);
         yt = await Innertube.create({
-            cookie: cookieFileContent
+            cookie,
+            cache: new UniversalCache(true),
+            player_id: '0004de42'
         });
         console.log("✅ Innertube ready with shared session.");
     })
