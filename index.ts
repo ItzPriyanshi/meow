@@ -77,8 +77,8 @@ function getVideoId(url: string): string | null {
 }
 function formatBytes(bytes: number, decimals = 2): string {
     if (!bytes) return '0 Bytes';
-    const k = 1024,
-        i = Math.floor(Math.log(bytes) / Math.log(k));
+    const k = 1024;
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${['Bytes', 'KiB', 'MiB', 'GiB'][i]}`;
 }
 function formatDuration(totalSeconds: number): string {
@@ -138,9 +138,9 @@ async function downloadAndCombineManager(sessionId: string, tasks: DownloadTask[
     });
     await Promise.all(workerPromises);
     await writer.end();
-    const endTime = performance.now(),
-        durationSec = (endTime - startTime) / 1000,
-        speed = durationSec > 0 ? totalSize / durationSec : 0;
+    const endTime = performance.now();
+    const durationSec = (endTime - startTime) / 1000;
+    const speed = durationSec > 0 ? totalSize / durationSec : 0;
     console.log(`[${sessionId}] Download & Combine Complete: ${formatBytes(totalSize)} in ${durationSec.toFixed(2)}s (${formatBytes(speed)}/s)`);
 }
 async function cleanupSession(sessionId: string) {
@@ -223,7 +223,7 @@ const app = new Elysia()
                 sessionData,
                 responseData
             } = cachedItem.data;
-            const newSessionId = Bun.randomUUIDv7();
+            const newSessionId = crypto.randomUUID();
             const tempDir = join(process.cwd(), 'temp', newSessionId);
             const newSession: DownloadSession = { ...sessionData,
                 tempDir,
@@ -261,7 +261,7 @@ const app = new Elysia()
         audioFormat.deciphered_url = audioFormat.decipher(yt.session.player);
         if (!audioFormat.deciphered_url) throw new Error("Failed to decipher audio URL.");
         console.log(`[${videoId}] ✅ Audio URL deciphered.`);
-        const sessionId = Bun.randomUUIDv7();
+        const sessionId = crypto.randomUUID();
         const tempDir = join(process.cwd(), 'temp', sessionId);
         const audioTasks: DownloadTask[] = [];
         const targetChunkSizeBytes = DOWNLOAD_CHUNK_SIZE_MB * 1024 * 1024;
