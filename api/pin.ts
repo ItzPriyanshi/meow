@@ -8,17 +8,19 @@ type CleanedMedia = {
 };
 
 export type ExtractionResult = {
-  status: 'success' | 'not_found' | 'fetch_error' | 'access_denied';
+  status: 'success' | 'not_found' | 'fetch_error' | 'access_denied' | 'rate_limited';
   author?: string;
   title?: string;
   description?: string;
   thumbnail?: string;
   media?: CleanedMedia[];
   timings: { fetchTime: number; processTime: number; totalTime: number };
+  cached?: boolean;
+  error?: string;
 };
 
 export type SearchResult = {
-  status: 'success' | 'error';
+  status: 'success' | 'error' | 'rate_limited';
   query?: string;
   results?: Array<{
     id: string;
@@ -30,8 +32,156 @@ export type SearchResult = {
   }>;
   count?: number;
   timings: { fetchTime: number; processTime: number; totalTime: number };
+  cached?: boolean;
   error?: string;
 };
+
+// Cache configuration
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  expiresAt: number;
+}
+
+class LRUCache<T> {
+  private cache: Map<string, CacheEntry<T>>;
+  private maxSize: number;
+  private ttl: number;
+
+  constructor(maxSize: number = 1000, ttlMs: number = 300000) {
+    this.cache = new Map();
+    this.maxSize = maxSize;
+    this.ttl = ttlMs;
+  }
+
+  set(key: string, value: T): void {
+    // Remove oldest entries if cache is full
+    if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+
+    this.cache.set(key, {
+      data: value,
+      timestamp: Date.now(),
+      expiresAt: Date.now() + this.ttl
+    });
+  }
+
+  get(key: string): T | null {
+    const entry = this.cache.get(key);
+    
+    if (!entry) return null;
+    
+    // Check if expired
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    // Move to end (LRU behavior)
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+    
+    return entry.data;
+  }
+
+  has(key: string): boolean {
+    const entry = this.cache.get(key);
+    if (!entry) return false;
+    
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(key);
+      return false;
+    }
+    
+    return true;
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  size(): number {
+    return this.cache.size;
+  }
+}
+
+// Rate limiter configuration
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
+}
+
+class RateLimiter {
+  private requests: Map<string, RateLimitEntry>;
+  private maxRequests: number;
+  private windowMs: number;
+
+  constructor(maxRequests: number = 30, windowMs: number = 60000) {
+    this.requests = new Map();
+    this.maxRequests = maxRequests;
+    this.windowMs = windowMs;
+    
+    // Cleanup old entries every minute
+    setInterval(() => this.cleanup(), 60000);
+  }
+
+  check(identifier: string): { allowed: boolean; remaining: number; resetTime: number } {
+    const now = Date.now();
+    const entry = this.requests.get(identifier);
+
+    if (!entry || now > entry.resetTime) {
+      // New window
+      this.requests.set(identifier, {
+        count: 1,
+        resetTime: now + this.windowMs
+      });
+      
+      return {
+        allowed: true,
+        remaining: this.maxRequests - 1,
+        resetTime: now + this.windowMs
+      };
+    }
+
+    if (entry.count >= this.maxRequests) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime: entry.resetTime
+      };
+    }
+
+    entry.count++;
+    
+    return {
+      allowed: true,
+      remaining: this.maxRequests - entry.count,
+      resetTime: entry.resetTime
+    };
+  }
+
+  private cleanup(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.requests.entries()) {
+      if (now > entry.resetTime) {
+        this.requests.delete(key);
+      }
+    }
+  }
+
+  reset(identifier: string): void {
+    this.requests.delete(identifier);
+  }
+}
+
+// Initialize caches and rate limiters
+const pinCache = new LRUCache<ExtractionResult>(500, 5 * 60 * 1000); // 500 entries, 5 min TTL
+const searchCache = new LRUCache<SearchResult>(200, 3 * 60 * 1000); // 200 entries, 3 min TTL
+
+const pinRateLimiter = new RateLimiter(20, 60000); // 20 requests per minute
+const searchRateLimiter = new RateLimiter(10, 60000); // 10 requests per minute
 
 // Updated headers with better browser fingerprinting
 const HEADERS = {
@@ -69,9 +219,28 @@ const COOKIES = [
   `_b="AYwMzNrypdJLdYDIM5IYBguwLCBNrRtlwi+GPtw+Lk6/GeGKmyzfZIy+ls1GyUqwqfc="`
 ].join("; ");
 
-export async function scrapePinterest(url: string): Promise<ExtractionResult> {
+export async function scrapePinterest(url: string, clientId: string = 'default'): Promise<ExtractionResult> {
   const timings = { fetchTime: 0, processTime: 0, totalTime: 0 };
   const totalStartTime = performance.now();
+
+  // Check cache first
+  const cacheKey = `pin:${url}`;
+  const cachedResult = pinCache.get(cacheKey);
+  if (cachedResult) {
+    console.log(`[Pinterest] Cache HIT for ${url}`);
+    return { ...cachedResult, cached: true };
+  }
+
+  // Check rate limit
+  const rateLimitResult = pinRateLimiter.check(clientId);
+  if (!rateLimitResult.allowed) {
+    const waitTime = Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000);
+    return {
+      status: 'rate_limited',
+      timings,
+      error: `Rate limit exceeded. Try again in ${waitTime} seconds.`
+    };
+  }
 
   try {
     // Rotate user agent
@@ -89,7 +258,7 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
       headers,
       timeout: 10000,
       maxRedirects: 5,
-      validateStatus: (status) => status < 500, // Don't throw on 404, 403, etc.
+      validateStatus: (status) => status < 500,
       decompress: true,
     });
 
@@ -99,7 +268,9 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
     if (response.data.includes('<Code>AccessDenied</Code>') || 
         response.data.includes('Access Denied') ||
         response.status === 403) {
-      return { status: 'access_denied', timings };
+      const result = { status: 'access_denied' as const, timings };
+      pinCache.set(cacheKey, result);
+      return result;
     }
 
     const html = response.data;
@@ -117,7 +288,7 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
     let ldJsonData: any = null;
     $('script[type="application/ld+json"]').each((_i, el) => {
       try {
-        const scriptContent = $(el).html()?.replace(/\/\*[\s\S]*?\*\//g, ''); // Remove comments
+        const scriptContent = $(el).html()?.replace(/\/\*[\s\S]*?\*\//g, '');
         if (scriptContent) {
           const jsonData = JSON.parse(scriptContent);
           if (jsonData["@type"] && (jsonData["@type"].includes("VideoObject") || 
@@ -128,7 +299,6 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
           }
         }
       } catch (e) {
-        // Try parsing as array
         try {
           const jsonArray = JSON.parse($(el).html() || '[]');
           if (Array.isArray(jsonArray)) {
@@ -159,14 +329,12 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
     if (!ldJsonData) {
       $('script').each((_i, el) => {
         const scriptContent = $(el).html();
-        if (scriptContent && scriptContent.includes('__PINTEREST__') || 
-            scriptContent.includes('initialData')) {
+        if (scriptContent && (scriptContent.includes('__PINTEREST__') || 
+            scriptContent.includes('initialData'))) {
           try {
-            // Extract JSON from script content
             const jsonMatch = scriptContent.match(/(\{.*\})/s);
             if (jsonMatch) {
               const data = JSON.parse(jsonMatch[1]);
-              // Navigate through Pinterest's complex data structure
               const pinData = data?.props?.initialReduxState?.pins || 
                             data?.resourceDataCache || 
                             data?.initialData;
@@ -207,13 +375,11 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
 
     // Method 4: Direct video extraction
     if (!videoUrl) {
-      // Check for video tags
       const videoTag = $('video[src], video source[src]');
       if (videoTag.length) {
         videoUrl = videoTag.attr('src') || videoTag.first().attr('src');
       }
 
-      // Check for data attributes that might contain video URLs
       $('[data-video-url], [data-video-src]').each((_i, el) => {
         const videoSrc = $(el).attr('data-video-url') || $(el).attr('data-video-src');
         if (videoSrc && !videoUrl) videoUrl = videoSrc;
@@ -245,9 +411,13 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
     timings.processTime = performance.now() - processStartTime;
     timings.totalTime = performance.now() - totalStartTime;
 
-    if (media.length === 0) return { status: 'not_found', timings };
+    if (media.length === 0) {
+      const result = { status: 'not_found' as const, timings };
+      pinCache.set(cacheKey, result);
+      return result;
+    }
 
-    return {
+    const result: ExtractionResult = {
       status: 'success',
       author: author?.trim(),
       title: title?.trim(),
@@ -255,29 +425,53 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
       thumbnail: cleanUrl(thumbnail),
       media,
       timings,
+      cached: false
     };
+
+    // Cache successful result
+    pinCache.set(cacheKey, result);
+    
+    return result;
   } catch (error: any) {
     console.error("[Pinterest Scraper Error]", error.message);
 
     if (error.response?.status === 403 || error.response?.status === 401) {
-      return { status: 'access_denied', timings };
+      const result = { status: 'access_denied' as const, timings };
+      return result;
     }
 
     timings.totalTime = performance.now() - totalStartTime;
-    return { status: 'fetch_error', timings };
+    return { status: 'fetch_error', timings, error: error.message };
   }
 }
 
-export async function searchPinterest(query: string, limit: number = 20): Promise<SearchResult> {
+export async function searchPinterest(query: string, clientId: string = 'default', limit: number = 20): Promise<SearchResult> {
   const timings = { fetchTime: 0, processTime: 0, totalTime: 0 };
   const totalStartTime = performance.now();
 
+  // Check cache first
+  const cacheKey = `search:${query}:${limit}`;
+  const cachedResult = searchCache.get(cacheKey);
+  if (cachedResult) {
+    console.log(`[Pinterest Search] Cache HIT for query: ${query}`);
+    return { ...cachedResult, cached: true };
+  }
+
+  // Check rate limit
+  const rateLimitResult = searchRateLimiter.check(clientId);
+  if (!rateLimitResult.allowed) {
+    const waitTime = Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000);
+    return {
+      status: 'rate_limited',
+      timings,
+      error: `Rate limit exceeded. Try again in ${waitTime} seconds.`
+    };
+  }
+
   try {
-    // Encode search query for URL
     const encodedQuery = encodeURIComponent(query);
     const searchUrl = `https://www.pinterest.com/search/pins/?q=${encodedQuery}`;
 
-    // Rotate user agent
     const randomUserAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
     const headers = {
       ...HEADERS,
@@ -348,18 +542,15 @@ export async function searchPinterest(query: string, limit: number = 20): Promis
         const scriptContent = $(el).html();
         if (scriptContent && (scriptContent.includes('__PINTEREST__') || scriptContent.includes('initialReduxState'))) {
           try {
-            // Try to find JSON data in the script
             const jsonMatch = scriptContent.match(/(\{.*\})/s);
             if (jsonMatch) {
               const data = JSON.parse(jsonMatch[1]);
               
-              // Navigate through Pinterest's data structure
               const searchData = data?.props?.initialReduxState?.search?.searchPage || 
                                data?.props?.initialReduxState?.pins ||
                                data?.resourceDataCache;
 
               if (searchData) {
-                // Extract pins from various possible locations
                 Object.keys(searchData).forEach(key => {
                   if (results.length >= limit) return;
                   
@@ -397,8 +588,7 @@ export async function searchPinterest(query: string, limit: number = 20): Promis
         const parent = $(el).closest('a');
         const pinUrl = parent.attr('href');
         
-        if (imgSrc && imgSrc.includes('236x') || imgSrc.includes('474x') || imgSrc.includes('736x')) {
-          // Extract high quality image
+        if (imgSrc && (imgSrc.includes('236x') || imgSrc.includes('474x') || imgSrc.includes('736x'))) {
           const highQualityImg = imgSrc.replace('/236x/', '/originals/')
                                        .replace('/474x/', '/originals/')
                                        .replace('/736x/', '/originals/');
@@ -419,13 +609,19 @@ export async function searchPinterest(query: string, limit: number = 20): Promis
     timings.processTime = performance.now() - processStartTime;
     timings.totalTime = performance.now() - totalStartTime;
 
-    return {
+    const result: SearchResult = {
       status: 'success',
       query,
       results: results.slice(0, limit),
       count: results.length,
-      timings
+      timings,
+      cached: false
     };
+
+    // Cache successful search result
+    searchCache.set(cacheKey, result);
+
+    return result;
 
   } catch (error: any) {
     console.error("[Pinterest Search Error]", error.message);
@@ -439,6 +635,25 @@ export async function searchPinterest(query: string, limit: number = 20): Promis
   }
 }
 
-export default async function handler(url: string) {
-  return await scrapePinterest(url);
+// Export cache and rate limiter stats for monitoring
+export function getCacheStats() {
+  return {
+    pinCache: {
+      size: pinCache.size(),
+      maxSize: 500
+    },
+    searchCache: {
+      size: searchCache.size(),
+      maxSize: 200
+    }
+  };
+}
+
+export function clearCaches() {
+  pinCache.clear();
+  searchCache.clear();
+}
+
+export default async function handler(url: string, clientId?: string) {
+  return await scrapePinterest(url, clientId);
 }
