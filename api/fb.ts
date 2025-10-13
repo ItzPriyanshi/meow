@@ -2,7 +2,7 @@ import { parse } from 'json-custom-numbers';
 import { decode } from 'entities';
 import path from 'path';
 
-const EAAU_TOKENS = ['token_1', 'token_2'];
+const EAAU_TOKENS = ['EAAAAUaZA8jlABPgzzfTGw2WbAMB4R4iZBCubQXXp3nJ5YlgjkUIZCZBhUz0658Cvix8HnSpNhZCTs6OncyDhuAxcj4F383NkPto1aHNo9qcmd9nabHW5GjaLtSeKYzm7BaxSyZCL74yVUzzO3TPv9FnL1xZBXHtMgrU7fYqkXRLxCxrr7kD64ZBJKZBnNw26AQpUACwZDZD', 'token_2'];
 let currentTokenIndex = 0;
 
 type CleanedMedia = {
