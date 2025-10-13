@@ -36,7 +36,6 @@ export type SearchResult = {
   error?: string;
 };
 
-// Cache configuration
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
@@ -55,7 +54,6 @@ class LRUCache<T> {
   }
 
   set(key: string, value: T): void {
-    // Remove oldest entries if cache is full
     if (this.cache.size >= this.maxSize) {
       const firstKey = this.cache.keys().next().value;
       this.cache.delete(firstKey);
@@ -70,31 +68,29 @@ class LRUCache<T> {
 
   get(key: string): T | null {
     const entry = this.cache.get(key);
-    
+
     if (!entry) return null;
-    
-    // Check if expired
+
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
       return null;
     }
 
-    // Move to end (LRU behavior)
     this.cache.delete(key);
     this.cache.set(key, entry);
-    
+
     return entry.data;
   }
 
   has(key: string): boolean {
     const entry = this.cache.get(key);
     if (!entry) return false;
-    
+
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
       return false;
     }
-    
+
     return true;
   }
 
@@ -107,7 +103,6 @@ class LRUCache<T> {
   }
 }
 
-// Rate limiter configuration
 interface RateLimitEntry {
   count: number;
   resetTime: number;
@@ -122,8 +117,7 @@ class RateLimiter {
     this.requests = new Map();
     this.maxRequests = maxRequests;
     this.windowMs = windowMs;
-    
-    // Cleanup old entries every minute
+
     setInterval(() => this.cleanup(), 60000);
   }
 
@@ -132,12 +126,11 @@ class RateLimiter {
     const entry = this.requests.get(identifier);
 
     if (!entry || now > entry.resetTime) {
-      // New window
       this.requests.set(identifier, {
         count: 1,
         resetTime: now + this.windowMs
       });
-      
+
       return {
         allowed: true,
         remaining: this.maxRequests - 1,
@@ -154,7 +147,7 @@ class RateLimiter {
     }
 
     entry.count++;
-    
+
     return {
       allowed: true,
       remaining: this.maxRequests - entry.count,
@@ -176,14 +169,12 @@ class RateLimiter {
   }
 }
 
-// Initialize caches and rate limiters
-const pinCache = new LRUCache<ExtractionResult>(500, 5 * 60 * 1000); // 500 entries, 5 min TTL
-const searchCache = new LRUCache<SearchResult>(200, 3 * 60 * 1000); // 200 entries, 3 min TTL
+const pinCache = new LRUCache<ExtractionResult>(500, 5 * 60 * 1000);
+const searchCache = new LRUCache<SearchResult>(200, 3 * 60 * 1000);
 
-const pinRateLimiter = new RateLimiter(20, 60000); // 20 requests per minute
-const searchRateLimiter = new RateLimiter(10, 60000); // 10 requests per minute
+const pinRateLimiter = new RateLimiter(20, 60000);
+const searchRateLimiter = new RateLimiter(10, 60000);
 
-// Updated headers with better browser fingerprinting
 const HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
   "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -202,7 +193,6 @@ const HEADERS = {
   "Sec-Ch-Ua-Platform": '"Windows"',
 };
 
-// Rotating user agents to avoid detection
 const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -223,7 +213,6 @@ export async function scrapePinterest(url: string, clientId: string = 'default')
   const timings = { fetchTime: 0, processTime: 0, totalTime: 0 };
   const totalStartTime = performance.now();
 
-  // Check cache first
   const cacheKey = `pin:${url}`;
   const cachedResult = pinCache.get(cacheKey);
   if (cachedResult) {
@@ -231,7 +220,6 @@ export async function scrapePinterest(url: string, clientId: string = 'default')
     return { ...cachedResult, cached: true };
   }
 
-  // Check rate limit
   const rateLimitResult = pinRateLimiter.check(clientId);
   if (!rateLimitResult.allowed) {
     const waitTime = Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000);
@@ -243,7 +231,6 @@ export async function scrapePinterest(url: string, clientId: string = 'default')
   }
 
   try {
-    // Rotate user agent
     const randomUserAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
     const headers = {
       ...HEADERS,
@@ -253,7 +240,6 @@ export async function scrapePinterest(url: string, clientId: string = 'default')
 
     const fetchStartTime = performance.now();
 
-    // Use axios with better configuration to mimic browser behavior
     const response = await axios.get(url, {
       headers,
       timeout: 10000,
@@ -264,7 +250,6 @@ export async function scrapePinterest(url: string, clientId: string = 'default')
 
     timings.fetchTime = performance.now() - fetchStartTime;
 
-    // Check for access denied errors in response
     if (response.data.includes('<Code>AccessDenied</Code>') || 
         response.data.includes('Access Denied') ||
         response.status === 403) {
@@ -284,7 +269,6 @@ export async function scrapePinterest(url: string, clientId: string = 'default')
     let videoUrl: string | null = null;
     let imageUrl: string | undefined;
 
-    // Method 1: Check for JSON-LD data
     let ldJsonData: any = null;
     $('script[type="application/ld+json"]').each((_i, el) => {
       try {
@@ -325,7 +309,6 @@ export async function scrapePinterest(url: string, clientId: string = 'default')
       videoUrl = ldJsonData.contentUrl || ldJsonData.embedUrl || null;
     }
 
-    // Method 2: Check for Pinterest-specific JSON data
     if (!ldJsonData) {
       $('script').each((_i, el) => {
         const scriptContent = $(el).html();
@@ -357,7 +340,6 @@ export async function scrapePinterest(url: string, clientId: string = 'default')
       });
     }
 
-    // Method 3: Fallback to meta tags
     if (!title) title = $('meta[property="og:title"]').attr("content") || 
                        $('meta[name="title"]').attr("content");
 
@@ -373,7 +355,6 @@ export async function scrapePinterest(url: string, clientId: string = 'default')
       if (authorMeta) author = authorMeta.split('/').filter(Boolean).pop();
     }
 
-    // Method 4: Direct video extraction
     if (!videoUrl) {
       const videoTag = $('video[src], video source[src]');
       if (videoTag.length) {
@@ -386,14 +367,12 @@ export async function scrapePinterest(url: string, clientId: string = 'default')
       });
     }
 
-    // Handle m3u8 conversion
     if (videoUrl && videoUrl.includes(".m3u8")) {
       videoUrl = videoUrl.replace("/hls/", "/expMp4/")
                         .replace(".m3u8", "_t1.mp4")
                         .replace("https://v1.pinimg.com", "https://v.pinimg.com");
     }
 
-    // Clean up URLs
     const cleanUrl = (url: string | undefined) => {
       if (!url) return undefined;
       return url.replace(/\\\//g, '/')
@@ -428,9 +407,8 @@ export async function scrapePinterest(url: string, clientId: string = 'default')
       cached: false
     };
 
-    // Cache successful result
     pinCache.set(cacheKey, result);
-    
+
     return result;
   } catch (error: any) {
     console.error("[Pinterest Scraper Error]", error.message);
@@ -449,7 +427,6 @@ export async function searchPinterest(query: string, clientId: string = 'default
   const timings = { fetchTime: 0, processTime: 0, totalTime: 0 };
   const totalStartTime = performance.now();
 
-  // Check cache first
   const cacheKey = `search:${query}:${limit}`;
   const cachedResult = searchCache.get(cacheKey);
   if (cachedResult) {
@@ -457,7 +434,6 @@ export async function searchPinterest(query: string, clientId: string = 'default
     return { ...cachedResult, cached: true };
   }
 
-  // Check rate limit
   const rateLimitResult = searchRateLimiter.check(clientId);
   if (!rateLimitResult.allowed) {
     const waitTime = Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000);
@@ -512,98 +488,59 @@ export async function searchPinterest(query: string, clientId: string = 'default
       description?: string;
     }> = [];
 
-    // Method 1: Try to extract from JSON-LD
-    $('script[type="application/ld+json"]').each((_i, el) => {
-      try {
-        const scriptContent = $(el).html();
-        if (scriptContent) {
-          const jsonData = JSON.parse(scriptContent);
-          if (jsonData["@type"] === "ItemList" && jsonData.itemListElement) {
-            jsonData.itemListElement.forEach((item: any) => {
-              if (item.item && results.length < limit) {
-                results.push({
-                  id: item.item.url?.split('/pin/')[1]?.split('/')[0] || `pin-${results.length}`,
-                  title: item.item.name || item.item.headline || 'Untitled Pin',
-                  image: item.item.image || item.item.thumbnailUrl || '',
-                  url: item.item.url || '',
-                  author: item.item.author?.name,
-                  description: item.item.description
-                });
-              }
-            });
+    let rawData: any = null;
+    $('script').each((_i, el) => {
+      const scriptContent = $(el).html();
+      if (scriptContent && (scriptContent.includes('__PINTEREST__') || scriptContent.includes('initialReduxState'))) {
+        try {
+          const jsonMatch = scriptContent.match(/(\{.*\})/s);
+          if (jsonMatch) {
+            rawData = JSON.parse(jsonMatch[1]);
+            return false;
           }
+        } catch (e) {
+          console.error('[Pinterest Search] JSON parsing error:', e);
         }
-      } catch (e) {}
+      }
     });
 
-    // Method 2: Try to extract from Pinterest's embedded JSON data
-    if (results.length === 0) {
-      $('script').each((_i, el) => {
-        const scriptContent = $(el).html();
-        if (scriptContent && (scriptContent.includes('__PINTEREST__') || scriptContent.includes('initialReduxState'))) {
-          try {
-            const jsonMatch = scriptContent.match(/(\{.*\})/s);
-            if (jsonMatch) {
-              const data = JSON.parse(jsonMatch[1]);
-              
-              const searchData = data?.props?.initialReduxState?.search?.searchPage || 
-                               data?.props?.initialReduxState?.pins ||
-                               data?.resourceDataCache;
+    if (rawData) {
+      const searchData = rawData?.props?.initialReduxState?.search?.searchPage?.searchFeed?.items || 
+                         rawData?.resourceDataCache;
 
-              if (searchData) {
-                Object.keys(searchData).forEach(key => {
-                  if (results.length >= limit) return;
-                  
-                  const item = searchData[key];
-                  if (item && item.data) {
-                    const pin = item.data;
-                    if (pin.id || pin.images) {
-                      results.push({
-                        id: pin.id || `pin-${results.length}`,
-                        title: pin.title || pin.description || pin.grid_title || 'Untitled Pin',
-                        image: pin.images?.orig?.url || pin.images?.['736x']?.url || pin.image_medium_url || '',
-                        url: `https://www.pinterest.com/pin/${pin.id}`,
-                        author: pin.pinner?.username || pin.owner?.username,
-                        description: pin.description || pin.seo_description
-                      });
-                    }
-                  }
-                });
-              }
-            }
-          } catch (e) {
-            console.error('[Pinterest Search] JSON parsing error:', e);
+      if (Array.isArray(searchData)) {
+        searchData.slice(0, limit).forEach((pin: any) => {
+          if (pin.id && pin.images) {
+            results.push({
+              id: pin.id,
+              title: pin.title || pin.description || 'Untitled Pin',
+              image: pin.images?.orig?.url || pin.images?.['736x']?.url || '',
+              url: `https://www.pinterest.com/pin/${pin.id}`,
+              author: pin.pinner?.username || pin.owner?.username,
+              description: pin.description
+            });
           }
-        }
-      });
-    }
-
-    // Method 3: Fallback to meta tags and images
-    if (results.length === 0) {
-      $('img[src*="pinimg.com"]').each((i, el) => {
-        if (results.length >= limit) return;
+        });
+      } else if (searchData) {
+        const pinKeys = Object.keys(searchData).filter(key => key.includes('PinResource'));
         
-        const imgSrc = $(el).attr('src');
-        const imgAlt = $(el).attr('alt') || 'Untitled Pin';
-        const parent = $(el).closest('a');
-        const pinUrl = parent.attr('href');
-        
-        if (imgSrc && (imgSrc.includes('236x') || imgSrc.includes('474x') || imgSrc.includes('736x'))) {
-          const highQualityImg = imgSrc.replace('/236x/', '/originals/')
-                                       .replace('/474x/', '/originals/')
-                                       .replace('/736x/', '/originals/');
-          
-          const pinId = pinUrl?.split('/pin/')[1]?.split('/')[0] || `pin-${i}`;
-          
-          results.push({
-            id: pinId,
-            title: imgAlt,
-            image: highQualityImg,
-            url: pinUrl ? `https://www.pinterest.com${pinUrl}` : `https://www.pinterest.com/pin/${pinId}`,
-            description: imgAlt
-          });
-        }
-      });
+        pinKeys.slice(0, limit).forEach(key => {
+          const item = searchData[key];
+          if (item && item.data) {
+            const pin = item.data;
+            if (pin.id || pin.images) {
+              results.push({
+                id: pin.id || `pin-${results.length}`,
+                title: pin.title || pin.description || pin.grid_title || 'Untitled Pin',
+                image: pin.images?.orig?.url || pin.images?.['736x']?.url || pin.image_medium_url || '',
+                url: `https://www.pinterest.com/pin/${pin.id}`,
+                author: pin.pinner?.username || pin.owner?.username,
+                description: pin.description || pin.seo_description
+              });
+            }
+          }
+        });
+      }
     }
 
     timings.processTime = performance.now() - processStartTime;
@@ -618,7 +555,6 @@ export async function searchPinterest(query: string, clientId: string = 'default
       cached: false
     };
 
-    // Cache successful search result
     searchCache.set(cacheKey, result);
 
     return result;
@@ -626,7 +562,7 @@ export async function searchPinterest(query: string, clientId: string = 'default
   } catch (error: any) {
     console.error("[Pinterest Search Error]", error.message);
     timings.totalTime = performance.now() - totalStartTime;
-    
+
     return {
       status: 'error',
       error: error.message,
@@ -635,7 +571,6 @@ export async function searchPinterest(query: string, clientId: string = 'default
   }
 }
 
-// Export cache and rate limiter stats for monitoring
 export function getCacheStats() {
   return {
     pinCache: {
