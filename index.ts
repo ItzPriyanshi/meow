@@ -240,50 +240,55 @@ const app = new Elysia()
         headers: { 'Content-Type': 'text/plain' }
     }))
 
-    // Pinterest download endpoint
+    // Unified Pinterest Endpoint: Handles both /pin?url=... and /pin?search=...
     .get('/pin', async ({ query, request, set }) => {
-        const { url } = query;
-        if (!url) throw new Error('Missing URL parameter');
-
+        const { url, search, limit } = query;
         const clientId = getClientId(request);
-        const result = await pinHandler(url, clientId);
 
-        // Set rate limit headers
-        if (result.status === 'rate_limited') {
-            set.status = 429;
-            set.headers['Retry-After'] = '60';
+        if (search) {
+            // Handle Search Request: /pin?search=query
+            const searchLimit = limit ? Math.min(parseInt(limit), 50) : 20;
+
+            const result = await searchPinterest(search as string, clientId, searchLimit);
+
+            // Set rate limit headers
+            if (result.status === 'rate_limited') {
+                set.status = 429;
+                set.headers['Retry-After'] = '60';
+            }
+            return result;
+        } else if (url) {
+            // Handle Download/Extraction Request: /pin?url=...
+            const result = await pinHandler(url as string, clientId);
+
+            // Set rate limit headers
+            if (result.status === 'rate_limited') {
+                set.status = 429;
+                set.headers['Retry-After'] = '60';
+            }
+            return result;
+        } else {
+            // Handle Missing Parameters
+            set.status = 400;
+            return {
+                status: 'error',
+                error: 'Missing required parameter: "url" for extraction or "search" for search.'
+            };
         }
-
-        return result;
     }, {
         query: t.Object({
-            url: t.String()
-        })
-    })
-
-    // Pinterest search endpoint
-    .get('/pin/search', async ({ query, request, set }) => {
-        const { q: searchQuery, limit } = query;
-        if (!searchQuery) throw new Error('Missing search query parameter (q)');
-
-        const clientId = getClientId(request);
-        const searchLimit = limit ? Math.min(parseInt(limit), 50) : 20;
-
-        const result = await searchPinterest(searchQuery, clientId, searchLimit);
-
-        // Set rate limit headers
-        if (result.status === 'rate_limited') {
-            set.status = 429;
-            set.headers['Retry-After'] = '60';
-        }
-
-        return result;
-    }, {
-        query: t.Object({
-            q: t.String(),
+            url: t.Optional(t.String()),
+            search: t.Optional(t.String()),
             limit: t.Optional(t.String())
         })
     })
+
+    // Remove the separate /pin/search endpoint
+    /*
+    .get('/pin/search', async ({ query, request, set }) => {
+        // ... (OLD LOGIC REMOVED)
+    })
+    */
 
     // Pinterest cache stats endpoint (admin)
     .get('/pin/stats', () => {
@@ -312,7 +317,7 @@ const app = new Elysia()
         const cappedQuality = Math.min(parseInt(quality || '1080'), 1080);
         const cacheKey = isAudioRequest ? `${videoId}-audio` : `${videoId}-video-${cappedQuality}p`;
         const cachedItem = infoCache.get(cacheKey);
-        
+
         // --- Cache HIT Logic ---
         if (cachedItem && (Date.now() - cachedItem.timestamp < CACHE_EXPIRATION_MS)) {
             console.log(`[${videoId}] Cache HIT for key: ${cacheKey}`);
@@ -321,11 +326,11 @@ const app = new Elysia()
                 sessionData,
                 responseData
             } = cachedItem.data;
-            
+
             // Create a new session for the download to allow multiple downloads of the same cached info
             const newSessionId = crypto.randomUUID();
             const tempDir = join(process.cwd(), 'temp', newSessionId);
-            
+
             // Create the temp directory for the new session
             await mkdir(tempDir, { recursive: true });
 
@@ -335,45 +340,46 @@ const app = new Elysia()
                 // Re-calculate temp file paths within the new temp dir
                 tempVideoFile: sessionData.tempVideoFile ? join(tempDir, 'video.mp4') : undefined,
                 tempAudioFile: join(tempDir, 'audio.m4a'),
+                finalFilename: sessionData.finalFilename, // Keep original filename
                 finalFilePath: join(tempDir, sessionData.finalFilename),
                 createdAt: Date.now(),
                 cleanupTimeoutId: null
             };
-            
+
             downloadSessions.set(newSessionId, newSession);
             scheduleSessionCleanup(newSessionId, EXPIRATION_SECONDS * 1000);
             const requestUrl = new URL(request.url);
-            
+
             return { ...responseData,
                 cached: true,
                 infoFetchTime: `${(performance.now() - getInfoStart).toFixed(2)}ms (cached)`,
                 downloadLink: `${requestUrl.protocol}//${requestUrl.host}/stream/${isAudioRequest ? 'audio' : 'video'}/${newSessionId}`
             };
         }
-        
+
         // --- Cache MISS Logic ---
         console.log(`[${videoId}] Cache MISS for key: ${cacheKey}`);
         const getInfoStart = performance.now();
         console.log(`[${videoId}] Fetching info using shared session...`);
-        
+
         const info = await yt.getInfo(videoId, {
             client: 'TV'
         });
-        
+
         if (info.playability_status?.status !== 'OK') throw new Error(`Video not playable: ${info.playability_status?.reason}`);
         if (!info.streaming_data) throw new Error('No streaming data found.');
-        
+
         const title = info.primary_info?.title?.text || 'video';
         const channel = info.secondary_info?.owner?.author?.name || 'channel';
         const safeTitle = title.replace(/[^a-zA-Z0-9 ._-]/g, '').trim();
         const safeChannel = channel.replace(/[^a-zA-Z0-9 ._-]/g, '').trim();
-        
+
         // Select Audio Format (Best quality AAC/M4A)
         const allM4aAudio = info.streaming_data.adaptive_formats.filter(f => f.has_audio && !f.has_video && f.mime_type?.includes('mp4a')) as YTFormat[];
         if (allM4aAudio.length === 0) throw new Error('No AAC (.m4a) audio track found.');
         const audioFormat = allM4aAudio.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
         if (!audioFormat.content_length) throw new Error('Selected audio format is missing size info.');
-        
+
         // Decipher URLs
         audioFormat.deciphered_url = audioFormat.decipher(yt.session.player);
         if (!audioFormat.deciphered_url) throw new Error("Failed to decipher audio URL.");
@@ -383,7 +389,7 @@ const app = new Elysia()
         const sessionId = crypto.randomUUID();
         const tempDir = join(process.cwd(), 'temp', sessionId);
         await mkdir(tempDir, { recursive: true }); // Create temp dir
-        
+
         const audioTasks: DownloadTask[] = [];
         const targetChunkSizeBytes = DOWNLOAD_CHUNK_SIZE_MB * 1024 * 1024;
         for (let i = 0, start = 0; start < audioFormat.content_length; i++) {
@@ -434,10 +440,10 @@ const app = new Elysia()
             // Video + Audio (Multiplex) Request
             const suitableVideos = info.streaming_data.adaptive_formats.filter(f => f.has_video && !f.has_audio && f.mime_type?.includes('avc1') && f.height && f.height <= cappedQuality).sort((a, b) => (b.height || 0) - (a.height || 0) || (b.bitrate || 0) - (a.bitrate || 0)) as YTFormat[];
             if (suitableVideos.length === 0) throw new Error(`No suitable H.264 video stream found for ${cappedQuality}p.`);
-            
+
             const videoFormat = suitableVideos[0];
             if (!videoFormat.content_length) throw new Error('Selected video format is missing size info.');
-            
+
             videoFormat.deciphered_url = videoFormat.decipher(yt.session.player);
             if (!videoFormat.deciphered_url) throw new Error("Failed to decipher video URL.");
             console.log(`[${videoId}] ✅ Video URL deciphered.`);
@@ -488,7 +494,7 @@ const app = new Elysia()
 
         downloadSessions.set(sessionId, session);
         scheduleSessionCleanup(sessionId, EXPIRATION_SECONDS * 1000);
-        
+
         // Cache the info for later downloads
         infoCache.set(cacheKey, {
             timestamp: Date.now(),
@@ -530,10 +536,10 @@ const app = new Elysia()
         if (session.status === 'pending') {
             session.status = 'downloading';
             console.log(`[${sessionId}] Starting download for video + audio...`);
-            
+
             // Start video download
             const videoDownloadPromise = downloadAndCombineManager(sessionId, session.videoTasks, session.tempVideoFile!);
-            
+
             // Start audio download
             const audioDownloadPromise = downloadAndCombineManager(sessionId, session.audioTasks, session.tempAudioFile);
 
@@ -554,7 +560,7 @@ const app = new Elysia()
                     ];
 
                     const mergeProcess = spawn(ffmpeg, ffmpegArgs);
-                    
+
                     mergeProcess.on('close', (code) => {
                         if (code === 0) {
                             session.status = 'completed';
@@ -578,7 +584,7 @@ const app = new Elysia()
                     console.error(`[${sessionId}] 🔴 Download failed:`, err);
                 });
         }
-        
+
         // 3. Wait for completion and stream result
         let attempts = 0;
         while (session.status !== 'completed' && session.status !== 'error' && attempts < 10) {
@@ -608,7 +614,7 @@ const app = new Elysia()
         set.headers['Content-Type'] = 'video/mp4';
         set.headers['Content-Disposition'] = `attachment; filename="${session.finalFilename}"`;
         set.headers['Content-Length'] = stats.size.toString();
-        
+
         // Return a Bun.file or a Node.js stream converted to a Response stream
         return new Response(createReadStream(session.finalFilePath) as unknown as ReadableStream, {
             headers: set.headers
@@ -631,7 +637,7 @@ const app = new Elysia()
         if (session.status === 'pending') {
             session.status = 'downloading';
             console.log(`[${sessionId}] Starting audio-only download...`);
-            
+
             downloadAndCombineManager(sessionId, session.audioTasks, session.finalFilePath)
                 .then(() => {
                     session.status = 'completed';
@@ -643,7 +649,7 @@ const app = new Elysia()
                     console.error(`[${sessionId}] 🔴 Download failed:`, err);
                 });
         }
-        
+
         // 2. Wait for completion and stream result
         let attempts = 0;
         while (session.status !== 'completed' && session.status !== 'error' && attempts < 10) {
@@ -673,7 +679,7 @@ const app = new Elysia()
         set.headers['Content-Type'] = 'audio/mp4'; // M4A is technically audio/mp4
         set.headers['Content-Disposition'] = `attachment; filename="${session.finalFilename}"`;
         set.headers['Content-Length'] = stats.size.toString();
-        
+
         // Return a Bun.file or a Node.js stream converted to a Response stream
         return new Response(createReadStream(session.finalFilePath) as unknown as ReadableStream, {
             headers: set.headers
@@ -681,7 +687,7 @@ const app = new Elysia()
     }, {
         params: t.Object({ id: t.String() })
     })
-    
+
     // Social Media Endpoints (as requested)
     .get('/insta', async ({ query }) => {
         const { url } = query;
