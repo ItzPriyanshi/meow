@@ -2,8 +2,11 @@ import { Elysia, t } from 'elysia';
 import { Innertube, UniversalCache } from 'youtubei.js';
 import ffmpeg from 'ffmpeg-static';
 import { mkdir, rmdir } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { spawn } from 'node:child_process';
+import { PassThrough } from 'node:stream';
 import instaHandler from './api/insta';
 import fbHandler from './api/fb';
 import pinHandler, { searchPinterest, getCacheStats, clearCaches } from './api/pin';
@@ -23,7 +26,7 @@ function getClientId(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');
   const realIp = request.headers.get('x-real-ip');
   const cfConnecting = request.headers.get('cf-connecting-ip');
-  
+
   return forwarded?.split(',')[0].trim() || 
          realIp || 
          cfConnecting || 
@@ -192,8 +195,17 @@ function scheduleSessionCleanup(sessionId: string, delayMs: number) {
     }, delayMs);
 }
 
+// --- Main Elysia App ---
 const app = new Elysia()
     .onStart(async () => {
+        // Ensure the temp directory exists
+        try {
+            await mkdir(join(process.cwd(), 'temp'), { recursive: true });
+        } catch (err) {
+            console.error('Failed to create temp directory:', err);
+            // Non-fatal, but log it
+        }
+
         const cookie = await getCookieFileContent(COOKIE_FILE_PATH);
         yt = await Innertube.create({
             cookie,
@@ -227,44 +239,44 @@ const app = new Elysia()
     .get('/robots.txt', () => new Response(['User-agent: *', 'Disallow: /'].join('\n'), {
         headers: { 'Content-Type': 'text/plain' }
     }))
-    
+
     // Pinterest download endpoint
     .get('/pin', async ({ query, request, set }) => {
         const { url } = query;
         if (!url) throw new Error('Missing URL parameter');
-        
+
         const clientId = getClientId(request);
         const result = await pinHandler(url, clientId);
-        
+
         // Set rate limit headers
         if (result.status === 'rate_limited') {
             set.status = 429;
             set.headers['Retry-After'] = '60';
         }
-        
+
         return result;
     }, {
         query: t.Object({
             url: t.String()
         })
     })
-    
+
     // Pinterest search endpoint
     .get('/pin/search', async ({ query, request, set }) => {
         const { q: searchQuery, limit } = query;
         if (!searchQuery) throw new Error('Missing search query parameter (q)');
-        
+
         const clientId = getClientId(request);
         const searchLimit = limit ? Math.min(parseInt(limit), 50) : 20;
-        
+
         const result = await searchPinterest(searchQuery, clientId, searchLimit);
-        
+
         // Set rate limit headers
         if (result.status === 'rate_limited') {
             set.status = 429;
             set.headers['Retry-After'] = '60';
         }
-        
+
         return result;
     }, {
         query: t.Object({
@@ -272,18 +284,19 @@ const app = new Elysia()
             limit: t.Optional(t.String())
         })
     })
-    
+
     // Pinterest cache stats endpoint (admin)
     .get('/pin/stats', () => {
         return getCacheStats();
     })
-    
+
     // Pinterest cache clear endpoint (admin)
     .post('/pin/cache/clear', () => {
         clearCaches();
         return { status: 'success', message: 'All Pinterest caches cleared' };
     })
-    
+
+    // YouTube Info/Download Initiation Endpoint
     .get('/', async ({
         query,
         request
@@ -299,6 +312,8 @@ const app = new Elysia()
         const cappedQuality = Math.min(parseInt(quality || '1080'), 1080);
         const cacheKey = isAudioRequest ? `${videoId}-audio` : `${videoId}-video-${cappedQuality}p`;
         const cachedItem = infoCache.get(cacheKey);
+        
+        // --- Cache HIT Logic ---
         if (cachedItem && (Date.now() - cachedItem.timestamp < CACHE_EXPIRATION_MS)) {
             console.log(`[${videoId}] Cache HIT for key: ${cacheKey}`);
             const getInfoStart = performance.now();
@@ -306,46 +321,69 @@ const app = new Elysia()
                 sessionData,
                 responseData
             } = cachedItem.data;
+            
+            // Create a new session for the download to allow multiple downloads of the same cached info
             const newSessionId = crypto.randomUUID();
             const tempDir = join(process.cwd(), 'temp', newSessionId);
-            const newSession: DownloadSession = { ...sessionData,
+            
+            // Create the temp directory for the new session
+            await mkdir(tempDir, { recursive: true });
+
+            const newSession: DownloadSession = { 
+                ...sessionData,
                 tempDir,
+                // Re-calculate temp file paths within the new temp dir
                 tempVideoFile: sessionData.tempVideoFile ? join(tempDir, 'video.mp4') : undefined,
                 tempAudioFile: join(tempDir, 'audio.m4a'),
                 finalFilePath: join(tempDir, sessionData.finalFilename),
                 createdAt: Date.now(),
                 cleanupTimeoutId: null
             };
+            
             downloadSessions.set(newSessionId, newSession);
             scheduleSessionCleanup(newSessionId, EXPIRATION_SECONDS * 1000);
             const requestUrl = new URL(request.url);
+            
             return { ...responseData,
                 cached: true,
                 infoFetchTime: `${(performance.now() - getInfoStart).toFixed(2)}ms (cached)`,
                 downloadLink: `${requestUrl.protocol}//${requestUrl.host}/stream/${isAudioRequest ? 'audio' : 'video'}/${newSessionId}`
             };
         }
+        
+        // --- Cache MISS Logic ---
         console.log(`[${videoId}] Cache MISS for key: ${cacheKey}`);
         const getInfoStart = performance.now();
         console.log(`[${videoId}] Fetching info using shared session...`);
+        
         const info = await yt.getInfo(videoId, {
             client: 'TV'
         });
+        
         if (info.playability_status?.status !== 'OK') throw new Error(`Video not playable: ${info.playability_status?.reason}`);
         if (!info.streaming_data) throw new Error('No streaming data found.');
+        
         const title = info.primary_info?.title?.text || 'video';
         const channel = info.secondary_info?.owner?.author?.name || 'channel';
         const safeTitle = title.replace(/[^a-zA-Z0-9 ._-]/g, '').trim();
         const safeChannel = channel.replace(/[^a-zA-Z0-9 ._-]/g, '').trim();
+        
+        // Select Audio Format (Best quality AAC/M4A)
         const allM4aAudio = info.streaming_data.adaptive_formats.filter(f => f.has_audio && !f.has_video && f.mime_type?.includes('mp4a')) as YTFormat[];
         if (allM4aAudio.length === 0) throw new Error('No AAC (.m4a) audio track found.');
         const audioFormat = allM4aAudio.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
         if (!audioFormat.content_length) throw new Error('Selected audio format is missing size info.');
+        
+        // Decipher URLs
         audioFormat.deciphered_url = audioFormat.decipher(yt.session.player);
         if (!audioFormat.deciphered_url) throw new Error("Failed to decipher audio URL.");
         console.log(`[${videoId}] ✅ Audio URL deciphered.`);
+
+        // Setup Download Tasks for Audio
         const sessionId = crypto.randomUUID();
         const tempDir = join(process.cwd(), 'temp', sessionId);
+        await mkdir(tempDir, { recursive: true }); // Create temp dir
+        
         const audioTasks: DownloadTask[] = [];
         const targetChunkSizeBytes = DOWNLOAD_CHUNK_SIZE_MB * 1024 * 1024;
         for (let i = 0, start = 0; start < audioFormat.content_length; i++) {
@@ -360,10 +398,13 @@ const app = new Elysia()
             });
             start = end + 1;
         }
+
         let session: DownloadSession;
         let responsePayload: any;
         const requestUrl = new URL(request.url);
+
         if (isAudioRequest) {
+            // Audio Only Request
             const finalFilename = `${safeTitle} - ${safeChannel}.m4a`;
             session = {
                 status: 'pending',
@@ -390,13 +431,18 @@ const app = new Elysia()
                 infoFetchTime: `${(performance.now() - getInfoStart).toFixed(2)}ms`
             };
         } else {
+            // Video + Audio (Multiplex) Request
             const suitableVideos = info.streaming_data.adaptive_formats.filter(f => f.has_video && !f.has_audio && f.mime_type?.includes('avc1') && f.height && f.height <= cappedQuality).sort((a, b) => (b.height || 0) - (a.height || 0) || (b.bitrate || 0) - (a.bitrate || 0)) as YTFormat[];
             if (suitableVideos.length === 0) throw new Error(`No suitable H.264 video stream found for ${cappedQuality}p.`);
+            
             const videoFormat = suitableVideos[0];
             if (!videoFormat.content_length) throw new Error('Selected video format is missing size info.');
+            
             videoFormat.deciphered_url = videoFormat.decipher(yt.session.player);
             if (!videoFormat.deciphered_url) throw new Error("Failed to decipher video URL.");
             console.log(`[${videoId}] ✅ Video URL deciphered.`);
+
+            // Setup Download Tasks for Video
             const videoTasks: DownloadTask[] = [];
             for (let i = 0, start = 0; start < videoFormat.content_length; i++) {
                 const end = Math.min(start + targetChunkSizeBytes - 1, videoFormat.content_length - 1);
@@ -410,6 +456,7 @@ const app = new Elysia()
                 });
                 start = end + 1;
             }
+
             const finalFilename = `${safeTitle} - ${safeChannel} (${videoFormat.quality_label}, h264).mp4`;
             session = {
                 status: 'pending',
@@ -438,8 +485,11 @@ const app = new Elysia()
                 infoFetchTime: `${(performance.now() - getInfoStart).toFixed(2)}ms`
             };
         }
+
         downloadSessions.set(sessionId, session);
         scheduleSessionCleanup(sessionId, EXPIRATION_SECONDS * 1000);
+        
+        // Cache the info for later downloads
         infoCache.set(cacheKey, {
             timestamp: Date.now(),
             data: {
@@ -447,7 +497,9 @@ const app = new Elysia()
                 responseData: responsePayload
             }
         });
-        return { ...responsePayload,
+
+        return { 
+            ...responsePayload,
             cached: false,
             downloadLink: `${requestUrl.protocol}//${requestUrl.host}/stream/${isAudioRequest ? 'audio' : 'video'}/${sessionId}`
         };
@@ -458,16 +510,179 @@ const app = new Elysia()
             format: t.Optional(t.String())
         })
     })
+
+    // --- STREAM ENDPOINTS (Restored Logic) ---
     .get('/stream/video/:id', async ({ params, set }) => {
-        // ... (keep existing stream/video implementation)
+        const sessionId = params.id;
+        const session = downloadSessions.get(sessionId);
+
+        if (!session) {
+            set.status = 404;
+            return { status: 'error', message: 'Download session not found or expired.' };
+        }
+
+        if (session.isAudioOnly) {
+            set.status = 400;
+            return { status: 'error', message: 'This session is for audio-only download. Use /stream/audio/:id.' };
+        }
+
+        // 1. Initiate Download if pending
+        if (session.status === 'pending') {
+            session.status = 'downloading';
+            console.log(`[${sessionId}] Starting download for video + audio...`);
+            
+            // Start video download
+            const videoDownloadPromise = downloadAndCombineManager(sessionId, session.videoTasks, session.tempVideoFile!);
+            
+            // Start audio download
+            const audioDownloadPromise = downloadAndCombineManager(sessionId, session.audioTasks, session.tempAudioFile);
+
+            // Wait for both to finish
+            Promise.all([videoDownloadPromise, audioDownloadPromise])
+                .then(() => {
+                    session.status = 'merging';
+                    console.log(`[${sessionId}] Downloads complete. Starting merge...`);
+
+                    // 2. Start FFmpeg Merge
+                    const ffmpegArgs = [
+                        '-i', session.tempVideoFile!,
+                        '-i', session.tempAudioFile,
+                        '-c:v', 'copy',
+                        '-c:a', 'copy',
+                        '-movflags', 'faststart',
+                        session.finalFilePath
+                    ];
+
+                    const mergeProcess = spawn(ffmpeg, ffmpegArgs);
+                    
+                    mergeProcess.on('close', (code) => {
+                        if (code === 0) {
+                            session.status = 'completed';
+                            console.log(`[${sessionId}] ✅ Merge complete.`);
+                        } else {
+                            session.status = 'error';
+                            session.error = `FFmpeg merge failed with code ${code}`;
+                            console.error(`[${sessionId}] 🔴 Merge FAILED with code ${code}`);
+                        }
+                    });
+
+                    mergeProcess.on('error', (err) => {
+                        session.status = 'error';
+                        session.error = `FFmpeg spawn error: ${err.message}`;
+                        console.error(`[${sessionId}] 🔴 FFmpeg spawn error:`, err);
+                    });
+                })
+                .catch(err => {
+                    session.status = 'error';
+                    session.error = `Download failed: ${err.message}`;
+                    console.error(`[${sessionId}] 🔴 Download failed:`, err);
+                });
+        }
+        
+        // 3. Wait for completion and stream result
+        let attempts = 0;
+        while (session.status !== 'completed' && session.status !== 'error' && attempts < 10) {
+            await new Promise(r => setTimeout(r, 2000));
+            attempts++;
+            // Refresh cleanup timer on poll
+            scheduleSessionCleanup(sessionId, EXPIRATION_SECONDS * 1000); 
+        }
+
+        if (session.status === 'error') {
+            set.status = 500;
+            return { status: 'error', message: session.error || 'An unexpected download/merge error occurred.' };
+        }
+
+        if (session.status !== 'completed') {
+            set.status = 504; // Gateway Timeout
+            return { status: 'error', message: 'Download/merge timed out. Try again.' };
+        }
+
+        // 4. Stream the file
+        const stats = await Bun.file(session.finalFilePath).exists() ? (await Bun.file(session.finalFilePath).stat()) : null;
+        if (!stats) {
+            set.status = 500;
+            return { status: 'error', message: 'Final file not found after completion.' };
+        }
+
+        set.headers['Content-Type'] = 'video/mp4';
+        set.headers['Content-Disposition'] = `attachment; filename="${session.finalFilename}"`;
+        set.headers['Content-Length'] = stats.size.toString();
+        
+        // Return a Bun.file or a Node.js stream converted to a Response stream
+        return new Response(createReadStream(session.finalFilePath) as unknown as ReadableStream, {
+            headers: set.headers
+        });
+
     }, {
         params: t.Object({ id: t.String() })
     })
+
     .get('/stream/audio/:id', async ({ params, set }) => {
-        // ... (keep existing stream/audio implementation)
+        const sessionId = params.id;
+        const session = downloadSessions.get(sessionId);
+
+        if (!session) {
+            set.status = 404;
+            return { status: 'error', message: 'Download session not found or expired.' };
+        }
+
+        // 1. Initiate Download if pending
+        if (session.status === 'pending') {
+            session.status = 'downloading';
+            console.log(`[${sessionId}] Starting audio-only download...`);
+            
+            downloadAndCombineManager(sessionId, session.audioTasks, session.finalFilePath)
+                .then(() => {
+                    session.status = 'completed';
+                    console.log(`[${sessionId}] ✅ Audio download complete.`);
+                })
+                .catch(err => {
+                    session.status = 'error';
+                    session.error = `Download failed: ${err.message}`;
+                    console.error(`[${sessionId}] 🔴 Download failed:`, err);
+                });
+        }
+        
+        // 2. Wait for completion and stream result
+        let attempts = 0;
+        while (session.status !== 'completed' && session.status !== 'error' && attempts < 10) {
+            await new Promise(r => setTimeout(r, 2000));
+            attempts++;
+            // Refresh cleanup timer on poll
+            scheduleSessionCleanup(sessionId, EXPIRATION_SECONDS * 1000); 
+        }
+
+        if (session.status === 'error') {
+            set.status = 500;
+            return { status: 'error', message: session.error || 'An unexpected download error occurred.' };
+        }
+
+        if (session.status !== 'completed') {
+            set.status = 504; // Gateway Timeout
+            return { status: 'error', message: 'Download timed out. Try again.' };
+        }
+
+        // 3. Stream the file
+        const stats = await Bun.file(session.finalFilePath).exists() ? (await Bun.file(session.finalFilePath).stat()) : null;
+        if (!stats) {
+            set.status = 500;
+            return { status: 'error', message: 'Final file not found after completion.' };
+        }
+
+        set.headers['Content-Type'] = 'audio/mp4'; // M4A is technically audio/mp4
+        set.headers['Content-Disposition'] = `attachment; filename="${session.finalFilename}"`;
+        set.headers['Content-Length'] = stats.size.toString();
+        
+        // Return a Bun.file or a Node.js stream converted to a Response stream
+        return new Response(createReadStream(session.finalFilePath) as unknown as ReadableStream, {
+            headers: set.headers
+        });
     }, {
         params: t.Object({ id: t.String() })
     })
+    
+    // Social Media Endpoints (as requested)
     .get('/insta', async ({ query }) => {
         const { url } = query;
         if (!url) throw new Error('Missing URL');
