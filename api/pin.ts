@@ -177,20 +177,19 @@ const searchRateLimiter = new RateLimiter(10, 60000);
 
 const HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+  "Accept": "application/json, text/plain, */*",
   "Accept-Language": "en-US,en;q=0.9",
   "Accept-Encoding": "gzip, deflate, br",
   "Referer": "https://www.pinterest.com/",
   "DNT": "1",
   "Connection": "keep-alive",
-  "Upgrade-Insecure-Requests": "1",
-  "Sec-Fetch-Dest": "document",
-  "Sec-Fetch-Mode": "navigate",
+  "Sec-Fetch-Dest": "empty",
+  "Sec-Fetch-Mode": "cors",
   "Sec-Fetch-Site": "same-origin",
-  "Sec-Fetch-User": "?1",
   "Sec-Ch-Ua": '"Not/A)Brand";v="8", "Chromium";v="126"',
   "Sec-Ch-Ua-Mobile": "?0",
   "Sec-Ch-Ua-Platform": '"Windows"',
+  "X-Requested-With": "XMLHttpRequest"
 };
 
 const USER_AGENTS = [
@@ -446,13 +445,16 @@ export async function searchPinterest(query: string, clientId: string = 'default
 
   try {
     const encodedQuery = encodeURIComponent(query);
-    const searchUrl = `https://www.pinterest.com/search/pins/?q=${encodedQuery}`;
+    const searchUrl = `https://www.pinterest.com/resource/BaseSearchResource/get/?source_url=/search/pins/?q=${encodedQuery}&data={"options":{"article":null,"appliedProductFilters":"---","query":"${encodedQuery}","scope":"pins","auto_correction_disabled":false,"top_pin_id":null,"filters":null},"context":{}}`;
 
     const randomUserAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
     const headers = {
       ...HEADERS,
       "User-Agent": randomUserAgent,
-      "Cookie": COOKIES
+      "Cookie": COOKIES,
+      "X-Pinterest-AppState": "active",
+      "X-APP-VERSION": "cb1deba",
+      "X-Pinterest-PWS-Handler": "www/search/[scope].js"
     };
 
     const fetchStartTime = performance.now();
@@ -475,10 +477,7 @@ export async function searchPinterest(query: string, clientId: string = 'default
       };
     }
 
-    const html = response.data;
     const processStartTime = performance.now();
-    const $ = cheerio.load(html);
-
     const results: Array<{
       id: string;
       title: string;
@@ -488,59 +487,32 @@ export async function searchPinterest(query: string, clientId: string = 'default
       description?: string;
     }> = [];
 
-    let rawData: any = null;
-    $('script').each((_i, el) => {
-      const scriptContent = $(el).html();
-      if (scriptContent && (scriptContent.includes('__PINTEREST__') || scriptContent.includes('initialReduxState'))) {
-        try {
-          const jsonMatch = scriptContent.match(/(\{.*\})/s);
-          if (jsonMatch) {
-            rawData = JSON.parse(jsonMatch[1]);
-            return false;
-          }
-        } catch (e) {
-          console.error('[Pinterest Search] JSON parsing error:', e);
-        }
-      }
-    });
+    try {
+      const jsonData = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
 
-    if (rawData) {
-      const searchData = rawData?.props?.initialReduxState?.search?.searchPage?.searchFeed?.items || 
-                         rawData?.resourceDataCache;
+      if (jsonData.resource_response?.data?.results) {
+        const pins = jsonData.resource_response.data.results;
 
-      if (Array.isArray(searchData)) {
-        searchData.slice(0, limit).forEach((pin: any) => {
-          if (pin.id && pin.images) {
+        pins.slice(0, limit).forEach((pin: any) => {
+          if (pin.type === 'pin') {
             results.push({
-              id: pin.id,
-              title: pin.title || pin.description || 'Untitled Pin',
-              image: pin.images?.orig?.url || pin.images?.['736x']?.url || '',
-              url: `https://www.pinterest.com/pin/${pin.id}`,
-              author: pin.pinner?.username || pin.owner?.username,
-              description: pin.description
+              id: pin.id || `pin-${results.length}`,
+              title: pin.title || pin.grid_title || pin.description || 'Untitled Pin',
+              image: pin.images?.orig?.url || pin.images?.['736x']?.url || pin.images?.['474x']?.url || '',
+              url: pin.link || `https://www.pinterest.com/pin/${pin.id}`,
+              author: pin.pinner?.username || pin.pinner?.full_name,
+              description: pin.description || pin.seo_description
             });
           }
         });
-      } else if (searchData) {
-        const pinKeys = Object.keys(searchData).filter(key => key.includes('PinResource'));
-        
-        pinKeys.slice(0, limit).forEach(key => {
-          const item = searchData[key];
-          if (item && item.data) {
-            const pin = item.data;
-            if (pin.id || pin.images) {
-              results.push({
-                id: pin.id || `pin-${results.length}`,
-                title: pin.title || pin.description || pin.grid_title || 'Untitled Pin',
-                image: pin.images?.orig?.url || pin.images?.['736x']?.url || pin.image_medium_url || '',
-                url: `https://www.pinterest.com/pin/${pin.id}`,
-                author: pin.pinner?.username || pin.owner?.username,
-                description: pin.description || pin.seo_description
-              });
-            }
-          }
-        });
       }
+    } catch (parseError) {
+      console.error('[Pinterest Search] JSON parsing error:', parseError);
+      return {
+        status: 'error',
+        error: 'Failed to parse Pinterest search response',
+        timings
+      };
     }
 
     timings.processTime = performance.now() - processStartTime;
