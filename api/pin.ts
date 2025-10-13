@@ -17,6 +17,22 @@ export type ExtractionResult = {
   timings: { fetchTime: number; processTime: number; totalTime: number };
 };
 
+export type SearchResult = {
+  status: 'success' | 'error';
+  query?: string;
+  results?: Array<{
+    id: string;
+    title: string;
+    image: string;
+    url: string;
+    author?: string;
+    description?: string;
+  }>;
+  count?: number;
+  timings: { fetchTime: number; processTime: number; totalTime: number };
+  error?: string;
+};
+
 // Updated headers with better browser fingerprinting
 const HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -67,7 +83,7 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
     };
 
     const fetchStartTime = performance.now();
-    
+
     // Use axios with better configuration to mimic browser behavior
     const response = await axios.get(url, {
       headers,
@@ -154,7 +170,7 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
               const pinData = data?.props?.initialReduxState?.pins || 
                             data?.resourceDataCache || 
                             data?.initialData;
-              
+
               if (pinData) {
                 const pinKey = Object.keys(pinData).find(key => key.includes('PinResource'));
                 if (pinKey && pinData[pinKey]) {
@@ -176,13 +192,13 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
     // Method 3: Fallback to meta tags
     if (!title) title = $('meta[property="og:title"]').attr("content") || 
                        $('meta[name="title"]').attr("content");
-    
+
     if (!description) description = $('meta[property="og:description"]').attr("content") || 
                                   $('meta[name="description"]').attr("content");
-    
+
     if (!thumbnail) thumbnail = $('meta[property="og:image"]').attr("content") || 
                               $('meta[name="image"]').attr("content");
-    
+
     if (!author) {
       const authorMeta = $('meta[property="og:see_also"]').attr("content") || 
                         $('meta[name="pinterest:user"]').attr("content");
@@ -196,7 +212,7 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
       if (videoTag.length) {
         videoUrl = videoTag.attr('src') || videoTag.first().attr('src');
       }
-      
+
       // Check for data attributes that might contain video URLs
       $('[data-video-url], [data-video-src]').each((_i, el) => {
         const videoSrc = $(el).attr('data-video-url') || $(el).attr('data-video-src');
@@ -242,13 +258,184 @@ export async function scrapePinterest(url: string): Promise<ExtractionResult> {
     };
   } catch (error: any) {
     console.error("[Pinterest Scraper Error]", error.message);
-    
+
     if (error.response?.status === 403 || error.response?.status === 401) {
       return { status: 'access_denied', timings };
     }
-    
+
     timings.totalTime = performance.now() - totalStartTime;
     return { status: 'fetch_error', timings };
+  }
+}
+
+export async function searchPinterest(query: string, limit: number = 20): Promise<SearchResult> {
+  const timings = { fetchTime: 0, processTime: 0, totalTime: 0 };
+  const totalStartTime = performance.now();
+
+  try {
+    // Encode search query for URL
+    const encodedQuery = encodeURIComponent(query);
+    const searchUrl = `https://www.pinterest.com/search/pins/?q=${encodedQuery}`;
+
+    // Rotate user agent
+    const randomUserAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+    const headers = {
+      ...HEADERS,
+      "User-Agent": randomUserAgent,
+      "Cookie": COOKIES
+    };
+
+    const fetchStartTime = performance.now();
+
+    const response = await axios.get(searchUrl, {
+      headers,
+      timeout: 15000,
+      maxRedirects: 5,
+      validateStatus: (status) => status < 500,
+      decompress: true,
+    });
+
+    timings.fetchTime = performance.now() - fetchStartTime;
+
+    if (response.status === 403 || response.status === 401) {
+      return { 
+        status: 'error', 
+        error: 'Access denied by Pinterest',
+        timings 
+      };
+    }
+
+    const html = response.data;
+    const processStartTime = performance.now();
+    const $ = cheerio.load(html);
+
+    const results: Array<{
+      id: string;
+      title: string;
+      image: string;
+      url: string;
+      author?: string;
+      description?: string;
+    }> = [];
+
+    // Method 1: Try to extract from JSON-LD
+    $('script[type="application/ld+json"]').each((_i, el) => {
+      try {
+        const scriptContent = $(el).html();
+        if (scriptContent) {
+          const jsonData = JSON.parse(scriptContent);
+          if (jsonData["@type"] === "ItemList" && jsonData.itemListElement) {
+            jsonData.itemListElement.forEach((item: any) => {
+              if (item.item && results.length < limit) {
+                results.push({
+                  id: item.item.url?.split('/pin/')[1]?.split('/')[0] || `pin-${results.length}`,
+                  title: item.item.name || item.item.headline || 'Untitled Pin',
+                  image: item.item.image || item.item.thumbnailUrl || '',
+                  url: item.item.url || '',
+                  author: item.item.author?.name,
+                  description: item.item.description
+                });
+              }
+            });
+          }
+        }
+      } catch (e) {}
+    });
+
+    // Method 2: Try to extract from Pinterest's embedded JSON data
+    if (results.length === 0) {
+      $('script').each((_i, el) => {
+        const scriptContent = $(el).html();
+        if (scriptContent && (scriptContent.includes('__PINTEREST__') || scriptContent.includes('initialReduxState'))) {
+          try {
+            // Try to find JSON data in the script
+            const jsonMatch = scriptContent.match(/(\{.*\})/s);
+            if (jsonMatch) {
+              const data = JSON.parse(jsonMatch[1]);
+              
+              // Navigate through Pinterest's data structure
+              const searchData = data?.props?.initialReduxState?.search?.searchPage || 
+                               data?.props?.initialReduxState?.pins ||
+                               data?.resourceDataCache;
+
+              if (searchData) {
+                // Extract pins from various possible locations
+                Object.keys(searchData).forEach(key => {
+                  if (results.length >= limit) return;
+                  
+                  const item = searchData[key];
+                  if (item && item.data) {
+                    const pin = item.data;
+                    if (pin.id || pin.images) {
+                      results.push({
+                        id: pin.id || `pin-${results.length}`,
+                        title: pin.title || pin.description || pin.grid_title || 'Untitled Pin',
+                        image: pin.images?.orig?.url || pin.images?.['736x']?.url || pin.image_medium_url || '',
+                        url: `https://www.pinterest.com/pin/${pin.id}`,
+                        author: pin.pinner?.username || pin.owner?.username,
+                        description: pin.description || pin.seo_description
+                      });
+                    }
+                  }
+                });
+              }
+            }
+          } catch (e) {
+            console.error('[Pinterest Search] JSON parsing error:', e);
+          }
+        }
+      });
+    }
+
+    // Method 3: Fallback to meta tags and images
+    if (results.length === 0) {
+      $('img[src*="pinimg.com"]').each((i, el) => {
+        if (results.length >= limit) return;
+        
+        const imgSrc = $(el).attr('src');
+        const imgAlt = $(el).attr('alt') || 'Untitled Pin';
+        const parent = $(el).closest('a');
+        const pinUrl = parent.attr('href');
+        
+        if (imgSrc && imgSrc.includes('236x') || imgSrc.includes('474x') || imgSrc.includes('736x')) {
+          // Extract high quality image
+          const highQualityImg = imgSrc.replace('/236x/', '/originals/')
+                                       .replace('/474x/', '/originals/')
+                                       .replace('/736x/', '/originals/');
+          
+          const pinId = pinUrl?.split('/pin/')[1]?.split('/')[0] || `pin-${i}`;
+          
+          results.push({
+            id: pinId,
+            title: imgAlt,
+            image: highQualityImg,
+            url: pinUrl ? `https://www.pinterest.com${pinUrl}` : `https://www.pinterest.com/pin/${pinId}`,
+            description: imgAlt
+          });
+        }
+      });
+    }
+
+    timings.processTime = performance.now() - processStartTime;
+    timings.totalTime = performance.now() - totalStartTime;
+
+    return {
+      status: 'success',
+      query,
+      results: results.slice(0, limit),
+      count: results.length,
+      timings
+    };
+
+  } catch (error: any) {
+    console.error("[Pinterest Search Error]", error.message);
+    timings.totalTime = performance.now() - totalStartTime;
+    
+    return {
+      status: 'error',
+      error: error.message,
+      timings
+    };
   }
 }
 
