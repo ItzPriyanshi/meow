@@ -56,6 +56,17 @@ function convertToMobileUrl(urlStr: string): string {
   return urlStr;
 }
 
+function cleanFacebookUrl(urlStr: string): string {
+  try {
+    const u = new URL(urlStr);
+    u.search = ''; 
+    u.hash = '';
+    return u.toString();
+  } catch {
+    return urlStr;
+  }
+}
+
 function truncate(str: string, maxLength: number): string {
   if (str.length <= maxLength) return str;
   const cleanedStr = str.trim().replace(/(\r\n|\n|\r)/gm, " ");
@@ -201,7 +212,11 @@ class FacebookUtils {
       },
       body: formData.toString(),
     });
-    if (!response.ok) throw new Error(`GraphQL request failed: ${response.status}`);
+    if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`[Facebook] GraphQL request failed: ${response.status}. Body: ${errorBody.substring(0, 500)}`);
+        throw new Error(`GraphQL request failed: ${response.status}`);
+    }
     return await response.text();
   }
 }
@@ -283,7 +298,8 @@ class FacebookMediaScraper {
   }
 }
 
-export async function scrapeFacebook(url: string, options: { metadata?: boolean } = {}): Promise<ExtractionResult> {
+export async function scrapeFacebook(rawUrl: string, options: { metadata?: boolean } = {}): Promise<ExtractionResult> {
+  const url = cleanFacebookUrl(rawUrl);
   const timings = { fetchTime: 0, processTime: 0, totalTime: 0 };
   const totalStartTime = Bun.nanoseconds();
   const toMs = (ns: number) => ns / 1_000_000;
