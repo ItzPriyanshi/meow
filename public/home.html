@@ -11,19 +11,16 @@
     <style>
         :root {
             --primary-color: #f7a61d;
-            /* MeowDL Orange/Gold */
             --secondary-color: #21d4fd;
-            /* Bright Blue */
-            --bg-dark: #121212;
-            --card-bg: rgba(30, 30, 30, 0.6);
-            /* Darker glass */
+            --bg-dark: #0a0a0a;
+            --card-bg: rgba(20, 20, 20, 0.7);
             --glass-blur: 15px;
             --text-light: #f0f0f0;
             --text-subtle: #b0b0b0;
-            --shadow-color: rgba(0, 0, 0, 0.4);
+            --shadow-color: rgba(0, 0, 0, 0.5);
+            --silver: linear-gradient(135deg, #bdc3c7, #ecf0f1, #95a5a6, #ecf0f1);
         }
 
-        /* Basic Reset & Body Styling */
         *,
         *::before,
         *::after {
@@ -42,7 +39,41 @@
             align-items: center;
             justify-content: flex-start;
             overflow-x: hidden;
-            background: linear-gradient(135deg, var(--bg-dark) 0%, #1c1c1c 100%);
+            position: relative;
+        }
+
+        /* Animated Particle Background */
+        #particles-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100vh) translateX(50px);
+                opacity: 0;
+            }
         }
 
         /* Utility Classes */
@@ -51,6 +82,8 @@
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px 0;
+            position: relative;
+            z-index: 1;
             opacity: 0;
             transform: translateY(20px);
             transition: opacity 0.8s ease-out, transform 0.8s ease-out;
@@ -75,17 +108,17 @@
 
         .logo-container {
             position: relative;
-            width: 80px;
-            height: 80px;
-            margin-bottom: 15px;
+            width: 120px;
+            height: 120px;
+            margin-bottom: 30px;
             opacity: 0;
-            transform: translateY(50px);
-            transition: opacity 0.8s ease-out 0.5s, transform 0.8s ease-out 0.5s;
+            transform: translateY(100px) scale(0.5);
+            transition: opacity 1s ease-out 0.5s, transform 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s;
         }
 
         .logo-container.loaded {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
         }
 
         .logo-image {
@@ -94,74 +127,109 @@
             border-radius: 50%;
             object-fit: cover;
             border: 3px solid var(--primary-color);
-            box-shadow: 0 0 20px rgba(247, 166, 29, 0.5);
+            box-shadow: 0 0 30px rgba(247, 166, 29, 0.6);
             transition: transform 0.3s ease;
         }
 
-        .logo-image:hover {
-            transform: scale(1.05);
+        .logo-glow {
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: calc(100% + 10px);
+            height: calc(100% + 10px);
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, #ff0000, #ff7700, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+            animation: rotate-glow 3s linear infinite;
+            z-index: -1;
+            filter: blur(8px);
+            opacity: 0;
+        }
+
+        .logo-container.loaded .logo-glow {
+            opacity: 0.8;
+        }
+
+        @keyframes rotate-glow {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .main-title {
-            font-size: 3.5rem;
+            font-size: 4rem;
             font-weight: 900;
-            letter-spacing: 2px;
-            color: var(--text-light);
+            letter-spacing: 3px;
             margin: 10px 0 5px;
-            text-shadow: 0 5px 15px var(--shadow-color);
             opacity: 0;
-            transition: opacity 1s ease-out 1s;
+            transform: translateY(-30px);
+            transition: opacity 1.2s ease-out 1.5s, transform 1.2s ease-out 1.5s;
         }
 
         .main-title.loaded {
             opacity: 1;
+            transform: translateY(0);
         }
 
-        /* Shining text effect */
         .shining-text {
-            background: linear-gradient(90deg,
-                    var(--text-light) 0%,
-                    var(--primary-color) 20%,
-                    var(--text-light) 40%,
-                    var(--primary-color) 60%,
-                    var(--text-light) 80%,
-                    var(--primary-color) 100%);
+            background: var(--silver);
             background-size: 200% auto;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            animation: shine 5s linear infinite;
+            background-clip: text;
+            animation: shine 3s linear infinite;
         }
 
         @keyframes shine {
             to {
-                background-position: -200% center;
+                background-position: 200% center;
             }
         }
 
         .tagline {
-            font-size: 1.25rem;
+            font-size: 1.4rem;
             font-weight: 300;
             color: var(--text-subtle);
             margin-bottom: 20px;
             opacity: 0;
-            transform: translateY(10px);
-            transition: opacity 1s ease-out 1.2s, transform 1s ease-out 1.2s;
+            transform: translateX(-50px);
+            transition: opacity 1.2s ease-out 1.8s, transform 1.2s ease-out 1.8s;
         }
 
         .tagline.loaded {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateX(0);
+        }
+
+        .owner-info {
+            margin-top: 15px;
+            font-size: 0.95rem;
+            color: var(--text-subtle);
+            opacity: 0;
+            transition: opacity 1.2s ease-out 2s;
+        }
+
+        .owner-info.loaded {
+            opacity: 1;
+        }
+
+        .owner-info a {
+            color: var(--primary-color);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .owner-info a:hover {
+            color: var(--secondary-color);
         }
 
         /* Main Grid for Cards */
         .endpoint-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             gap: 30px;
             padding: 30px 0;
         }
 
-        /* Aesthetic Card Styling (Glassmorphism) */
+        /* Card Styling */
         .card {
             background: var(--card-bg);
             backdrop-filter: blur(var(--glass-blur));
@@ -169,113 +237,320 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             padding: 30px;
             box-shadow: 0 8px 32px 0 var(--shadow-color);
-            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s ease;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s ease, border-color 0.4s ease;
             position: relative;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            cursor: pointer;
             opacity: 0;
             transform: translateY(50px) scale(0.9);
         }
 
         .card:hover {
-            transform: translateY(-5px) scale(1.02);
-            box-shadow: 0 16px 48px 0 rgba(0, 0, 0, 0.6);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 16px 48px 0 rgba(247, 166, 29, 0.4);
             border: 1px solid var(--primary-color);
         }
 
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg,
-                    rgba(255, 255, 255, 0.1) 0%,
-                    rgba(255, 255, 255, 0) 50%,
-                    rgba(255, 255, 255, 0) 100%);
-            z-index: 1;
-            transition: opacity 0.5s ease;
-            pointer-events: none;
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 15px;
+            fill: var(--primary-color);
+            transition: transform 0.3s ease;
         }
 
-        .card:hover::before {
-            opacity: 0.5;
+        .card:hover .card-icon {
+            transform: scale(1.1) rotate(5deg);
         }
 
         .card h3 {
-            font-size: 1.75rem;
-            margin-bottom: 10px;
-            color: var(--primary-color);
-            text-shadow: 0 2px 5px var(--shadow-color);
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: var(--text-light);
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            gap: 10px;
         }
 
-        .card .icon {
-            font-size: 2rem;
-            margin-right: 10px;
+        .endpoint-name {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .card .usage-label {
+            font-size: 0.85rem;
+            color: var(--text-subtle);
+            font-weight: 400;
+            margin-top: 5px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .card:hover .usage-label {
+            opacity: 1;
+            transform: translateY(0);
         }
 
         .card p {
             color: var(--text-subtle);
             margin-bottom: 20px;
-            flex-grow: 1;
+            line-height: 1.6;
         }
 
         .endpoint-info {
-            background-color: rgba(0, 0, 0, 0.3);
+            background-color: rgba(0, 0, 0, 0.4);
             border-radius: 10px;
             padding: 15px;
             font-family: 'Fira Code', monospace;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             white-space: pre-wrap;
             word-break: break-all;
-            line-height: 1.4;
+            line-height: 1.5;
             color: #4CAF50;
-            /* Green for success */
-            border: 1px solid rgba(76, 175, 80, 0.5);
-            margin-top: auto;
+            border: 1px solid rgba(76, 175, 80, 0.3);
         }
 
-        .endpoint-info span {
-            color: #64B5F6;
-            /* Light Blue for endpoint */
+        /* Modal Styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            border: 2px solid rgba(247, 166, 29, 0.5);
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(247, 166, 29, 0.3);
+            transform: scale(0.8) translateY(-50px);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1) translateY(0);
+        }
+
+        .modal.expanded {
+            max-width: 800px;
+            transition: max-width 0.4s ease;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            color: var(--text-light);
+            font-size: 20px;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 0, 0, 0.6);
+            transform: rotate(90deg);
+        }
+
+        .modal h2 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 2rem;
+        }
+
+        .modal-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .modal-section {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-section h3 {
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .modal-section label {
+            display: block;
+            color: var(--text-subtle);
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .modal-section input,
+        .modal-section select {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: var(--text-light);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .modal-section input:focus,
+        .modal-section select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), #ff8c00);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(247, 166, 29, 0.5);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-light);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .response-box {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .response-box.active {
+            max-height: 400px;
+            padding: 20px;
+            border: 1px solid var(--secondary-color);
+        }
+
+        .response-box pre {
+            color: #4CAF50;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin: 0;
+        }
+
+        /* Key Features Section */
+        .features-section {
+            margin-top: 50px;
+        }
+
+        .features-title {
+            font-size: 2.5rem;
+            color: var(--secondary-color);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .feature-card {
+            background: rgba(30, 30, 30, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 25px;
+            border-radius: 15px;
+            border-left: 5px solid var(--secondary-color);
+            font-weight: 500;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(33, 212, 253, 0.3);
         }
 
         /* Footer */
         footer {
             width: 100%;
-            padding: 20px;
+            padding: 30px 20px;
             text-align: center;
             color: var(--text-subtle);
             font-size: 0.9rem;
-            margin-top: 40px;
+            margin-top: 60px;
             border-top: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            z-index: 1;
         }
 
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            .main-title {
-                font-size: 2.5rem;
-            }
-
-            .tagline {
-                font-size: 1rem;
-            }
-
-            .card {
-                padding: 20px;
-            }
-
-            .endpoint-grid {
-                gap: 20px;
-            }
+        footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+            transition: color 0.3s ease;
         }
-    </style>
 
-    <style>
+        footer a:hover {
+            color: var(--secondary-color);
+        }
+
+        /* Preloader */
         #preloader {
             position: fixed;
             top: 0;
@@ -285,6 +560,7 @@
             background-color: var(--bg-dark);
             z-index: 9999;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             transition: opacity 1s ease-out, transform 1s ease-out;
@@ -292,22 +568,37 @@
 
         .preloader-content {
             position: relative;
-            width: 100px;
-            height: 100px;
+            width: 150px;
+            height: 150px;
         }
 
         .preloader-logo {
-            width: 100px;
-            height: 100px;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
             object-fit: cover;
             position: absolute;
             top: 0;
             left: 0;
             z-index: 10000;
+            animation: logo-spin 2s ease-in-out;
         }
 
-        /* RGB Spinner Animation */
+        @keyframes logo-spin {
+            0% {
+                transform: rotate(0deg) scale(0.5);
+                opacity: 0;
+            }
+            50% {
+                transform: rotate(180deg) scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: rotate(360deg) scale(1);
+                opacity: 1;
+            }
+        }
+
         .spinner {
             position: absolute;
             top: 0;
@@ -322,31 +613,57 @@
         .spinner::before {
             content: '';
             position: absolute;
-            top: -4px;
-            left: -4px;
-            right: -4px;
-            bottom: -4px;
-            border: 4px solid transparent;
+            top: -8px;
+            left: -8px;
+            right: -8px;
+            bottom: -8px;
+            border: 6px solid transparent;
             border-radius: 50%;
-            background: conic-gradient(from 0deg,
-                    #f06 0%,
-                    #f90 10%,
-                    #0f0 40%,
-                    #09f 60%,
-                    #90f 80%,
-                    #f06 100%);
-            -webkit-mask: radial-gradient(transparent 55px, #fff 55px);
-            mask: radial-gradient(transparent 55px, #fff 55px);
+            background: conic-gradient(from 0deg, #ff0000, #ff7700, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+            -webkit-mask: radial-gradient(transparent 75px, #fff 75px);
+            mask: radial-gradient(transparent 75px, #fff 75px);
         }
 
         @keyframes spin {
-            0% {
-                transform: rotate(0deg);
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-title {
+                font-size: 2.5rem;
             }
 
-            100% {
-                transform: rotate(360deg);
+            .tagline {
+                font-size: 1.1rem;
             }
+
+            .modal {
+                padding: 25px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary-color);
         }
     </style>
 
@@ -355,7 +672,10 @@
 </head>
 
 <body>
+    <!-- Animated Particle Background -->
+    <div id="particles-bg"></div>
 
+    <!-- Preloader -->
     <div id="preloader">
         <div class="preloader-content">
             <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" alt="MeowDL Logo" class="preloader-logo">
@@ -363,153 +683,401 @@
         </div>
     </div>
 
+    <!-- Header -->
     <header id="main-header">
         <div class="logo-container" id="logo-container">
+            <div class="logo-glow"></div>
             <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" alt="MeowDL Logo" class="logo-image">
         </div>
         <h1 class="main-title" id="main-title"><span class="shining-text">MeowDL</span></h1>
         <p class="tagline" id="tagline">Speed That You Never Experienced</p>
+        <div class="owner-info" id="owner-info">
+            <p><strong>Owner & Maintainer:</strong> MeowGurl</p>
+            <p>
+                <a href="https://github.com/MeowGurl" target="_blank">GitHub</a> | 
+                <a href="mailto:priyanshikaurji@gmail.com">priyanshikaurji@gmail.com</a>
+            </p>
+        </div>
     </header>
 
+    <!-- Main Content -->
     <main class="container" id="main-content">
         <section class="endpoint-grid">
-
-            <div class="card" data-delay="0.2">
-                <h3><span class="icon">▶️</span> YouTube Downloader</h3>
+            <!-- YouTube Card -->
+            <div class="card" data-delay="0.2" data-endpoint="yt" data-name="YouTube Downloader">
+                <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+                <h3>
+                    <span class="endpoint-name">YouTube Downloader</span>
+                    <span class="usage-label">Click to test this endpoint →</span>
+                </h3>
                 <p>High-speed, chunked download and merge for Video + Audio (MP4) or Audio-Only (M4A).</p>
-                <div class="endpoint-info">
-                    GET <span>/yt</span><br>
-                    <small>?url=&lt;video-url&gt;&amp;quality=1080&amp;format=mp4</small>
-                </div>
+                <div class="endpoint-info">GET <span>/yt</span>
+?url=&lt;video-url&gt;&amp;quality=1080&amp;format=mp4</div>
             </div>
 
-            <div class="card" data-delay="0.4">
-                <h3><span class="icon">📌</span> Pinterest Extractor</h3>
+            <!-- Pinterest Card -->
+            <div class="card" data-delay="0.4" data-endpoint="pin" data-name="Pinterest Extractor">
+                <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z"/>
+                </svg>
+                <h3>
+                    <span class="endpoint-name">Pinterest Extractor</span>
+                    <span class="usage-label">Click to test this endpoint →</span>
+                </h3>
                 <p>Extract direct media links from Pinterest Pins. Includes image/video search functionality.</p>
-                <div class="endpoint-info">
-                    GET <span>/pin</span><br>
-                    <small>?url=&lt;pin-url&gt; OR ?search=&lt;query&gt;</small>
-                </div>
+                <div class="endpoint-info">GET <span>/pin</span>
+?url=&lt;pin-url&gt; OR ?search=&lt;query&gt;</div>
             </div>
 
-            <div class="card" data-delay="0.6">
-                <h3><span class="icon">🎵</span> TikTok Downloader</h3>
+            <!-- TikTok Card -->
+            <div class="card" data-delay="0.6" data-endpoint="tt" data-name="TikTok Downloader">
+                <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+                </svg>
+                <h3>
+                    <span class="endpoint-name">TikTok Downloader</span>
+                    <span class="usage-label">Click to test this endpoint →</span>
+                </h3>
                 <p>Extracts media from TikTok URLs, bypassing common protections.</p>
-                <div class="endpoint-info">
-                    GET <span>/tt</span><br>
-                    <small>?url=&lt;tiktok-url&gt;</small>
-                </div>
+                <div class="endpoint-info">GET <span>/tt</span>
+?url=&lt;tiktok-url&gt;</div>
             </div>
 
-            <div class="card" data-delay="0.8">
-                <h3><span class="icon">📸</span> Instagram Extractor</h3>
+            <!-- Instagram Card -->
+            <div class="card" data-delay="0.8" data-endpoint="insta" data-name="Instagram Extractor">
+                <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                </svg>
+                <h3>
+                    <span class="endpoint-name">Instagram Extractor</span>
+                    <span class="usage-label">Click to test this endpoint →</span>
+                </h3>
                 <p>Retrieve direct links for Reels, Posts, and other media from Instagram URLs.</p>
-                <div class="endpoint-info">
-                    GET <span>/insta</span><br>
-                    <small>?url=&lt;insta-url&gt;</small>
-                </div>
+                <div class="endpoint-info">GET <span>/insta</span>
+?url=&lt;insta-url&gt;</div>
             </div>
 
-            <div class="card" data-delay="1.0">
-                <h3><span class="icon">📘</span> Facebook Downloader</h3>
+            <!-- Facebook Card -->
+            <div class="card" data-delay="1.0" data-endpoint="fb" data-name="Facebook Downloader">
+                <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+                <h3>
+                    <span class="endpoint-name">Facebook Downloader</span>
+                    <span class="usage-label">Click to test this endpoint →</span>
+                </h3>
                 <p>Fetch downloadable links for Facebook videos/posts.</p>
-                <div class="endpoint-info">
-                    GET <span>/fb</span><br>
-                    <small>?url=&lt;fb-url&gt;</small>
-                </div>
+                <div class="endpoint-info">GET <span>/fb</span>
+?url=&lt;fb-url&gt;</div>
             </div>
 
-            <div class="card" data-delay="1.2">
-                <h3><span class="icon">🐦</span> X/Twitter Media</h3>
+            <!-- Twitter/X Card -->
+            <div class="card" data-delay="1.2" data-endpoint="x" data-name="X/Twitter Media">
+                <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+                <h3>
+                    <span class="endpoint-name">X/Twitter Media</span>
+                    <span class="usage-label">Click to test this endpoint →</span>
+                </h3>
                 <p>Extract the highest quality video/image links from X (formerly Twitter) post URLs.</p>
-                <div class="endpoint-info">
-                    GET <span>/x</span><br>
-                    <small>?url=&lt;x-url&gt;</small>
-                </div>
+                <div class="endpoint-info">GET <span>/x</span>
+?url=&lt;x-url&gt;</div>
             </div>
-
         </section>
 
-        <section style="margin-top: 50px;">
-            <h2 style="font-size: 2rem; color: var(--secondary-color); text-align: center; margin-bottom: 20px;">
-                <span class="shining-text">Key Features</span>
-            </h2>
-            <ul style="list-style: none; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;">
-                <li style="background: rgba(30, 30, 30, 0.8); backdrop-filter: blur(10px); padding: 15px 25px; border-radius: 10px; border-left: 5px solid var(--secondary-color); font-weight: 500;">
-                    🚀 Chunked Downloads (Fastest YT Speed)
-                </li>
-                <li style="background: rgba(30, 30, 30, 0.8); backdrop-filter: blur(10px); padding: 15px 25px; border-radius: 10px; border-left: 5px solid var(--secondary-color); font-weight: 500;">
-                    🛡️ Rate Limiting & Caching
-                </li>
-                <li style="background: rgba(30, 30, 30, 0.8); backdrop-filter: blur(10px); padding: 15px 25px; border-radius: 10px; border-left: 5px solid var(--secondary-color); font-weight: 500;">
-                    ⚙️ FFmpeg Video/Audio Merging
-                </li>
-                <li style="background: rgba(30, 30, 30, 0.8); backdrop-filter: blur(10px); padding: 15px 25px; border-radius: 10px; border-left: 5px solid var(--secondary-color); font-weight: 500;">
-                    🔥 Built with Elysia.js & Bun
-                </li>
-            </ul>
+        <!-- Key Features -->
+        <section class="features-section">
+            <h2 class="features-title"><span class="shining-text">Key Features</span></h2>
+            <div class="features-grid">
+                <div class="feature-card">🚀 Chunked Downloads (Fastest YT Speed)</div>
+                <div class="feature-card">🛡️ Rate Limiting & Caching</div>
+                <div class="feature-card">⚙️ FFmpeg Video/Audio Merging</div>
+                <div class="feature-card">🔥 Built with Elysia.js & Bun</div>
+            </div>
         </section>
     </main>
 
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modal">
+            <button class="modal-close" id="modalClose">×</button>
+            <h2 id="modalTitle">Endpoint Tester</h2>
+            <div class="modal-content">
+                <div class="modal-section">
+                    <h3>Endpoint URL</h3>
+                    <label for="endpointUrl">Full API Endpoint</label>
+                    <input type="text" id="endpointUrl" readonly value="https://yourDomain.com/yt?url=">
+                </div>
+
+                <div class="modal-section" id="testingSection">
+                    <h3>Testing Options</h3>
+                    <label for="testUrl">Enter URL to test</label>
+                    <input type="text" id="testUrl" placeholder="https://youtube.com/watch?v=...">
+                    
+                    <div id="additionalOptions" style="margin-top: 15px;"></div>
+                    
+                    <div class="button-group">
+                        <button class="btn btn-primary" id="testBtn">Test Endpoint</button>
+                        <button class="btn btn-secondary" id="copyBtn">Copy URL</button>
+                    </div>
+                </div>
+
+                <div class="response-box" id="responseBox">
+                    <h3 style="color: var(--secondary-color); margin-bottom: 10px;">Response:</h3>
+                    <pre id="responseContent">Waiting for response...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
     <footer>
-        <p>&copy; 2025 MeowDL API. All rights reserved. | Powered by <a href="https://elysiajs.com/" style="color: var(--primary-color); text-decoration: none;">Elysia</a> & <a href="https://bun.sh/" style="color: var(--primary-color); text-decoration: none;">Bun</a></p>
+        <p>&copy; 2025 MeowDL API. All rights reserved. | Powered by <a href="https://elysiajs.com/" target="_blank">Elysia</a> & <a href="https://bun.sh/" target="_blank">Bun</a></p>
     </footer>
 
-
     <script>
+        // Particle Background Animation
+        function createParticles() {
+            const particleContainer = document.getElementById('particles-bg');
+            const particleCount = 50;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                
+                const size = Math.random() * 3 + 1;
+                const startX = Math.random() * window.innerWidth;
+                const duration = Math.random() * 20 + 10;
+                const delay = Math.random() * 5;
+                
+                particle.style.width = `${size}px`;
+                particle.style.height = `${size}px`;
+                particle.style.left = `${startX}px`;
+                particle.style.bottom = '0';
+                particle.style.background = `rgba(${Math.random() * 100 + 155}, ${Math.random() * 100 + 155}, 255, 0.6)`;
+                particle.style.animation = `float ${duration}s ${delay}s infinite ease-in`;
+                
+                particleContainer.appendChild(particle);
+            }
+        }
+
+        // Preloader and Animations
         document.addEventListener('DOMContentLoaded', () => {
+            createParticles();
+
             const preloader = document.getElementById('preloader');
-            const mainHeader = document.getElementById('main-header');
             const logoContainer = document.getElementById('logo-container');
             const mainTitle = document.getElementById('main-title');
             const tagline = document.getElementById('tagline');
+            const ownerInfo = document.getElementById('owner-info');
             const mainContent = document.getElementById('main-content');
             const cards = document.querySelectorAll('.card');
 
-            // Set a minimum load time for effect
-            const minLoadTime = 1500;
+            const minLoadTime = 2500;
             const startTime = Date.now();
 
-            // 1. Initial Preloader Animation and Fade-out
             window.onload = () => {
                 const loadDuration = Date.now() - startTime;
                 const delay = loadDuration < minLoadTime ? minLoadTime - loadDuration : 0;
 
                 setTimeout(() => {
-                    // Start fade-out and movement
                     preloader.style.opacity = '0';
                     preloader.style.transform = 'translateY(-100%)';
 
-                    // 2. Main Content/Header Animations
-                    // Logo slides up to its final position
                     logoContainer.classList.add('loaded');
-                    // Title and Tagline appear with shine/slide
-                    mainTitle.classList.add('loaded');
-                    tagline.classList.add('loaded');
                     
-                    // Main content container slides up
+                    setTimeout(() => {
+                        mainTitle.classList.add('loaded');
+                    }, 300);
+                    
+                    setTimeout(() => {
+                        tagline.classList.add('loaded');
+                    }, 600);
+                    
+                    setTimeout(() => {
+                        ownerInfo.classList.add('loaded');
+                    }, 900);
+
                     setTimeout(() => {
                         mainContent.classList.add('loaded');
-                        // Hide preloader element fully after animation
                         preloader.style.display = 'none';
 
-                        // 3. Staggered Card Animation
                         cards.forEach((card) => {
                             const delayAttr = card.getAttribute('data-delay');
                             const delaySec = parseFloat(delayAttr || '0');
-                            
-                            // Start card animation after the main header/content animation is complete (2s total from start)
+
                             setTimeout(() => {
                                 card.style.opacity = '1';
                                 card.style.transform = 'translateY(0) scale(1)';
-                            }, 2000 + (delaySec * 1000));
+                            }, 1000 + (delaySec * 1000));
                         });
-                    }, 500); // Wait for preloader to complete fade-out
+                    }, 500);
                 }, delay);
             };
         });
-    </script>
 
+        // Modal Functionality
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modal = document.getElementById('modal');
+        const modalClose = document.getElementById('modalClose');
+        const modalTitle = document.getElementById('modalTitle');
+        const endpointUrl = document.getElementById('endpointUrl');
+        const testUrl = document.getElementById('testUrl');
+        const testBtn = document.getElementById('testBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const responseBox = document.getElementById('responseBox');
+        const responseContent = document.getElementById('responseContent');
+        const additionalOptions = document.getElementById('additionalOptions');
+
+        const cards = document.querySelectorAll('.card');
+
+        // Endpoint configurations
+        const endpointConfig = {
+            'yt': {
+                baseUrl: 'https://yourDomain.com/yt',
+                params: ['url'],
+                additionalFields: [
+                    { name: 'quality', type: 'select', options: ['360', '480', '720', '1080', '1440', '2160'], default: '1080' },
+                    { name: 'format', type: 'select', options: ['mp4', 'm4a'], default: 'mp4' }
+                ]
+            },
+            'pin': {
+                baseUrl: 'https://yourDomain.com/pin',
+                params: ['url'],
+                additionalFields: []
+            },
+            'tt': {
+                baseUrl: 'https://yourDomain.com/tt',
+                params: ['url'],
+                additionalFields: []
+            },
+            'insta': {
+                baseUrl: 'https://yourDomain.com/insta',
+                params: ['url'],
+                additionalFields: []
+            },
+            'fb': {
+                baseUrl: 'https://yourDomain.com/fb',
+                params: ['url'],
+                additionalFields: []
+            },
+            'x': {
+                baseUrl: 'https://yourDomain.com/x',
+                params: ['url'],
+                additionalFields: []
+            }
+        };
+
+        let currentEndpoint = '';
+
+        cards.forEach(card => {
+            card.addEventListener('click', () => {
+                const endpoint = card.getAttribute('data-endpoint');
+                const name = card.getAttribute('data-name');
+                openModal(endpoint, name);
+            });
+        });
+
+        function openModal(endpoint, name) {
+            currentEndpoint = endpoint;
+            modalTitle.textContent = name;
+            
+            const config = endpointConfig[endpoint];
+            endpointUrl.value = config.baseUrl + '?url=';
+            
+            // Clear and rebuild additional options
+            additionalOptions.innerHTML = '';
+            
+            if (config.additionalFields.length > 0) {
+                config.additionalFields.forEach(field => {
+                    const fieldDiv = document.createElement('div');
+                    fieldDiv.style.marginTop = '15px';
+                    
+                    const label = document.createElement('label');
+                    label.textContent = field.name.charAt(0).toUpperCase() + field.name.slice(1);
+                    label.setAttribute('for', field.name);
+                    fieldDiv.appendChild(label);
+                    
+                    if (field.type === 'select') {
+                        const select = document.createElement('select');
+                        select.id = field.name;
+                        field.options.forEach(opt => {
+                            const option = document.createElement('option');
+                            option.value = opt;
+                            option.textContent = opt;
+                            if (opt === field.default) option.selected = true;
+                            select.appendChild(option);
+                        });
+                        fieldDiv.appendChild(select);
+                    }
+                    
+                    additionalOptions.appendChild(fieldDiv);
+                });
+            }
+            
+            testUrl.value = '';
+            responseBox.classList.remove('active');
+            modal.classList.remove('expanded');
+            modalOverlay.classList.add('active');
+        }
+
+        modalClose.addEventListener('click', () => {
+            modalOverlay.classList.remove('active');
+        });
+
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                modalOverlay.classList.remove('active');
+            }
+        });
+
+        testBtn.addEventListener('click', async () => {
+            const config = endpointConfig[currentEndpoint];
+            let apiUrl = config.baseUrl + '?url=' + encodeURIComponent(testUrl.value);
+            
+            // Add additional parameters
+            if (config.additionalFields.length > 0) {
+                config.additionalFields.forEach(field => {
+                    const value = document.getElementById(field.name).value;
+                    apiUrl += `&${field.name}=${value}`;
+                });
+            }
+            
+            responseBox.classList.add('active');
+            modal.classList.add('expanded');
+            responseContent.textContent = 'Loading...';
+            
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                responseContent.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseContent.textContent = `Error: ${error.message}`;
+            }
+        });
+
+        copyBtn.addEventListener('click', () => {
+            const config = endpointConfig[currentEndpoint];
+            let apiUrl = config.baseUrl + '?url=' + encodeURIComponent(testUrl.value);
+            
+            if (config.additionalFields.length > 0) {
+                config.additionalFields.forEach(field => {
+                    const value = document.getElementById(field.name).value;
+                    apiUrl += `&${field.name}=${value}`;
+                });
+            }
+            
+            navigator.clipboard.writeText(apiUrl).then(() => {
+                copyBtn.textContent = '✓ Copied!';
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy URL';
+                }, 2000);
+            });
+        });
+    </script>
 </body>
 
 </html>
