@@ -1,38 +1,515 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <title>Meow-DL</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeowDL - Speed That You Never Experienced</title>
+    <meta name="description" content="High-speed multi-platform media downloader API built with Elysia and Bun.">
+    <link rel="icon" type="image/png" href="https://i.ibb.co/5WMp4cYZ/image.jpg">
+
+    <style>
+        :root {
+            --primary-color: #f7a61d;
+            /* MeowDL Orange/Gold */
+            --secondary-color: #21d4fd;
+            /* Bright Blue */
+            --bg-dark: #121212;
+            --card-bg: rgba(30, 30, 30, 0.6);
+            /* Darker glass */
+            --glass-blur: 15px;
+            --text-light: #f0f0f0;
+            --text-subtle: #b0b0b0;
+            --shadow-color: rgba(0, 0, 0, 0.4);
+        }
+
+        /* Basic Reset & Body Styling */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            overflow-x: hidden;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #1c1c1c 100%);
+        }
+
+        /* Utility Classes */
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px 0;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+
+        .container.loaded {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Header Styling */
+        header {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 40px 20px 60px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .logo-container {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            margin-bottom: 15px;
+            opacity: 0;
+            transform: translateY(50px);
+            transition: opacity 0.8s ease-out 0.5s, transform 0.8s ease-out 0.5s;
+        }
+
+        .logo-container.loaded {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .logo-image {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--primary-color);
+            box-shadow: 0 0 20px rgba(247, 166, 29, 0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .logo-image:hover {
+            transform: scale(1.05);
+        }
+
+        .main-title {
+            font-size: 3.5rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: var(--text-light);
+            margin: 10px 0 5px;
+            text-shadow: 0 5px 15px var(--shadow-color);
+            opacity: 0;
+            transition: opacity 1s ease-out 1s;
+        }
+
+        .main-title.loaded {
+            opacity: 1;
+        }
+
+        /* Shining text effect */
+        .shining-text {
+            background: linear-gradient(90deg,
+                    var(--text-light) 0%,
+                    var(--primary-color) 20%,
+                    var(--text-light) 40%,
+                    var(--primary-color) 60%,
+                    var(--text-light) 80%,
+                    var(--primary-color) 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shine 5s linear infinite;
+        }
+
+        @keyframes shine {
+            to {
+                background-position: -200% center;
+            }
+        }
+
+        .tagline {
+            font-size: 1.25rem;
+            font-weight: 300;
+            color: var(--text-subtle);
+            margin-bottom: 20px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 1s ease-out 1.2s, transform 1s ease-out 1.2s;
+        }
+
+        .tagline.loaded {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Main Grid for Cards */
+        .endpoint-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            padding: 30px 0;
+        }
+
+        /* Aesthetic Card Styling (Glassmorphism) */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            box-shadow: 0 8px 32px 0 var(--shadow-color);
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s ease;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            transform: translateY(50px) scale(0.9);
+        }
+
+        .card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 16px 48px 0 rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--primary-color);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg,
+                    rgba(255, 255, 255, 0.1) 0%,
+                    rgba(255, 255, 255, 0) 50%,
+                    rgba(255, 255, 255, 0) 100%);
+            z-index: 1;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+        }
+
+        .card:hover::before {
+            opacity: 0.5;
+        }
+
+        .card h3 {
+            font-size: 1.75rem;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+            text-shadow: 0 2px 5px var(--shadow-color);
+            display: flex;
+            align-items: center;
+        }
+
+        .card .icon {
+            font-size: 2rem;
+            margin-right: 10px;
+        }
+
+        .card p {
+            color: var(--text-subtle);
+            margin-bottom: 20px;
+            flex-grow: 1;
+        }
+
+        .endpoint-info {
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.4;
+            color: #4CAF50;
+            /* Green for success */
+            border: 1px solid rgba(76, 175, 80, 0.5);
+            margin-top: auto;
+        }
+
+        .endpoint-info span {
+            color: #64B5F6;
+            /* Light Blue for endpoint */
+        }
+
+        /* Footer */
+        footer {
+            width: 100%;
+            padding: 20px;
+            text-align: center;
+            color: var(--text-subtle);
+            font-size: 0.9rem;
+            margin-top: 40px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .main-title {
+                font-size: 2.5rem;
+            }
+
+            .tagline {
+                font-size: 1rem;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .endpoint-grid {
+                gap: 20px;
+            }
+        }
+    </style>
+
+    <style>
+        #preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-dark);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 1s ease-out, transform 1s ease-out;
+        }
+
+        .preloader-content {
+            position: relative;
+            width: 100px;
+            height: 100px;
+        }
+
+        .preloader-logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10000;
+        }
+
+        /* RGB Spinner Animation */
+        .spinner {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 4px solid transparent;
+            animation: spin 1.5s linear infinite;
+        }
+
+        .spinner::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            border: 4px solid transparent;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg,
+                    #f06 0%,
+                    #f90 10%,
+                    #0f0 40%,
+                    #09f 60%,
+                    #90f 80%,
+                    #f06 100%);
+            -webkit-mask: radial-gradient(transparent 55px, #fff 55px);
+            mask: radial-gradient(transparent 55px, #fff 55px);
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap" rel="stylesheet">
 </head>
+
 <body>
-  <div class="container centered">
-    <div class="logo-wrap">
-      <div class="material-effect"></div>
-      <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" alt="MeowDL Logo" class="logo-circular">
+
+    <div id="preloader">
+        <div class="preloader-content">
+            <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" alt="MeowDL Logo" class="preloader-logo">
+            <div class="spinner"></div>
+        </div>
     </div>
-    <h1 class="site-name shine">Meow-DL</h1>
-    <p class="description">Fastest Free Public Api By Team MeowGurl</p>
-    <div class="buttons">
-      <a href="/dashboard.html" class="btn">Dashboard</a>
-      <a href="/uptime.html" class="btn">Uptime</a>
-    </div>
-    <div class="social-icons">
-      <a href="https://m.facebook.com/OGPriyanshiKaurJi" target="_blank" title="Facebook" class="social facebook">
-        <svg viewBox="0 0 128 128"><path fill="currentColor" d="M107 6H21A15 15 0 0 0 6 21v86A15 15 0 0 0 21 122h43V79h-12v-17h12v-13c0-12 7-19 18-19 5 0 10 0 12 1v14h-7c-6 0-7 2-7 7v10h14l-2 17h-12v43h22a15 15 0 0 0 15-15V21a15 15 0 0 0-15-15z"/></svg>
-      </a>
-      <a href="https://github.com/MeowGurl" target="_blank" title="GitHub" class="social github">
-        <svg viewBox="0 0 128 128"><path fill="currentColor" d="M64 6C33 6 8 31 8 62c0 25 17 46 41 53 3 1 5-1 5-4v-10c-17 4-21-8-21-8-2-6-7-8-7-8-6-4 0-4 0-4 7 0 11 7 11 7 6 11 16 8 20 6 1-5 4-8 7-10-14-2-28-7-28-30 0-7 2-12 6-16-1-2-3-8 0-16 0 0 5-2 16 6a53 53 0 0 1 30 0c11-8 16-6 16-6 3 8 1 14 0 16 4 5 6 10 6 16 0 23-14 28-28 30 4 3 8 9 8 17v26c0 3 2 6 5 4A54 54 0 0 0 120 62c0-31-25-56-56-56z"/></svg>
-      </a>
-      <a href="https://t.me/PriyanshiKaurJi" target="_blank" title="Telegram" class="social telegram">
-        <svg viewBox="0 0 128 128"><path fill="currentColor" d="M13 64c0 28 23 51 51 51s51-23 51-51S92 13 64 13 13 36 13 64zm36-7l-7 21c-1 2 2 4 4 2l15-12 21 15c2 1 5 0 5-3l6-32c1-4-2-7-6-6L31 55c-3 1-3 6 0 7l28 9z"/></svg>
-      </a>
-      <a href="mailto:priyanshikaurji@gmail.com" title="Email" class="social email">
-        <svg viewBox="0 0 128 128"><rect width="128" height="128" rx="24" fill="currentColor" opacity="0.15"/><path fill="currentColor" d="M116 46v44a12 12 0 0 1-12 12H24a12 12 0 0 1-12-12V46a12 12 0 0 1 12-12h80a12 12 0 0 1 12 12zm-12-4H24a4 4 0 0 0-4 4v2l44 27 44-27v-2a4 4 0 0 0-4-4zm4 10.7L68 79.9a5.54 5.54 0 0 1-8 0l-40-27.2V90a4 4 0 0 0 4 4h80a4 4 0 0 0 4-4V52.7z"/></svg>
-      </a>
-    </div>
-  </div>
-  <script src="/theme.js"></script>
+
+    <header id="main-header">
+        <div class="logo-container" id="logo-container">
+            <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" alt="MeowDL Logo" class="logo-image">
+        </div>
+        <h1 class="main-title" id="main-title"><span class="shining-text">MeowDL</span></h1>
+        <p class="tagline" id="tagline">Speed That You Never Experienced</p>
+    </header>
+
+    <main class="container" id="main-content">
+        <section class="endpoint-grid">
+
+            <div class="card" data-delay="0.2">
+                <h3><span class="icon">▶️</span> YouTube Downloader</h3>
+                <p>High-speed, chunked download and merge for Video + Audio (MP4) or Audio-Only (M4A).</p>
+                <div class="endpoint-info">
+                    GET <span>/yt</span><br>
+                    <small>?url=&lt;video-url&gt;&amp;quality=1080&amp;format=mp4</small>
+                </div>
+            </div>
+
+            <div class="card" data-delay="0.4">
+                <h3><span class="icon">📌</span> Pinterest Extractor</h3>
+                <p>Extract direct media links from Pinterest Pins. Includes image/video search functionality.</p>
+                <div class="endpoint-info">
+                    GET <span>/pin</span><br>
+                    <small>?url=&lt;pin-url&gt; OR ?search=&lt;query&gt;</small>
+                </div>
+            </div>
+
+            <div class="card" data-delay="0.6">
+                <h3><span class="icon">🎵</span> TikTok Downloader</h3>
+                <p>Extracts media from TikTok URLs, bypassing common protections.</p>
+                <div class="endpoint-info">
+                    GET <span>/tt</span><br>
+                    <small>?url=&lt;tiktok-url&gt;</small>
+                </div>
+            </div>
+
+            <div class="card" data-delay="0.8">
+                <h3><span class="icon">📸</span> Instagram Extractor</h3>
+                <p>Retrieve direct links for Reels, Posts, and other media from Instagram URLs.</p>
+                <div class="endpoint-info">
+                    GET <span>/insta</span><br>
+                    <small>?url=&lt;insta-url&gt;</small>
+                </div>
+            </div>
+
+            <div class="card" data-delay="1.0">
+                <h3><span class="icon">📘</span> Facebook Downloader</h3>
+                <p>Fetch downloadable links for Facebook videos/posts.</p>
+                <div class="endpoint-info">
+                    GET <span>/fb</span><br>
+                    <small>?url=&lt;fb-url&gt;</small>
+                </div>
+            </div>
+
+            <div class="card" data-delay="1.2">
+                <h3><span class="icon">🐦</span> X/Twitter Media</h3>
+                <p>Extract the highest quality video/image links from X (formerly Twitter) post URLs.</p>
+                <div class="endpoint-info">
+                    GET <span>/x</span><br>
+                    <small>?url=&lt;x-url&gt;</small>
+                </div>
+            </div>
+
+        </section>
+
+        <section style="margin-top: 50px;">
+            <h2 style="font-size: 2rem; color: var(--secondary-color); text-align: center; margin-bottom: 20px;">
+                <span class="shining-text">Key Features</span>
+            </h2>
+            <ul style="list-style: none; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;">
+                <li style="background: rgba(30, 30, 30, 0.8); backdrop-filter: blur(10px); padding: 15px 25px; border-radius: 10px; border-left: 5px solid var(--secondary-color); font-weight: 500;">
+                    🚀 Chunked Downloads (Fastest YT Speed)
+                </li>
+                <li style="background: rgba(30, 30, 30, 0.8); backdrop-filter: blur(10px); padding: 15px 25px; border-radius: 10px; border-left: 5px solid var(--secondary-color); font-weight: 500;">
+                    🛡️ Rate Limiting & Caching
+                </li>
+                <li style="background: rgba(30, 30, 30, 0.8); backdrop-filter: blur(10px); padding: 15px 25px; border-radius: 10px; border-left: 5px solid var(--secondary-color); font-weight: 500;">
+                    ⚙️ FFmpeg Video/Audio Merging
+                </li>
+                <li style="background: rgba(30, 30, 30, 0.8); backdrop-filter: blur(10px); padding: 15px 25px; border-radius: 10px; border-left: 5px solid var(--secondary-color); font-weight: 500;">
+                    🔥 Built with Elysia.js & Bun
+                </li>
+            </ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 MeowDL API. All rights reserved. | Powered by <a href="https://elysiajs.com/" style="color: var(--primary-color); text-decoration: none;">Elysia</a> & <a href="https://bun.sh/" style="color: var(--primary-color); text-decoration: none;">Bun</a></p>
+    </footer>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const preloader = document.getElementById('preloader');
+            const mainHeader = document.getElementById('main-header');
+            const logoContainer = document.getElementById('logo-container');
+            const mainTitle = document.getElementById('main-title');
+            const tagline = document.getElementById('tagline');
+            const mainContent = document.getElementById('main-content');
+            const cards = document.querySelectorAll('.card');
+
+            // Set a minimum load time for effect
+            const minLoadTime = 1500;
+            const startTime = Date.now();
+
+            // 1. Initial Preloader Animation and Fade-out
+            window.onload = () => {
+                const loadDuration = Date.now() - startTime;
+                const delay = loadDuration < minLoadTime ? minLoadTime - loadDuration : 0;
+
+                setTimeout(() => {
+                    // Start fade-out and movement
+                    preloader.style.opacity = '0';
+                    preloader.style.transform = 'translateY(-100%)';
+
+                    // 2. Main Content/Header Animations
+                    // Logo slides up to its final position
+                    logoContainer.classList.add('loaded');
+                    // Title and Tagline appear with shine/slide
+                    mainTitle.classList.add('loaded');
+                    tagline.classList.add('loaded');
+                    
+                    // Main content container slides up
+                    setTimeout(() => {
+                        mainContent.classList.add('loaded');
+                        // Hide preloader element fully after animation
+                        preloader.style.display = 'none';
+
+                        // 3. Staggered Card Animation
+                        cards.forEach((card) => {
+                            const delayAttr = card.getAttribute('data-delay');
+                            const delaySec = parseFloat(delayAttr || '0');
+                            
+                            // Start card animation after the main header/content animation is complete (2s total from start)
+                            setTimeout(() => {
+                                card.style.opacity = '1';
+                                card.style.transform = 'translateY(0) scale(1)';
+                            }, 2000 + (delaySec * 1000));
+                        });
+                    }, 500); // Wait for preloader to complete fade-out
+                }, delay);
+            };
+        });
+    </script>
+
 </body>
+
 </html>
