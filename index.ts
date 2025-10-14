@@ -238,8 +238,8 @@ const app = new Elysia()
         };
     })
     .get('/', () => {
-        return Bun.file('public/home.html');
-    })
+  return new Response(Bun.file('public/home.html'));
+})
     .get('/robots.txt', () => new Response(['User-agent: *', 'Disallow: /'].join('\n'), {
         headers: { 'Content-Type': 'text/plain' }
     }))
