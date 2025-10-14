@@ -197,7 +197,8 @@ function scheduleSessionCleanup(sessionId: string, delayMs: number) {
 const app = new Elysia()
     .use(staticPlugin({
         assets: 'public',
-        prefix: '/'
+        prefix: '',
+        alwaysStatic: true
     }))
     .onStart(async () => {
         try {
