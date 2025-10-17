@@ -57,12 +57,23 @@ type CleanedMedia = {
     url: string;
 };
 
+type Comment = {
+    text: string;
+    author: string;
+    timestamp: number;
+};
+
 export type ExtractionResult = {
     status: 'success' | 'not_found' | 'fetch_error' | 'invalid_url';
     author?: string;
     title?: string;
     thumbnail?: string;
     media?: CleanedMedia[];
+    likeCount?: number;
+    commentCount?: number;
+    viewCount?: number;
+    timestamp?: number;
+    comments?: Comment[];
     timings: {
         fetchTime: number;
         processTime: number;
@@ -78,14 +89,14 @@ function getPostShortcode(url: string): string | null {
 function generateRequestBody(shortcode: string): string {
     const variables = {
         shortcode,
-        fetch_comment_count: null,
-        fetch_related_profile_media_count: null,
-        parent_comment_count: null,
-        child_comment_count: null,
-        fetch_like_count: null,
+        fetch_comment_count: 40,
+        fetch_related_profile_media_count: 3,
+        parent_comment_count: 24,
+        child_comment_count: 3,
+        fetch_like_count: 10,
         fetch_tagged_user_count: null,
-        fetch_preview_comment_count: null,
-        has_threaded_comments: false,
+        fetch_preview_comment_count: 2,
+        has_threaded_comments: true,
         hoisted_comment_id: null,
         hoisted_reply_id: null,
     };
@@ -174,6 +185,19 @@ export async function scrapeInstagram(url: string): Promise < ExtractionResult >
 
         const authorName = mediaData.owner?.full_name || mediaData.owner?.username;
         const captionText = mediaData.edge_media_to_caption?.edges[0]?.node?.text;
+        const likeCount = mediaData.edge_media_preview_like?.count;
+        const commentCount = mediaData.edge_media_to_parent_comment?.count;
+        const viewCount = mediaData.video_play_count || mediaData.video_view_count;
+        const timestamp = mediaData.taken_at_timestamp;
+
+        const comments: Comment[] = (mediaData.edge_media_to_parent_comment?.edges || [])
+            .slice(0, 5)
+            .map((edge: any) => ({
+                text: edge.node.text,
+                author: edge.node.owner.username,
+                timestamp: edge.node.created_at,
+            }))
+            .filter((comment: Comment) => comment.text);
 
         timings.processTime = performance.now() - processStartTime;
         timings.totalTime = performance.now() - totalStartTime;
@@ -184,6 +208,11 @@ export async function scrapeInstagram(url: string): Promise < ExtractionResult >
             title: captionText,
             thumbnail: mediaData.display_url,
             media: mediaUrls,
+            likeCount: likeCount,
+            commentCount: commentCount,
+            viewCount: viewCount,
+            timestamp: timestamp,
+            comments: comments,
             timings,
         };
     } catch (error) {
