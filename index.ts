@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { spawn } from 'node:child_process';
 import instaHandler from './api/insta';
+import instav2Handler from './api/instav2';
 import fbHandler from './api/fb';
 import pinHandler, { searchPinterest, getCacheStats, clearCaches } from './api/pin';
 import ttHandler from './api/tt';
@@ -22,17 +23,21 @@ const COOKIE_FILE_PATH = 'cookies.txt';
 const CACHE_EXPIRATION_MS = 3 * 60 * 1000;
 
 function getClientId(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  const realIp = request.headers.get('x-real-ip');
-  const cfConnecting = request.headers.get('cf-connecting-ip');
+    const forwarded = request.headers.get('x-forwarded-for');
+    const realIp = request.headers.get('x-real-ip');
+    const cfConnecting = request.headers.get('cf-connecting-ip');
 
-  return forwarded?.split(',')[0].trim() || 
-         realIp || 
-         cfConnecting || 
-         'unknown';
+    return forwarded?.split(',')[0].trim() ||
+        realIp ||
+        cfConnecting ||
+        'unknown';
 }
 
-type YTFormat = NonNullable<Awaited<ReturnType<Innertube['getBasicInfo']>>['streaming_data']>['formats'][number] & { content_length: number, is_original?: boolean, deciphered_url?: string };
+type YTFormat = NonNullable < Awaited < ReturnType < Innertube['getBasicInfo'] >> ['streaming_data'] > ['formats'][number] & {
+    content_length: number,
+    is_original ? : boolean,
+    deciphered_url ? : string
+};
 
 interface DownloadTask {
     index: number;
@@ -45,16 +50,16 @@ interface DownloadTask {
 
 interface DownloadSession {
     status: 'pending' | 'downloading' | 'merging' | 'completed' | 'error';
-    videoFormat?: YTFormat;
+    videoFormat ? : YTFormat;
     audioFormat: YTFormat;
     tempDir: string;
-    tempVideoFile?: string;
+    tempVideoFile ? : string;
     tempAudioFile: string;
     finalFilename: string;
     finalFilePath: string;
     videoTasks: DownloadTask[];
     audioTasks: DownloadTask[];
-    error?: string;
+    error ? : string;
     isAudioOnly: boolean;
     createdAt: number;
     cleanupTimeoutId: NodeJS.Timeout | null;
@@ -65,11 +70,11 @@ interface CacheEntry {
     data: any;
 }
 
-const downloadSessions = new Map<string, DownloadSession>();
-const infoCache = new Map<string, CacheEntry>();
+const downloadSessions = new Map < string, DownloadSession > ();
+const infoCache = new Map < string, CacheEntry > ();
 let yt: Innertube;
 
-async function getCookieFileContent(cookieFilePath: string): Promise<string> {
+async function getCookieFileContent(cookieFilePath: string): Promise < string > {
     const cookieFile = Bun.file(cookieFilePath);
     if (!(await cookieFile.exists())) {
         console.warn(`🔴 WARNING: Cookie file not found at '${cookieFilePath}'`);
@@ -119,7 +124,7 @@ async function downloadAndCombineManager(sessionId: string, tasks: DownloadTask[
     const totalSize = tasks.reduce((sum, t) => sum + (t.end - t.start + 1), 0);
     const actualWorkers = Math.min(tasks.length, MAX_CONCURRENT_DOWNLOADS);
     console.log(`[${sessionId}] Starting combined download of ${tasks.length} chunks for ${destinationFile.split('/').pop()}... (Using ${actualWorkers} workers)`);
-    const downloadedChunks = new Map<number, Buffer>();
+    const downloadedChunks = new Map < number, Buffer > ();
     let chunksWritten = 0;
     const writer = Bun.file(destinationFile).writer();
     const processTask = async (task: DownloadTask, workerId: number) => {
@@ -129,13 +134,15 @@ async function downloadAndCombineManager(sessionId: string, tasks: DownloadTask[
         while (attempt <= task.retries) {
             try {
                 const resp = await fetch(url, {
-                    headers: { 'Range': `bytes=${task.start}-${task.end}` }
+                    headers: {
+                        'Range': `bytes=${task.start}-${task.end}`
+                    }
                 });
                 if (!resp.ok) throw new Error(`Fetch failed with status ${resp.status}`);
                 const buf = Buffer.from(await resp.arrayBuffer());
                 downloadedChunks.set(task.index, buf);
                 while (downloadedChunks.has(chunksWritten)) {
-                    writer.write(downloadedChunks.get(chunksWritten)!);
+                    writer.write(downloadedChunks.get(chunksWritten) !);
                     downloadedChunks.delete(chunksWritten);
                     chunksWritten++;
                 }
@@ -176,7 +183,9 @@ async function cleanupSession(sessionId: string) {
         if (session.cleanupTimeoutId) clearTimeout(session.cleanupTimeoutId);
         downloadSessions.delete(sessionId);
         try {
-            await rmdir(session.tempDir, { recursive: true });
+            await rmdir(session.tempDir, {
+                recursive: true
+            });
             console.log(`[${sessionId}] Removed temp dir: ${session.tempDir}`);
         } catch (err) {
             if (err instanceof Error && 'code' in err && err.code !== 'ENOENT') console.error(`[${sessionId}] Final cleanup error:`, err);
@@ -202,7 +211,9 @@ const app = new Elysia()
     }))
     .onStart(async () => {
         try {
-            await mkdir(join(process.cwd(), 'temp'), { recursive: true });
+            await mkdir(join(process.cwd(), 'temp'), {
+                recursive: true
+            });
         } catch (err) {
             console.error('Failed to create temp directory:', err);
         }
@@ -238,14 +249,24 @@ const app = new Elysia()
         };
     })
     .get('/', () => {
-  return new Response(Bun.file('public/home.html'));
-})
+        return new Response(Bun.file('public/home.html'));
+    })
     .get('/robots.txt', () => new Response(['User-agent: *', 'Disallow: /'].join('\n'), {
-        headers: { 'Content-Type': 'text/plain' }
+        headers: {
+            'Content-Type': 'text/plain'
+        }
     }))
 
-    .get('/pin', async ({ query, request, set }) => {
-        const { url, search, limit } = query;
+    .get('/pin', async ({
+        query,
+        request,
+        set
+    }) => {
+        const {
+            url,
+            search,
+            limit
+        } = query;
         const clientId = getClientId(request);
 
         if (search) {
@@ -284,7 +305,10 @@ const app = new Elysia()
 
     .post('/pin/cache/clear', () => {
         clearCaches();
-        return { status: 'success', message: 'All Pinterest caches cleared' };
+        return {
+            status: 'success',
+            message: 'All Pinterest caches cleared'
+        };
     })
 
     .get('/yt', async ({
@@ -314,9 +338,11 @@ const app = new Elysia()
             const newSessionId = crypto.randomUUID();
             const tempDir = join(process.cwd(), 'temp', newSessionId);
 
-            await mkdir(tempDir, { recursive: true });
+            await mkdir(tempDir, {
+                recursive: true
+            });
 
-            const newSession: DownloadSession = { 
+            const newSession: DownloadSession = {
                 ...sessionData,
                 tempDir,
                 tempVideoFile: sessionData.tempVideoFile ? join(tempDir, 'video.mp4') : undefined,
@@ -365,7 +391,9 @@ const app = new Elysia()
 
         const sessionId = crypto.randomUUID();
         const tempDir = join(process.cwd(), 'temp', sessionId);
-        await mkdir(tempDir, { recursive: true });
+        await mkdir(tempDir, {
+            recursive: true
+        });
 
         const audioTasks: DownloadTask[] = [];
         const targetChunkSizeBytes = DOWNLOAD_CHUNK_SIZE_MB * 1024 * 1024;
@@ -477,7 +505,7 @@ const app = new Elysia()
             }
         });
 
-        return { 
+        return {
             ...responsePayload,
             cached: false,
             downloadLink: `${requestUrl.protocol}//${requestUrl.host}/stream/${isAudioRequest ? 'audio' : 'video'}/${sessionId}`
@@ -490,18 +518,27 @@ const app = new Elysia()
         })
     })
 
-    .get('/stream/video/:id', async ({ params, set }) => {
+    .get('/stream/video/:id', async ({
+        params,
+        set
+    }) => {
         const sessionId = params.id;
         const session = downloadSessions.get(sessionId);
 
         if (!session) {
             set.status = 404;
-            return { status: 'error', message: 'Download session not found or expired.' };
+            return {
+                status: 'error',
+                message: 'Download session not found or expired.'
+            };
         }
 
         if (session.isAudioOnly) {
             set.status = 400;
-            return { status: 'error', message: 'This session is for audio-only download. Use /stream/audio/:id.' };
+            return {
+                status: 'error',
+                message: 'This session is for audio-only download. Use /stream/audio/:id.'
+            };
         }
 
         if (session.status === 'pending') {
@@ -555,23 +592,32 @@ const app = new Elysia()
         while (session.status !== 'completed' && session.status !== 'error' && attempts < 10) {
             await new Promise(r => setTimeout(r, 2000));
             attempts++;
-            scheduleSessionCleanup(sessionId, EXPIRATION_SECONDS * 1000); 
+            scheduleSessionCleanup(sessionId, EXPIRATION_SECONDS * 1000);
         }
 
         if (session.status === 'error') {
             set.status = 500;
-            return { status: 'error', message: session.error || 'An unexpected download/merge error occurred.' };
+            return {
+                status: 'error',
+                message: session.error || 'An unexpected download/merge error occurred.'
+            };
         }
 
         if (session.status !== 'completed') {
             set.status = 504;
-            return { status: 'error', message: 'Download/merge timed out. Try again.' };
+            return {
+                status: 'error',
+                message: 'Download/merge timed out. Try again.'
+            };
         }
 
         const stats = await Bun.file(session.finalFilePath).exists() ? (await Bun.file(session.finalFilePath).stat()) : null;
         if (!stats) {
             set.status = 500;
-            return { status: 'error', message: 'Final file not found after completion.' };
+            return {
+                status: 'error',
+                message: 'Final file not found after completion.'
+            };
         }
 
         set.headers['Content-Type'] = 'video/mp4';
@@ -583,16 +629,24 @@ const app = new Elysia()
         });
 
     }, {
-        params: t.Object({ id: t.String() })
+        params: t.Object({
+            id: t.String()
+        })
     })
 
-    .get('/stream/audio/:id', async ({ params, set }) => {
+    .get('/stream/audio/:id', async ({
+        params,
+        set
+    }) => {
         const sessionId = params.id;
         const session = downloadSessions.get(sessionId);
 
         if (!session) {
             set.status = 404;
-            return { status: 'error', message: 'Download session not found or expired.' };
+            return {
+                status: 'error',
+                message: 'Download session not found or expired.'
+            };
         }
 
         if (session.status === 'pending') {
@@ -615,23 +669,32 @@ const app = new Elysia()
         while (session.status !== 'completed' && session.status !== 'error' && attempts < 10) {
             await new Promise(r => setTimeout(r, 2000));
             attempts++;
-            scheduleSessionCleanup(sessionId, EXPIRATION_SECONDS * 1000); 
+            scheduleSessionCleanup(sessionId, EXPIRATION_SECONDS * 1000);
         }
 
         if (session.status === 'error') {
             set.status = 500;
-            return { status: 'error', message: session.error || 'An unexpected download error occurred.' };
+            return {
+                status: 'error',
+                message: session.error || 'An unexpected download error occurred.'
+            };
         }
 
         if (session.status !== 'completed') {
             set.status = 504;
-            return { status: 'error', message: 'Download timed out. Try again.' };
+            return {
+                status: 'error',
+                message: 'Download timed out. Try again.'
+            };
         }
 
         const stats = await Bun.file(session.finalFilePath).exists() ? (await Bun.file(session.finalFilePath).stat()) : null;
         if (!stats) {
             set.status = 500;
-            return { status: 'error', message: 'Final file not found after completion.' };
+            return {
+                status: 'error',
+                message: 'Final file not found after completion.'
+            };
         }
 
         set.headers['Content-Type'] = 'audio/mp4';
@@ -642,36 +705,75 @@ const app = new Elysia()
             headers: set.headers
         });
     }, {
-        params: t.Object({ id: t.String() })
+        params: t.Object({
+            id: t.String()
+        })
     })
 
-    .get('/insta', async ({ query }) => {
-        const { url } = query;
+    .get('/insta', async ({
+        query
+    }) => {
+        const {
+            url
+        } = query;
         if (!url) throw new Error('Missing URL');
         return await instaHandler(url);
     }, {
-        query: t.Object({ url: t.String() })
+        query: t.Object({
+            url: t.String()
+        })
     })
-    .get('/fb', async ({ query }) => {
-        const { url } = query;
+    .get('/instav2', async ({
+        query
+    }) => {
+        const {
+            url
+        } = query;
+        if (!url) throw new Error('Missing URL');
+        return await instav2Handler(url);
+    }, {
+        query: t.Object({
+            url: t.String()
+        })
+    })
+    .get('/fb', async ({
+        query
+    }) => {
+        const {
+            url
+        } = query;
         if (!url) throw new Error('Missing URL');
         return await fbHandler(url);
     }, {
-        query: t.Object({ url: t.String() })
+        query: t.Object({
+            url: t.String()
+        })
     })
-    .get('/tt', async ({ query }) => {
-        const { url } = query;
+    .get('/tt', async ({
+        query
+    }) => {
+        const {
+            url
+        } = query;
         if (!url) throw new Error('Missing URL');
         return await ttHandler(url);
     }, {
-        query: t.Object({ url: t.String() })
+        query: t.Object({
+            url: t.String()
+        })
     })
-    .get('/x', async ({ query }) => {
-        const { url } = query;
+    .get('/x', async ({
+        query
+    }) => {
+        const {
+            url
+        } = query;
         if (!url) throw new Error('Missing URL');
         return await xHandler(url);
     }, {
-        query: t.Object({ url: t.String() })
+        query: t.Object({
+            url: t.String()
+        })
     })
     .listen({
         port: PORT,
