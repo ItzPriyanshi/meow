@@ -2,8 +2,7 @@ import { Elysia, t } from 'elysia';
 import { staticPlugin } from '@elysiajs/static';
 import { Innertube, UniversalCache } from 'youtubei.js';
 import ffmpeg from 'ffmpeg-static';
-import { mkdir, rmdir } from 'node:fs/promises';
-import { createReadStream } from 'node:fs';
+import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { spawn } from 'node:child_process';
@@ -183,8 +182,9 @@ async function cleanupSession(sessionId: string) {
         if (session.cleanupTimeoutId) clearTimeout(session.cleanupTimeoutId);
         downloadSessions.delete(sessionId);
         try {
-            await rmdir(session.tempDir, {
-                recursive: true
+            await rm(session.tempDir, {
+                recursive: true,
+                force: true
             });
             console.log(`[${sessionId}] Removed temp dir: ${session.tempDir}`);
         } catch (err) {
@@ -624,7 +624,7 @@ const app = new Elysia()
         set.headers['Content-Disposition'] = `attachment; filename="${session.finalFilename}"`;
         set.headers['Content-Length'] = stats.size.toString();
 
-        return new Response(createReadStream(session.finalFilePath) as unknown as ReadableStream, {
+        return new Response(Bun.file(session.finalFilePath), {
             headers: set.headers
         });
 
@@ -701,7 +701,7 @@ const app = new Elysia()
         set.headers['Content-Disposition'] = `attachment; filename="${session.finalFilename}"`;
         set.headers['Content-Length'] = stats.size.toString();
 
-        return new Response(createReadStream(session.finalFilePath) as unknown as ReadableStream, {
+        return new Response(Bun.file(session.finalFilePath), {
             headers: set.headers
         });
     }, {
