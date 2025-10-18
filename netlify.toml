@@ -5,6 +5,22 @@ functions = "netlify/functions"
 [build.environment]
 BUN_VERSION = "1.1.10"
 
+[functions]
+  # This tells the bundler not to package these modules.
+  # They will be loaded from node_modules when the function runs.
+  external_node_modules = ["elysia", "memoirist"]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/index"
+  status = 200[build]
+command = "bun install"
+functions = "netlify/functions"
+
+[build.environment]
+BUN_VERSION = "1.1.10"
+
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/index"
