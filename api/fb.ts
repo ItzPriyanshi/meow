@@ -174,7 +174,7 @@ async function fetchFacebookMetadata(inputUrl: string): Promise<FacebookTitleInf
 
 async function logResponseToFile(fileName: string, data: any) {
   try {
-    const dir = path.join(import.meta.dir, 'logs');
+    const dir = path.join(process.cwd(), 'logs');
     const content = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
     await Bun.write(path.join(dir, fileName), content);
   } catch (writeError) {
