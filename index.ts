@@ -223,6 +223,7 @@ const app = new Elysia()
         yt = await Innertube.create({
             cookie,
             cache: new UniversalCache(true),
+            player_id: '0004de42'
         });
         console.log("✅ Innertube ready with shared session.");
     })
