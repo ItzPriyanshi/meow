@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia';
 import { staticPlugin } from '@elysiajs/static';
-import { Innertube, UniversalCache, type YTNodes } from 'youtubei.js';
+import { Innertube, Platform, Types, UniversalCache, type YTNodes } from 'youtubei.js/web';
 import ffmpeg from 'ffmpeg-static';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -12,6 +12,18 @@ import pinHandler, { searchPinterest, getCacheStats, clearCaches } from './api/p
 import ttHandler from './api/tt';
 import xHandler from './api/x';
 
+Platform.shim.eval = async (data: Types.BuildScriptResult, env: Record<string, Types.VMPrimative>) => {
+  const properties = [];
+  if(env.n) {
+    properties.push(`n: exportedVars.nFunction("${env.n}")`)
+  }
+  if (env.sig) {
+    properties.push(`sig: exportedVars.sigFunction("${env.sig}")`)
+  }
+  const code = `${data.output}\nreturn { ${properties.join(', ')} }`;
+  return new Function(code)();
+}
+
 const PORT = 3040;
 const BUN_IDLE_TIMEOUT = 255;
 const EXPIRATION_SECONDS = 180;
@@ -20,7 +32,6 @@ const DOWNLOAD_CHUNK_SIZE_MB = 10;
 const COOKIE_FILE_PATH = 'cookies.txt';
 const CACHE_EXPIRATION_MS = 3 * 60 * 1000;
 
-// Helper function to get client IP
 function getClientId(request: Request): string {
     return request.headers.get('cf-connecting-ip') ||
            request.headers.get('x-real-ip') ||
@@ -28,7 +39,6 @@ function getClientId(request: Request): string {
            'unknown';
 }
 
-// Type Definitions
 type YTFormat = YTNodes.Format & { content_length: number, deciphered_url?: string };
 
 interface DownloadTask {
@@ -261,7 +271,6 @@ const app = new Elysia()
         const audioFormat = allM4aAudio.sort((a, b) => b.bitrate - a.bitrate)[0];
         if (!audioFormat.content_length) throw new Error('Selected audio format is missing size info.');
 
-        // *** FIX 1: Await the decipher call ***
         audioFormat.deciphered_url = await audioFormat.decipher();
         if (!audioFormat.deciphered_url) throw new Error("Failed to decipher audio URL.");
         console.log(`[${videoId}] ✅ Audio URL deciphered.`);
@@ -284,7 +293,7 @@ const app = new Elysia()
                 status: 'pending',
                 audioFormat,
                 tempDir,
-                tempAudioFile: join(tempDir, 'audio.m4a'), // Kept for consistency, but will download direct
+                tempAudioFile: join(tempDir, 'audio.m4a'),
                 finalFilename,
                 finalFilePath: join(tempDir, finalFilename),
                 audioTasks,
@@ -309,7 +318,6 @@ const app = new Elysia()
             const videoFormat = suitableVideos[0];
             if (!videoFormat.content_length) throw new Error('Selected video format is missing size info.');
 
-            // *** FIX 1: Await the decipher call ***
             videoFormat.deciphered_url = await videoFormat.decipher();
             if (!videoFormat.deciphered_url) throw new Error("Failed to decipher video URL.");
             console.log(`[${videoId}] ✅ Video URL deciphered.`);
@@ -350,7 +358,6 @@ const app = new Elysia()
         };
     }, { query: t.Object({ url: t.String(), quality: t.Optional(t.String()), format: t.Optional(t.String()) }) })
 
-    // *** FIX 2: Reverted to simpler, more reliable stream logic ***
     .get('/stream/video/:id', async ({ params, set }) => {
         const session = downloadSessions.get(params.id);
         if (!session || session.isAudioOnly) {
@@ -358,11 +365,10 @@ const app = new Elysia()
             return { status: 'error', message: 'Download session not found or is audio-only.' };
         }
         if (session.status !== 'pending') {
-            set.status = 409; // Conflict
+            set.status = 409;
             return { status: 'error', message: 'This download has already started.' };
         }
-
-        // Long running process, stop the cleanup timer
+        
         if (session.cleanupTimeoutId) clearTimeout(session.cleanupTimeoutId);
         
         try {
@@ -377,10 +383,15 @@ const app = new Elysia()
             if (!ffmpeg) throw new Error("FFmpeg static path not available.");
             const ffmpegStart = performance.now();
             const ffmpegArgs = ['-i', session.tempVideoFile!, '-i', session.tempAudioFile, '-c', 'copy', '-movflags', '+faststart', '-y', session.finalFilePath];
-            const { exited, stderr } = await Bun.spawn(ffmpegArgs);
-            if (await exited !== 0) {
-                throw new Error(`FFmpeg failed: ${await new Response(stderr).text()}`);
+            
+            const proc = Bun.spawn(ffmpegArgs, { stderr: 'pipe' });
+            const exitCode = await proc.exited;
+
+            if (exitCode !== 0) {
+                const stderr = await new Response(proc.stderr).text();
+                throw new Error(`FFmpeg failed with code ${exitCode}: ${stderr}`);
             }
+            
             console.log(`[${params.id}] FFmpeg merge successful in ${(performance.now() - ffmpegStart).toFixed(2)}ms.`);
             
             session.status = 'completed';
@@ -393,13 +404,12 @@ const app = new Elysia()
             session.status = 'error';
             session.error = error.message;
             console.error(`[${params.id}] 🔴 Processing failed:`, error);
-            scheduleSessionCleanup(params.id, 5000); // Clean up failed session quickly
+            scheduleSessionCleanup(params.id, 5000);
             set.status = 500;
             return { status: 'error', message: `Failed to process stream: ${error.message}` };
         }
     }, { params: t.Object({ id: t.String() }) })
 
-    // *** FIX 2: Reverted to simpler, more reliable stream logic ***
     .get('/stream/audio/:id', async ({ params, set }) => {
         const session = downloadSessions.get(params.id);
         if (!session || !session.isAudioOnly) {
@@ -416,7 +426,6 @@ const app = new Elysia()
         try {
             await mkdir(session.tempDir, { recursive: true });
             session.status = 'downloading';
-            // For audio-only, we can download directly to the final file path.
             await downloadAndCombineManager(params.id, session.audioTasks, session.finalFilePath);
             
             session.status = 'completed';
@@ -433,7 +442,6 @@ const app = new Elysia()
         }
     }, { params: t.Object({ id: t.String() }) })
     
-    // Other handlers...
     .get('/insta', ({ query }) => instaHandler(query.url), { query: t.Object({ url: t.String() }) })
     .get('/instav2', ({ query }) => instav2Handler(query.url), { query: t.Object({ url: t.String() }) })
     .get('/fb', ({ query }) => fbHandler(query.url), { query: t.Object({ url: t.String() }) })
