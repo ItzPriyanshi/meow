@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { staticPlugin } from '@elysiajs/static';
-import { Innertube, UniversalCache, Platform, Types, type YTNodes } from 'youtubei.js/web';
+// FIX 1: Import from the main 'youtubei.js' package, not '/web'
+import { Innertube, UniversalCache, type YTNodes } from 'youtubei.js';
 import ffmpeg from 'ffmpeg-static';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -13,21 +14,7 @@ import pinHandler, { searchPinterest, getCacheStats, clearCaches } from './api/p
 import ttHandler from './api/tt';
 import xHandler from './api/x';
 
-Platform.shim.eval = async (data: Types.BuildScriptResult, env: Record<string, Types.VMPrimative>) => {
-  const properties = [];
-
-  if(env.n) {
-    properties.push(`n: exportedVars.nFunction("${env.n}")`)
-  }
-
-  if (env.sig) {
-    properties.push(`sig: exportedVars.sigFunction("${env.sig}")`)
-  }
-
-  const code = `${data.output}\nreturn { ${properties.join(', ')} }`;
-
-  return new Function(code)();
-}
+// FIX 2: Remove the entire Platform.shim.eval block. It is not needed for Bun.
 
 const PORT = 3040;
 const BUN_IDLE_TIMEOUT = 255;
@@ -238,7 +225,7 @@ const app = new Elysia()
         yt = await Innertube.create({
             cookie,
             cache: new UniversalCache(true),
-            player_id: '0004de42'
+            // FIX 3: Remove the hardcoded player_id. Let youtubei.js handle it.
         });
         console.log("✅ Innertube ready with shared session.");
     })
@@ -388,7 +375,10 @@ const app = new Elysia()
             client: 'TV'
         });
 
-        if (info.playability_status?.status !== 'OK') throw new Error(`Video not playable: ${info.playability_status?.reason}`);
+        if (info.playability_status?.status !== 'OK') {
+             // This is where the "Sign in to confirm you're not a bot" error comes from
+            throw new Error(`Video not playable: ${info.playability_status?.reason}`);
+        }
         if (!info.streaming_data) throw new Error('No streaming data found.');
 
         const title = info.primary_info?.title?.text || 'video';
