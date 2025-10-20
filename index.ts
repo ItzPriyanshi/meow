@@ -6,7 +6,6 @@ import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import instaHandler from './api/insta'
-import instav2Handler from './api/instav2'
 import fbHandler from './api/fb'
 import pinHandler, { searchPinterest, getCacheStats, clearCaches } from './api/pin'
 import ttHandler from './api/tt'
@@ -80,17 +79,10 @@ let yt: Innertube
 async function getCookieFileContent(cookieFilePath: string): Promise<string> {
   const cookieFile = Bun.file(cookieFilePath)
   if (!(await cookieFile.exists())) {
-    console.warn(`🔴 WARNING: Cookie file not found at '${cookieFilePath}'`)
+    console.warn(`🔴 WARNING: Cookie file not found`)
     return ''
   }
-  try {
-    const content = await cookieFile.text()
-    console.log(`✅ Cookies loaded from ${cookieFilePath}`)
-    return content
-  } catch (err) {
-    console.error('Error reading cookies:', err)
-    return ''
-  }
+  return await cookieFile.text()
 }
 
 function getVideoId(url: string): string | null {
@@ -126,7 +118,6 @@ async function downloadAndCombineManager(sessionId: string, tasks: DownloadTask[
   const startTime = performance.now()
   const totalSize = tasks.reduce((sum, t) => sum + (t.end - t.start + 1), 0)
   const actualWorkers = Math.min(tasks.length, MAX_CONCURRENT_DOWNLOADS)
-  console.log(`[${sessionId}] Starting combined download of ${tasks.length} chunks for ${destinationFile.split('/').pop()}...`)
   const downloadedChunks = new Map<number, Buffer>()
   let chunksWritten = 0
   const writer = Bun.file(destinationFile).writer()
@@ -155,19 +146,17 @@ async function downloadAndCombineManager(sessionId: string, tasks: DownloadTask[
     }
   }
   const tasksToProcess = [...tasks]
-  const workers = Array.from({ length: actualWorkers }, (_, i) =>
-    (async () => {
-      const id = i + 1
-      while (tasksToProcess.length > 0) {
-        const task = tasksToProcess.shift()
-        if (task) await processTask(task, id)
-      }
-    })()
-  )
+  const workers = Array.from({ length: actualWorkers }, (_, i) => (async () => {
+    const id = i + 1
+    while (tasksToProcess.length > 0) {
+      const task = tasksToProcess.shift()
+      if (task) await processTask(task, id)
+    }
+  })())
   await Promise.all(workers)
   await writer.end()
   const duration = (performance.now() - startTime) / 1000
-  console.log(`[${sessionId}] Completed: ${formatBytes(totalSize)} in ${duration.toFixed(2)}s`)
+  console.log(`[${sessionId}] Completed ${formatBytes(totalSize)} in ${duration.toFixed(2)}s`)
 }
 
 async function cleanupSession(sessionId: string) {
@@ -197,6 +186,50 @@ const app = new Elysia()
   .get('/', () => new Response(Bun.file('public/home.html')))
   .get('/robots.txt', () => new Response(['User-agent: *', 'Disallow: /'].join('
 '), { headers: { 'Content-Type': 'text/plain' } }))
+  .get('/insta', async ({ query }) => {
+    const { url } = query
+    return await instaHandler(url)
+  }, { query: t.Object({ url: t.String() }) })
+  .get('/fb', async ({ query }) => {
+    const { url } = query
+    return await fbHandler(url)
+  }, { query: t.Object({ url: t.String() }) })
+  .get('/tt', async ({ query }) => {
+    const { url } = query
+    return await ttHandler(url)
+  }, { query: t.Object({ url: t.String() }) })
+  .get('/x', async ({ query }) => {
+    const { url } = query
+    return await xHandler(url)
+  }, { query: t.Object({ url: t.String() }) })
+  .get('/pin', async ({ query, request, set }) => {
+    const { url, search, limit } = query
+    const clientId = getClientId(request)
+    if (search) {
+      const searchLimit = limit ? Math.min(parseInt(limit), 50) : 20
+      const result = await searchPinterest(search, clientId, searchLimit)
+      if (result.status === 'rate_limited') {
+        set.status = 429
+        set.headers['Retry-After'] = '60'
+      }
+      return result
+    } else if (url) {
+      const result = await pinHandler(url, clientId)
+      if (result.status === 'rate_limited') {
+        set.status = 429
+        set.headers['Retry-After'] = '60'
+      }
+      return result
+    } else {
+      set.status = 400
+      return { status: 'error', error: 'Missing required parameter' }
+    }
+  }, { query: t.Object({ url: t.Optional(t.String()), search: t.Optional(t.String()), limit: t.Optional(t.String()) }) })
+  .get('/pin/stats', () => getCacheStats())
+  .post('/pin/cache/clear', () => {
+    clearCaches()
+    return { status: 'success' }
+  })
   .listen({ port: PORT, idleTimeout: BUN_IDLE_TIMEOUT })
 
 console.log(`🦊 Elysia YouTube API running at http://localhost:${app.server?.port}`)
