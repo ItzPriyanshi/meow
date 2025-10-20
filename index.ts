@@ -1,6 +1,5 @@
 import { Elysia, t } from 'elysia';
 import { staticPlugin } from '@elysiajs/static';
-// FIX 1: Import from the main 'youtubei.js' package, not '/web'
 import { Innertube, UniversalCache, type YTNodes } from 'youtubei.js';
 import ffmpeg from 'ffmpeg-static';
 import { mkdir, rm } from 'node:fs/promises';
@@ -13,8 +12,6 @@ import fbHandler from './api/fb';
 import pinHandler, { searchPinterest, getCacheStats, clearCaches } from './api/pin';
 import ttHandler from './api/tt';
 import xHandler from './api/x';
-
-// FIX 2: Remove the entire Platform.shim.eval block. It is not needed for Bun.
 
 const PORT = 3040;
 const BUN_IDLE_TIMEOUT = 255;
@@ -137,7 +134,8 @@ async function downloadAndCombineManager(sessionId: string, tasks: DownloadTask[
             try {
                 const resp = await fetch(url, {
                     headers: {
-                        'Range': `bytes=${task.start}-${task.end}`
+                        'Range': `bytes=${task.start}-${task.end}`,
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36'
                     }
                 });
                 if (!resp.ok) throw new Error(`Fetch failed with status ${resp.status}`);
@@ -225,7 +223,6 @@ const app = new Elysia()
         yt = await Innertube.create({
             cookie,
             cache: new UniversalCache(true),
-            // FIX 3: Remove the hardcoded player_id. Let youtubei.js handle it.
         });
         console.log("✅ Innertube ready with shared session.");
     })
@@ -376,7 +373,6 @@ const app = new Elysia()
         });
 
         if (info.playability_status?.status !== 'OK') {
-             // This is where the "Sign in to confirm you're not a bot" error comes from
             throw new Error(`Video not playable: ${info.playability_status?.reason}`);
         }
         if (!info.streaming_data) throw new Error('No streaming data found.');
