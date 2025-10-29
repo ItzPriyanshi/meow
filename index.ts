@@ -21,7 +21,7 @@ import pinHandler, {
   clearCaches,
 } from "./api/pin";
 import ttHandler from "./api/tt";
-import xHandler from "./api/x";*/
+import xHandler from "./api/x";
 
 const PORT = 3041;
 const BUN_IDLE_TIMEOUT = 255;
