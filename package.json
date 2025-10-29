@@ -15,7 +15,7 @@
     "json-custom-numbers": "latest",
     "@elysiajs/static": "latest",
     "node-fetch": "latest",
-    "memoirist": "^0.3.0",
+    "memoirist": "latest",
     "@types/node-fetch": "latest",
     "cheerio": "latest"
   },
