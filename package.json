@@ -9,7 +9,7 @@
   "dependencies": {
     "axios": "latest",
     "elysia": "latest",
-    "youtubei.js": "^15.1.1",
+    "youtubei.js": "latest",
     "ffmpeg-static": "latest",
     "entities": "latest",
     "json-custom-numbers": "latest",
