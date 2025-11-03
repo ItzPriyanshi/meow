@@ -10,14 +10,5 @@
       "source": "/(.*)",
       "destination": "/index.ts"
     }
-  ],
-  "builds": [
-    {
-      "src": "*.ts",
-      "use": "@godsreveal/vercel-bun@0.2.4",
-      "config": {
-        "builds": ["index.ts"]
-      }
-    }
   ]
 }
