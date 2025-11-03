@@ -1,0 +1,9 @@
+{
+  "bunVersion": "1.x",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "index.ts"
+    }
+  ]
+}
