@@ -8,7 +8,7 @@ import {
   type YTNodes,
 } from "youtubei.js";
 import ffmpeg from "ffmpeg-static";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, rm, rename } from "node:fs/promises";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { spawn } from "node:child_process";
@@ -67,6 +67,7 @@ interface DownloadSession {
   audioTasks: DownloadTask[];
   error?: string;
   isAudioOnly: boolean;
+  requestedFormat: string;
   createdAt: number;
   cleanupTimeoutId: NodeJS.Timeout | null;
 }
@@ -113,7 +114,9 @@ function formatBytes(bytes: number, decimals = 2): string {
   if (!bytes) return "0 Bytes";
   const k = 1024;
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${["Bytes", "KiB", "MiB", "GiB"][i]}`;
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${
+    ["Bytes", "KiB", "MiB", "GiB"][i]
+  }`;
 }
 
 function formatDuration(totalSeconds: number): string {
@@ -134,7 +137,11 @@ async function downloadAndCombineManager(
   const totalSize = tasks.reduce((sum, t) => sum + (t.end - t.start + 1), 0);
   const actualWorkers = Math.min(tasks.length, MAX_CONCURRENT_DOWNLOADS);
   console.log(
-    `[${sessionId}] Starting combined download of ${tasks.length} chunks for ${destinationFile.split("/").pop()}... (Using ${actualWorkers} workers)`,
+    `[${sessionId}] Starting combined download of ${
+      tasks.length
+    } chunks for ${destinationFile
+      .split("/")
+      .pop()}... (Using ${actualWorkers} workers)`,
   );
   const downloadedChunks = new Map<number, Buffer>();
   let chunksWritten = 0;
@@ -165,7 +172,9 @@ async function downloadAndCombineManager(
         return;
       } catch (e) {
         console.error(
-          `[${sessionId}] Worker ${workerId} FAILED task ${task.description} attempt ${attempt + 1}`,
+          `[${sessionId}] Worker ${workerId} FAILED task ${
+            task.description
+          } attempt ${attempt + 1}`,
         );
         if (attempt < task.retries) {
           attempt++;
@@ -195,7 +204,9 @@ async function downloadAndCombineManager(
   const durationSec = (endTime - startTime) / 1000;
   const speed = durationSec > 0 ? totalSize / durationSec : 0;
   console.log(
-    `[${sessionId}] Download & Combine Complete: ${formatBytes(totalSize)} in ${durationSec.toFixed(2)}s (${formatBytes(speed)}/s)`,
+    `[${sessionId}] Download & Combine Complete: ${formatBytes(
+      totalSize,
+    )} in ${durationSec.toFixed(2)}s (${formatBytes(speed)}/s)`,
   );
 }
 
@@ -224,13 +235,14 @@ function scheduleSessionCleanup(sessionId: string, delayMs: number) {
   if (session.cleanupTimeoutId) clearTimeout(session.cleanupTimeoutId);
   session.cleanupTimeoutId = setTimeout(() => {
     console.log(
-      `[${sessionId}] Session expired after ${formatDuration(delayMs / 1000)}. Cleaning up.`,
+      `[${sessionId}] Session expired after ${formatDuration(
+        delayMs / 1000,
+      )}. Cleaning up.`,
     );
     cleanupSession(sessionId);
   }, delayMs);
 }
 
-//Fix 1 as mentioned in https://ytjs.dev/guide/getting-started.html#providing-a-custom-javascript-interpreter
 Platform.shim.eval = async (
   data: Types.BuildScriptResult,
   env: Record<string, Types.VMPrimative>,
@@ -367,14 +379,20 @@ const app = new Elysia()
   .get(
     "/yt",
     async ({ query, request }) => {
-      const { url: videoUrl, quality, format } = query;
-      const isAudioRequest = format === "m4a";
+      const { url: videoUrl } = query;
       const videoId = getVideoId(videoUrl);
       if (!videoId) throw new Error("Invalid YouTube URL.");
-      const cappedQuality = Math.min(parseInt(quality || "1080"), 1080);
-      const cacheKey = isAudioRequest
-        ? `${videoId}-audio`
+
+      const requestedFormat = (query.format || "mp4").toLowerCase();
+      const isAudioOnlyRequest = ["m4a", "mp3", "opus", "wav"].includes(
+        requestedFormat,
+      );
+      const cappedQuality = Math.min(parseInt(query.quality || "1080"), 1080);
+
+      const cacheKey = isAudioOnlyRequest
+        ? `${videoId}-audio-${requestedFormat}`
         : `${videoId}-video-${cappedQuality}p`;
+
       const cachedItem = infoCache.get(cacheKey);
 
       if (
@@ -387,10 +405,7 @@ const app = new Elysia()
 
         const newSessionId = crypto.randomUUID();
         const tempDir = join(process.cwd(), "temp", newSessionId);
-
-        await mkdir(tempDir, {
-          recursive: true,
-        });
+        await mkdir(tempDir, { recursive: true });
 
         const newSession: DownloadSession = {
           ...sessionData,
@@ -398,7 +413,10 @@ const app = new Elysia()
           tempVideoFile: sessionData.tempVideoFile
             ? join(tempDir, "video.mp4")
             : undefined,
-          tempAudioFile: join(tempDir, "audio.m4a"),
+          tempAudioFile: join(
+            tempDir,
+            sessionData.tempAudioFile.split("/").pop(),
+          ),
           finalFilename: sessionData.finalFilename,
           finalFilePath: join(tempDir, sessionData.finalFilename),
           createdAt: Date.now(),
@@ -412,8 +430,12 @@ const app = new Elysia()
         return {
           ...responseData,
           cached: true,
-          infoFetchTime: `${(performance.now() - getInfoStart).toFixed(2)}ms (cached)`,
-          downloadLink: `${requestUrl.protocol}//${requestUrl.host}/stream/${isAudioRequest ? "audio" : "video"}/${newSessionId}`,
+          infoFetchTime: `${(performance.now() - getInfoStart).toFixed(
+            2,
+          )}ms (cached)`,
+          downloadLink: `${requestUrl.protocol}//${requestUrl.host}/stream/${
+            isAudioOnlyRequest ? "audio" : "video"
+          }/${newSessionId}`,
         };
       }
 
@@ -421,16 +443,15 @@ const app = new Elysia()
       const getInfoStart = performance.now();
       console.log(`[${videoId}] Fetching info using shared session...`);
 
-      const info = await yt.getInfo(videoId, {
-        client: "TV",
-      });
-      
-      //Fix 2 is here
+      const info = await yt.getInfo(videoId, { client: "TV" });
       const player = yt.session.player;
+
       if (!player) {
-        throw new Error("Could not get player data. Deciphering is not possible.");
+        throw new Error(
+          "Could not get player data. Deciphering is not possible.",
+        );
       }
-      
+
       if (info.playability_status?.status !== "OK") {
         throw new Error(
           `Video not playable: ${info.playability_status?.reason}`,
@@ -443,28 +464,41 @@ const app = new Elysia()
       const safeTitle = title.replace(/[^a-zA-Z0-9 ._-]/g, "").trim();
       const safeChannel = channel.replace(/[^a-zA-Z0-9 ._-]/g, "").trim();
 
-      const allM4aAudio = info.streaming_data.adaptive_formats.filter(
-        (f) => f.has_audio && !f.has_video && f.mime_type?.includes("mp4a"),
+      const allAudio = info.streaming_data.adaptive_formats.filter(
+        (f) =>
+          f.has_audio &&
+          !f.has_video &&
+          (f.mime_type?.includes("mp4a") || f.mime_type?.includes("opus")),
       ) as YTFormat[];
-      if (allM4aAudio.length === 0)
-        throw new Error("No AAC (.m4a) audio track found.");
-      const audioFormat = allM4aAudio.sort(
+
+      if (allAudio.length === 0)
+        throw new Error("No suitable M4A or Opus audio track found.");
+
+      const audioFormat = allAudio.sort(
         (a, b) => (b.bitrate || 0) - (a.bitrate || 0),
       )[0];
+
       if (!audioFormat.content_length)
         throw new Error("Selected audio format is missing size info.");
 
-      //Fix here too
       audioFormat.deciphered_url = await audioFormat.decipher(player);
       if (!audioFormat.deciphered_url)
         throw new Error("Failed to decipher audio URL.");
+
       console.log(`[${videoId}] ✅ Audio URL deciphered.`);
+
+      const sourceAudioExtension = audioFormat.mime_type?.includes("opus")
+        ? "webm"
+        : "m4a";
+      const sourceAudioQualityLabel = `${Math.round(
+        (audioFormat.bitrate || 0) / 1000,
+      )}kbps ${
+        audioFormat.mime_type?.includes("opus") ? "Opus" : "AAC"
+      }`;
 
       const sessionId = crypto.randomUUID();
       const tempDir = join(process.cwd(), "temp", sessionId);
-      await mkdir(tempDir, {
-        recursive: true,
-      });
+      await mkdir(tempDir, { recursive: true });
 
       const audioTasks: DownloadTask[] = [];
       const targetChunkSizeBytes = DOWNLOAD_CHUNK_SIZE_MB * 1024 * 1024;
@@ -488,18 +522,19 @@ const app = new Elysia()
       let responsePayload: any;
       const requestUrl = new URL(request.url);
 
-      if (isAudioRequest) {
-        const finalFilename = `${safeTitle} - ${safeChannel}.m4a`;
+      if (isAudioOnlyRequest) {
+        const finalFilename = `${safeTitle} - ${safeChannel}.${requestedFormat}`;
         session = {
           status: "pending",
           audioFormat,
           tempDir,
-          tempAudioFile: join(tempDir, "audio.m4a"),
+          tempAudioFile: join(tempDir, `audio.${sourceAudioExtension}`),
           finalFilename,
           finalFilePath: join(tempDir, finalFilename),
           audioTasks,
           videoTasks: [],
           isAudioOnly: true,
+          requestedFormat: requestedFormat,
           createdAt: Date.now(),
           cleanupTimeoutId: null,
         };
@@ -507,12 +542,16 @@ const app = new Elysia()
           status: "ok",
           videoId,
           title,
-          quality: `${Math.round((audioFormat.bitrate || 0) / 1000)}kbps AAC`,
+          quality: `Best Audio (${requestedFormat})`,
           channel,
           thumbnail: info.basic_info?.thumbnail?.[0].url,
           filename: session.finalFilename,
           expiration: formatDuration(EXPIRATION_SECONDS),
           infoFetchTime: `${(performance.now() - getInfoStart).toFixed(2)}ms`,
+          audio_size: formatBytes(audioFormat.content_length),
+          video_size: null,
+          duration_seconds: info.basic_info?.duration || 0,
+          source_audio_quality: sourceAudioQualityLabel,
         };
       } else {
         const suitableVideos = info.streaming_data.adaptive_formats
@@ -529,6 +568,7 @@ const app = new Elysia()
               (b.height || 0) - (a.height || 0) ||
               (b.bitrate || 0) - (a.bitrate || 0),
           ) as YTFormat[];
+
         if (suitableVideos.length === 0)
           throw new Error(
             `No suitable H.264 video stream found for ${cappedQuality}p.`,
@@ -538,10 +578,10 @@ const app = new Elysia()
         if (!videoFormat.content_length)
           throw new Error("Selected video format is missing size info.");
 
-        //Fix here too
         videoFormat.deciphered_url = await videoFormat.decipher(player);
         if (!videoFormat.deciphered_url)
           throw new Error("Failed to decipher video URL.");
+
         console.log(`[${videoId}] ✅ Video URL deciphered.`);
 
         const videoTasks: DownloadTask[] = [];
@@ -568,12 +608,13 @@ const app = new Elysia()
           audioFormat,
           tempDir,
           tempVideoFile: join(tempDir, "video.mp4"),
-          tempAudioFile: join(tempDir, "audio.m4a"),
+          tempAudioFile: join(tempDir, `audio.${sourceAudioExtension}`),
           finalFilename,
           finalFilePath: join(tempDir, finalFilename),
           videoTasks,
           audioTasks,
           isAudioOnly: false,
+          requestedFormat: "mp4",
           createdAt: Date.now(),
           cleanupTimeoutId: null,
         };
@@ -587,6 +628,10 @@ const app = new Elysia()
           filename: session.finalFilename,
           expiration: formatDuration(EXPIRATION_SECONDS),
           infoFetchTime: `${(performance.now() - getInfoStart).toFixed(2)}ms`,
+          audio_size: formatBytes(audioFormat.content_length),
+          video_size: formatBytes(videoFormat.content_length),
+          duration_seconds: info.basic_info?.duration || 0,
+          source_audio_quality: sourceAudioQualityLabel,
         };
       }
 
@@ -604,7 +649,9 @@ const app = new Elysia()
       return {
         ...responsePayload,
         cached: false,
-        downloadLink: `${requestUrl.protocol}//${requestUrl.host}/stream/${isAudioRequest ? "audio" : "video"}/${sessionId}`,
+        downloadLink: `${requestUrl.protocol}//${requestUrl.host}/stream/${
+          isAudioOnlyRequest ? "audio" : "video"
+        }/${sessionId}`,
       };
     },
     {
@@ -635,7 +682,7 @@ const app = new Elysia()
         return {
           status: "error",
           message:
-            "This session is for audio-only download. Use /stream/audio/:id.",
+            "This session is for audio-only. Use /stream/audio/:id.",
         };
       }
 
@@ -780,6 +827,15 @@ const app = new Elysia()
         };
       }
 
+      if (!session.isAudioOnly) {
+        set.status = 400;
+        return {
+          status: "error",
+          message:
+            "This session is for video. Use /stream/video/:id.",
+        };
+      }
+
       if (session.status === "pending") {
         session.status = "downloading";
         console.log(`[${sessionId}] Starting audio-only download...`);
@@ -787,11 +843,85 @@ const app = new Elysia()
         downloadAndCombineManager(
           sessionId,
           session.audioTasks,
-          session.finalFilePath,
+          session.tempAudioFile,
         )
-          .then(() => {
-            session.status = "completed";
-            console.log(`[${sessionId}] ✅ Audio download complete.`);
+          .then(async () => {
+            const sourceExtension = session.tempAudioFile.endsWith("webm")
+              ? "webm"
+              : "m4a";
+
+            // If no conversion is needed (e.g., requested m4a and downloaded m4a)
+            if (
+              (sourceExtension === "m4a" &&
+                session.requestedFormat === "m4a") ||
+              (sourceExtension === "webm" &&
+                session.requestedFormat === "opus")
+            ) {
+              console.log(
+                `[${sessionId}] ✅ Audio download complete. No conversion needed.`,
+              );
+              await rename(session.tempAudioFile, session.finalFilePath);
+              session.status = "completed";
+              return;
+            }
+
+            // Conversion is needed
+            session.status = "merging"; // "merging" status is used for "converting"
+            console.log(
+              `[${sessionId}] ✅ Audio download complete. Starting conversion to ${session.requestedFormat}...`,
+            );
+
+            const ffmpegArgs = ["-i", session.tempAudioFile];
+
+            // Add format-specific, high-quality conversion flags
+            switch (session.requestedFormat) {
+              case "mp3":
+                ffmpegArgs.push("-q:a", "0"); // VBR, highest quality
+                break;
+              case "opus":
+                ffmpegArgs.push("-c:a", "libopus", "-vbr", "on", "-b:a", "256k");
+                break;
+              case "wav":
+                ffmpegArgs.push("-f", "wav"); // Uncompressed
+                break;
+              case "m4a":
+                ffmpegArgs.push("-c:a", "aac", "-b:a", "256k"); // High bitrate AAC
+                break;
+            }
+
+            ffmpegArgs.push(session.finalFilePath);
+
+            if (!ffmpeg) {
+              session.status = "error";
+              session.error = "FFmpeg static path not found.";
+              console.error(`[${sessionId}] 🔴 FFmpeg path is not available.`);
+              return;
+            }
+
+            const convertProcess = spawn(ffmpeg, ffmpegArgs);
+            let stderr = "";
+            convertProcess.stderr.on("data", (data) => {
+              stderr += data.toString();
+            });
+
+            convertProcess.on("close", (code) => {
+              if (code === 0) {
+                session.status = "completed";
+                console.log(`[${sessionId}] ✅ Conversion complete.`);
+              } else {
+                session.status = "error";
+                session.error = `FFmpeg conversion failed with code ${code}: ${stderr}`;
+                console.error(
+                  `[${sessionId}] 🔴 Conversion FAILED with code ${code}. Stderr: ${stderr}`,
+                );
+              }
+            });
+
+            convertProcess.on("error", (err) => {
+              session.status = "error";
+              session.error = `FFmpeg spawn error: ${err.message}`;
+              console.error(`[${sessionId}] 🔴 FFmpeg spawn error:`, err);
+            });
           })
           .catch((err) => {
             session.status = "error";
@@ -815,7 +945,8 @@ const app = new Elysia()
         set.status = 500;
         return {
           status: "error",
-          message: session.error || "An unexpected download error occurred.",
+          message:
+            session.error || "An unexpected download/conversion error occurred.",
         };
       }
 
@@ -823,7 +954,7 @@ const app = new Elysia()
         set.status = 504;
         return {
           status: "error",
-          message: "Download timed out. Try again.",
+          message: "Download/conversion timed out. Try again.",
         };
       }
 
@@ -836,7 +967,15 @@ const app = new Elysia()
         };
       }
 
-      set.headers["Content-Type"] = "audio/mp4";
+      const mimeTypes: Record<string, string> = {
+        mp3: "audio/mpeg",
+        wav: "audio/wav",
+        opus: "audio/opus",
+        m4a: "audio/mp4",
+      };
+
+      set.headers["Content-Type"] =
+        mimeTypes[session.requestedFormat] || "application/octet-stream";
       set.headers["Content-Disposition"] =
         `attachment; filename="${session.finalFilename}"`;
       set.headers["Content-Length"] = file.size.toString();
