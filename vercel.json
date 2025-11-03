@@ -1,9 +1,14 @@
 {
-  "bunVersion": "1.x",
-  "routes": [
+  "functions": {
+    "index.ts": {
+      "runtime": "@godsreveal/vercel-bun@0.2.4",
+      "maxDuration": 300
+    }
+  },
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "index.ts"
+      "source": "/(.*)",
+      "destination": "/index.ts"
     }
   ]
 }
