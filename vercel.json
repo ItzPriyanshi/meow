@@ -1,6 +1,6 @@
 {
   "functions": {
-    "index.ts": {
+    "api/index.ts": {
       "runtime": "@godsreveal/vercel-bun@0.2.4",
       "maxDuration": 300
     }
@@ -8,7 +8,7 @@
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/index.ts"
+      "destination": "/api/index.ts"
     }
   ]
 }
