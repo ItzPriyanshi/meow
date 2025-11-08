@@ -14,6 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
 
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 
     <style>
         :root {
@@ -31,6 +32,7 @@
             --shadow-color: rgba(192, 192, 192, 0.1);
             --shine-color: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
             --particle-bg: #EAEAEA;
+            --anime-bg: #EAEAEA;
         }
 
         :root.light-mode {
@@ -45,6 +47,7 @@
             --xui-accent: #444;
             --shadow-color: rgba(0, 0, 0, 0.1);
             --particle-bg: #222222;
+            --anime-bg: #222222;
         }
 
         *,
@@ -71,11 +74,28 @@
             scroll-behavior: smooth;
             transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        
+
         body.light-mode {
              background: linear-gradient(-45deg, #ffffff, #E0E0E0, #F0F2F5, #C0C0C0);
              background-size: 400% 400%;
              animation: xui-bg-light-anim 15s ease infinite;
+        }
+        
+        #anime-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .anime-shape {
+            position: absolute;
+            background: var(--anime-bg);
+            opacity: 0;
         }
 
         #particle-bg {
@@ -88,7 +108,7 @@
             pointer-events: none;
             transition: opacity 0.5s ease;
         }
-        
+
         .light-mode #particle-bg {
             opacity: 0;
         }
@@ -150,7 +170,7 @@
             animation: pulse-glow 2s infinite ease-in-out;
             margin-bottom: 25px;
         }
-        
+
         .preloader-title {
             font-size: 2.5rem;
             font-weight: 700;
@@ -168,7 +188,7 @@
             color: var(--xui-text-secondary);
             font-size: 0.9rem;
         }
-        
+
         .loader-info p {
             margin: 4px 0;
         }
@@ -180,7 +200,7 @@
             width: 280px;
             font-size: 0.95rem;
         }
-        
+
         .security-check li {
             margin: 8px 0;
             opacity: 0;
@@ -190,16 +210,20 @@
             justify-content: space-between;
             color: var(--xui-text-secondary);
         }
-        
+
         .security-check li .status {
             color: var(--xui-accent);
             animation: status-anim 1s forwards;
         }
-        
+
         .security-check li.done .status {
             color: var(--xui-success);
         }
         
+        .security-check li.fail .status {
+            color: var(--xui-error);
+        }
+
         @keyframes fade-in-item {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -237,7 +261,7 @@
             padding: 4px;
             transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
-        
+
         .toggle-knob {
             width: 22px;
             height: 22px;
@@ -250,7 +274,7 @@
             transform: translateX(0);
             transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
-        
+
         .toggle-knob i {
             width: 14px;
             height: 14px;
@@ -258,7 +282,7 @@
             position: absolute;
             transition: opacity 0.3s ease, transform 0.3s ease;
         }
-        
+
         i.feather-sun {
             opacity: 0;
             transform: scale(0);
@@ -272,20 +296,20 @@
             transform: translateX(30px);
             background: var(--xui-silver-gradient);
         }
-        
+
         .light-mode i.feather-sun {
             opacity: 1;
             transform: scale(1) rotate(360deg);
             color: #fff;
         }
-        
+
+        .light-mode .toggle-knob i {
+            color: var(--xui-text-primary);
+        }
+
         .light-mode i.feather-moon {
             opacity: 0;
             transform: scale(0) rotate(0deg);
-        }
-        
-        .light-mode .toggle-knob i {
-            color: var(--xui-text-primary);
         }
 
         .shining-text {
@@ -378,17 +402,22 @@
         }
 
         .card-slider-container {
-            max-width: 500px;
+            max-width: 700px; /* Increased width for desktop */
             margin: 0 auto;
             position: relative;
-            overflow: hidden;
+            overflow: hidden; /* Kept hidden to contain the flexbox */
             border-radius: 20px;
             border: 1px solid var(--xui-border);
             background: var(--xui-card-bg);
             backdrop-filter: blur(var(--xui-glass-blur));
             box-shadow: 0 8px 32px 0 var(--shadow-color);
+            cursor: grab;
         }
         
+        .card-slider-container:active {
+            cursor: grabbing;
+        }
+
         .card-slider {
             display: flex;
             transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -405,17 +434,13 @@
             cursor: pointer;
             display: flex;
             flex-direction: column;
-            opacity: 0;
-            animation: fade-in 0.6s ease forwards;
-        }
-        
-        .card.active {
-            opacity: 1;
+            opacity: 0.8; /* Dim inactive slides slightly */
+            transform: scale(0.98); /* Scale down inactive slides */
         }
 
-        @keyframes fade-in {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        .card.active {
+            opacity: 1;
+            transform: scale(1);
         }
 
         .card::before {
@@ -502,18 +527,19 @@
             background-color: rgba(0, 0, 0, 0.05);
             border-color: rgba(76, 175, 80, 0.2);
         }
-        
+
         .slider-nav {
+            /* Removed buttons as requested */
+            display: none; 
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
             width: 100%;
-            display: flex;
             justify-content: space-between;
             padding: 0 10px;
             pointer-events: none;
         }
-        
+
         .slider-nav button {
             pointer-events: all;
             background: rgba(255, 255, 255, 0.1);
@@ -528,16 +554,88 @@
             align-items: center;
             justify-content: center;
         }
-        
+
         .slider-nav button:hover {
             background: var(--xui-silver-static);
             color: var(--xui-bg);
             transform: scale(1.1);
         }
-        
+
         .light-mode .slider-nav button {
              background: rgba(0, 0, 0, 0.1);
              border-color: rgba(0,0,0,0.2);
+        }
+
+        /* New Live Status Section */
+        #live-info-container {
+            padding: 40px 0;
+            margin-top: 40px;
+        }
+        
+        .section-title {
+            font-size: 2.2rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 30px;
+            color: var(--xui-silver-static);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+        }
+
+        .info-card {
+            background: var(--xui-card-bg);
+            border: 1px solid var(--xui-border);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(var(--xui-glass-blur));
+            box-shadow: 0 4px 20px var(--shadow-color);
+            transition: all 0.3s ease;
+        }
+        
+        .info-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px var(--shadow-color);
+        }
+
+        .info-card h3 {
+            font-size: 1.1rem;
+            color: var(--xui-text-secondary);
+            font-weight: 500;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .info-card h3 i {
+            width: 18px;
+            height: 18px;
+        }
+
+        .info-card p {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--xui-text-primary);
+            font-family: 'Fira Code', monospace;
+            word-wrap: break-word;
+        }
+        
+        .info-card p#info-ping {
+            font-size: 1.75rem;
+        }
+        
+        .info-card p#info-ping .unit {
+            font-size: 1rem;
+            color: var(--xui-text-secondary);
+            margin-left: 5px;
+        }
+
+        #info-datetime {
+            font-size: 1rem !important;
         }
 
         .modal-overlay {
@@ -731,7 +829,7 @@
         .light-mode .btn-secondary:hover {
             background: rgba(0, 0, 0, 0.15);
         }
-        
+
         .btn:disabled {
             opacity: 0.7;
             cursor: not-allowed;
@@ -758,6 +856,7 @@
             margin-top: 20px;
             border: 1px solid var(--xui-accent);
             opacity: 1;
+            overflow-y: auto;
         }
 
         .response-box pre {
@@ -767,7 +866,6 @@
             white-space: pre-wrap;
             word-break: break-all;
             margin: 0;
-            overflow-x: auto;
         }
 
         .response-box.error pre {
@@ -833,6 +931,9 @@
                 top: 15px;
                 right: 15px;
             }
+            .info-grid {
+                grid-template-columns: 1fr; /* Stack cards on mobile */
+            }
         }
 
         @media (max-width: 480px) {
@@ -865,22 +966,22 @@
 </head>
 
 <body>
+    <div id="anime-bg"></div>
     <div id="particle-bg"></div>
 
     <div id="xui-preloader">
         <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" alt="XUI Logo" class="preloader-logo">
         <h1 class="preloader-title">XUI</h1>
-        
+
         <ul class="security-check" id="security-check">
             <li id="check-1">Initializing... <span class="status">...</span></li>
             <li id="check-2">Checking Browser... <span class="status">...</span></li>
             <li id="check-3">Securing Connection... <span class="status">...</span></li>
+            <li id="check-4">Fetching Location... <span class="status">...</span></li>
         </ul>
 
         <div class="loader-info">
-            <p id="user-ip">IP: Fetching...</p>
-            <p id="user-timezone">Timezone: Fetching...</p>
-            <p id="real-time-clock">--:--:-- --</p>
+            <p>Please wait, establishing secure session...</p>
         </div>
     </div>
 
@@ -901,9 +1002,9 @@
     </header>
 
     <main class="container" id="main-content">
-        <section class="card-slider-container">
+        <section class="card-slider-container" id="card-slider-container">
             <div class="card-slider" id="card-slider">
-                
+
                 <div class="card" data-endpoint="yt" data-name="YouTube Downloader">
                     <i class="card-icon" data-feather="youtube"></i>
                     <h3>
@@ -923,7 +1024,7 @@
                     <p>Extract direct media links from Pinterest Pins. Includes image/video search functionality.</p>
                     <div class="endpoint-info">GET <span>/pin</span>?url=&lt;pin-url&gt; OR ?search=&lt;query&gt;</div>
                 </div>
-                
+
                 <div class="card" data-endpoint="insta_v2" data-name="Instagram Downloader V2">
                     <i class="card-icon" data-feather="instagram"></i>
                     <h3>
@@ -964,12 +1065,39 @@
                     <div class="endpoint-info">GET <span>/x</span>?url=&lt;x-url&gt;</div>
                 </div>
             </div>
-            
+
             <div class="slider-nav">
                 <button id="slide-prev" aria-label="Previous Slide"><i data-feather="chevron-left"></i></button>
                 <button id="slide-next" aria-label="Next Slide"><i data-feather="chevron-right"></i></button>
             </div>
         </section>
+
+        <section id="live-info-container" class="container">
+            <h2 class="section-title">Live Status</h2>
+            <div class="info-grid">
+                <div class="info-card">
+                    <h3><i data-feather="bar-chart-2"></i>API Status</h3>
+                    <p id="info-ping">Pinging...<span class="unit">ms</span></p>
+                </div>
+                <div class="info-card">
+                    <h3><i data-feather="git-pull-request"></i>API Version</h3>
+                    <p>3.5</p>
+                </div>
+                <div class="info-card">
+                    <h3><i data-feather="map-pin"></i>Your IP</h3>
+                    <p id="info-ip">Fetching...</p>
+                </div>
+                <div class="info-card">
+                    <h3><i data-feather="globe"></i>Your Location</h3>
+                    <p id="info-location">Fetching...</p>
+                </div>
+                <div class="info-card">
+                    <h3><i data-feather="clock"></i>Your Time</h3>
+                    <p id="info-datetime">Fetching...</p>
+                </div>
+            </div>
+        </section>
+
     </main>
 
     <div class="modal-overlay" id="modalOverlay">
@@ -1002,15 +1130,22 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-
+            console.log('XUI: Initializing DOM content...');
             feather.replace();
 
+            // --- Global State ---
+            let currentGeoData = {};
+            let serverTime = null;
+            let clockInterval = null;
+
+            // --- Background Animations ---
             function createParticles() {
                 const particleContainer = document.getElementById('particle-bg');
                 if (document.body.classList.contains('light-mode')) {
                     particleContainer.innerHTML = '';
                     return;
                 }
+                particleContainer.innerHTML = ''; // Clear old particles
                 const particleCount = 50;
                 for (let i = 0; i < particleCount; i++) {
                     const particle = document.createElement('div');
@@ -1027,7 +1162,36 @@
                     particleContainer.appendChild(particle);
                 }
             }
-            
+
+            function initAnimeBackground() {
+                const animeContainer = document.getElementById('anime-bg');
+                animeContainer.innerHTML = '';
+                const shapeCount = 30;
+                for (let i = 0; i < shapeCount; i++) {
+                    const shape = document.createElement('div');
+                    shape.className = 'anime-shape';
+                    const size = Math.random() * 15 + 5;
+                    shape.style.width = `${size}px`;
+                    shape.style.height = `${size}px`;
+                    shape.style.left = `${Math.random() * 100}%`;
+                    shape.style.bottom = `-20px`;
+                    shape.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                    animeContainer.appendChild(shape);
+
+                    anime({
+                        targets: shape,
+                        translateY: '-100vh',
+                        opacity: [0, 0.6, 0],
+                        scale: [Math.random() * 0.5 + 0.5, 1],
+                        duration: Math.random() * 15000 + 10000,
+                        easing: 'linear',
+                        delay: Math.random() * 10000,
+                        loop: true
+                    });
+                }
+            }
+
+            // --- Theme Management ---
             const themeToggle = document.getElementById('theme-toggle');
             const body = document.body;
             const storageKey = 'xui-theme-preference';
@@ -1038,111 +1202,212 @@
             } else {
                 createParticles();
             }
+            initAnimeBackground(); // Init anime.js bg on load
 
             themeToggle.addEventListener('click', () => {
                 body.classList.add('theme-transition');
                 body.classList.toggle('light-mode');
-                
+
                 if (body.classList.contains('light-mode')) {
                     localStorage.setItem(storageKey, 'light');
                     document.getElementById('particle-bg').innerHTML = '';
+                    console.log('XUI: Theme toggled to Light Mode');
                 } else {
                     localStorage.setItem(storageKey, 'dark');
                     createParticles();
+                    console.log('XUI: Theme toggled to Dark Mode');
                 }
-                
-                feather.replace();
-                
+
+                feather.replace(); // Refresh icons
+
                 setTimeout(() => {
                     body.classList.remove('theme-transition');
                 }, 500);
             });
 
+            // --- Preloader Logic ---
             const preloader = document.getElementById('xui-preloader');
-            const userIpEl = document.getElementById('user-ip');
-            const userTimezoneEl = document.getElementById('user-timezone');
-            const clockEl = document.getElementById('real-time-clock');
-            let serverTime = null;
-            let clockInterval = null;
-
+            
             function updateClock() {
                 if (!serverTime) return;
                 serverTime.setSeconds(serverTime.getSeconds() + 1);
-                clockEl.textContent = serverTime.toLocaleTimeString();
+                const timeEl = document.getElementById('info-datetime');
+                if (timeEl) {
+                    timeEl.textContent = serverTime.toLocaleString() + ` (${currentGeoData.timezone_abbreviation || ''})`;
+                }
             }
 
             async function fetchGeoInfo() {
+                console.log('XUI: Fetching geo-location data...');
+                const check4 = document.getElementById('check-4');
                 try {
-                    const response = await fetch('https://worldtimeapi.org/api/ip');
+                    // Using ipapi.co for detailed location data
+                    const response = await fetch('https://ipapi.co/json/');
                     if (!response.ok) throw new Error('Failed to fetch geo info');
                     const data = await response.json();
+                    console.log('XUI: Geo-location data received:', data);
+
+                    currentGeoData = {
+                        ip: data.ip || 'N/A',
+                        location: `${data.city || 'N/A'}, ${data.region || 'N/A'}, ${data.country_name || 'N/A'}`,
+                        timezone: data.timezone || 'N/A',
+                        timezone_abbreviation: data.utc_offset || ''
+                    };
                     
-                    userIpEl.textContent = `IP: ${data.client_ip || 'N/A'}`;
-                    userTimezoneEl.textContent = `Timezone: ${data.timezone || 'N/A'}`;
+                    // Use a more reliable way to get time, as ipapi.co doesn't provide a full datetime object
+                    // We will use the user's local time but display the fetched timezone
+                    serverTime = new Date(); // Use local time
                     
-                    serverTime = new Date(data.datetime);
                     if (clockInterval) clearInterval(clockInterval);
                     clockInterval = setInterval(updateClock, 1000);
-                    updateClock();
-
+                    
+                    if (check4) check4.classList.add('done');
+                    
                 } catch (error) {
-                    console.error('Geo info error:', error);
-                    userIpEl.textContent = 'IP: N/A';
-                    userTimezoneEl.textContent = 'Timezone: N/A';
+                    console.error('XUI: Geo info error:', error);
+                    if (check4) check4.classList.add('fail');
+                    currentGeoData = { ip: 'N/A', location: 'N/A', timezone: 'N/A', timezone_abbreviation: '' };
                     serverTime = new Date();
                     if (clockInterval) clearInterval(clockInterval);
                     clockInterval = setInterval(updateClock, 1000);
-                    updateClock();
                 }
             }
             
+            function runBrowserCheck() {
+                console.log('XUI: Running browser checks...');
+                const check2 = document.getElementById('check-2');
+                if ('fetch' in window && 'IntersectionObserver' in window) {
+                    console.log('XUI: Browser checks passed.');
+                    check2.classList.add('done');
+                } else {
+                    console.warn('XUI: Browser missing modern features.');
+                    check2.classList.add('fail');
+                }
+            }
+
             function runSecurityCheck() {
                 const checks = [
                     document.getElementById('check-1'),
-                    document.getElementById('check-2'),
-                    document.getElementById('check-3')
+                    document.getElementById('check-3') // Check 2 & 4 are handled separately
                 ];
-                
                 let delay = 500;
                 
+                // Run browser check immediately
+                setTimeout(runBrowserCheck, delay);
+                delay += 700;
+
                 checks.forEach((check, index) => {
                     setTimeout(() => {
                         check.style.opacity = '1';
                         setTimeout(() => {
                             check.classList.add('done');
-                            check.querySelector('.status').textContent = '✓';
                         }, 1000);
-                    }, delay);
-                    delay += 700;
+                    }, delay + (index * 700));
                 });
-                
-                return delay + 1000;
+
+                return delay + (checks.length * 700) + 1000;
             }
 
             async function initPreloader() {
                 const infoPromise = fetchGeoInfo();
                 const animTime = runSecurityCheck();
-                
                 await infoPromise;
-                
-                const minLoadTime = Math.max(animTime, 3000);
-                
+                const minLoadTime = Math.max(animTime, 3500); // Increased min time
+
                 setTimeout(() => {
                     preloader.classList.add('hidden');
+                    console.log('XUI: Preloader complete. Initializing main UI.');
+                    initLiveInfo(); // Initialize the new live info section
+                    
                     preloader.addEventListener('transitionend', () => {
                         preloader.remove();
                     }, { once: true });
                 }, minLoadTime - (Date.now() - performance.timeOrigin));
             }
 
+            // --- Live Info Section Logic ---
+            function initLiveInfo() {
+                console.log('XUI: Initializing live info dashboard.');
+                const ipEl = document.getElementById('info-ip');
+                const locationEl = document.getElementById('info-location');
+
+                if (ipEl) ipEl.textContent = currentGeoData.ip;
+                if (locationEl) locationEl.textContent = currentGeoData.location;
+                
+                updateClock(); // Run once to populate time immediately
+                startPingTest(); // Start first ping
+                setInterval(startPingTest, 10000); // Ping every 10 seconds
+            }
+            
+            async function startPingTest() {
+                const pingEl = document.getElementById('info-ping');
+                if (!pingEl) return;
+                
+                pingEl.innerHTML = 'Pinging...<span class="unit">ms</span>';
+                const startTime = performance.now();
+                
+                try {
+                    // Use the API's base URL for a lightweight check
+                    await fetch('https://meow-dl.onrender.com', { mode: 'no-cors', method: 'HEAD' });
+                } catch (error) {
+                    // 'no-cors' will often result in an "opaque" response, which is fine.
+                    // We're just measuring time to "fire and forget".
+                }
+                
+                const endTime = performance.now();
+                const latency = Math.round(endTime - startTime);
+                
+                pingEl.innerHTML = `${latency}<span class="unit">ms</span>`;
+                console.log(`XUI: API Ping: ${latency}ms`);
+            }
+
             initPreloader();
 
+            // --- Card Slider Logic (with swipe/scroll) ---
+            const sliderContainer = document.getElementById('card-slider-container');
             const slider = document.getElementById('card-slider');
             const slides = document.querySelectorAll('.card');
-            const prevBtn = document.getElementById('slide-prev');
-            const nextBtn = document.getElementById('slide-next');
             let currentSlide = 0;
             let autoSlideInterval;
+            
+            // --- Wheel Scroll ---
+            let isThrottled = false;
+            sliderContainer.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                if (isThrottled) return;
+                isThrottled = true;
+                
+                if (e.deltaY > 0) {
+                    nextSlide();
+                } else {
+                    prevSlide();
+                }
+                
+                setTimeout(() => { isThrottled = false; }, 800); // Throttle scroll
+            });
+
+            // --- Touch Swipe ---
+            let touchStartX = 0;
+            let touchEndX = 0;
+            sliderContainer.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+                stopAutoSlide();
+            }, { passive: true });
+            
+            sliderContainer.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+                startAutoSlide();
+            }, { passive: true });
+            
+            function handleSwipe() {
+                if (touchEndX < touchStartX - 50) { // Swiped left
+                    nextSlide();
+                }
+                if (touchEndX > touchStartX + 50) { // Swiped right
+                    prevSlide();
+                }
+            }
 
             function goToSlide(slideIndex) {
                 if (slideIndex < 0) {
@@ -1150,9 +1415,9 @@
                 } else if (slideIndex >= slides.length) {
                     slideIndex = 0;
                 }
-                
+
                 slider.style.transform = `translateX(-${slideIndex * 100}%)`;
-                
+
                 slides.forEach((slide, index) => {
                     if (index === slideIndex) {
                         slide.classList.add('active');
@@ -1160,10 +1425,10 @@
                         slide.classList.remove('active');
                     }
                 });
-                
+
                 currentSlide = slideIndex;
             }
-            
+
             function nextSlide() {
                 goToSlide(currentSlide + 1);
             }
@@ -1171,34 +1436,22 @@
             function prevSlide() {
                 goToSlide(currentSlide - 1);
             }
-            
+
             function startAutoSlide() {
                 stopAutoSlide();
-                autoSlideInterval = setInterval(nextSlide, 3000);
+                autoSlideInterval = setInterval(nextSlide, 3500); // Slightly slower
             }
-            
+
             function stopAutoSlide() {
                 if (autoSlideInterval) {
                     clearInterval(autoSlideInterval);
                 }
             }
 
-            nextBtn.addEventListener('click', () => {
-                nextSlide();
-                startAutoSlide();
-            });
-
-            prevBtn.addEventListener('click', () => {
-                prevSlide();
-                startAutoSlide();
-            });
-            
             goToSlide(0);
             startAutoSlide();
-            
-            slider.addEventListener('mouseenter', stopAutoSlide);
-            slider.addEventListener('mouseleave', startAutoSlide);
 
+            // --- Modal Logic ---
             const modalOverlay = document.getElementById('modalOverlay');
             const modal = document.getElementById('modal');
             const modalClose = document.getElementById('modalClose');
@@ -1264,14 +1517,15 @@
             });
 
             function openModal(endpoint, name) {
+                console.log(`XUI: Modal opened for endpoint: ${endpoint}`);
                 currentEndpoint = endpoint;
                 modalTitle.textContent = name;
                 const config = endpointConfig[endpoint];
                 if (!config) {
-                    console.error('No config for endpoint:', endpoint);
+                    console.error('XUI: No config for endpoint:', endpoint);
                     return;
                 }
-                
+
                 testUrlInput.placeholder = config.placeholder;
                 additionalOptions.innerHTML = '';
 
@@ -1282,6 +1536,8 @@
                         const label = document.createElement('label');
                         label.textContent = field.name.charAt(0).toUpperCase() + field.name.slice(1);
                         label.setAttribute('for', field.name);
+                        label.style.marginBottom = '8px';
+                        label.style.display = 'block';
                         fieldDiv.appendChild(label);
                         const select = document.createElement('select');
                         select.id = field.name;
@@ -1306,11 +1562,13 @@
 
             modalClose.addEventListener('click', () => {
                 modalOverlay.classList.remove('active');
+                console.log('XUI: Modal closed.');
             });
 
             modalOverlay.addEventListener('click', (e) => {
                 if (e.target === modalOverlay) {
                     modalOverlay.classList.remove('active');
+                    console.log('XUI: Modal closed by overlay click.');
                 }
             });
 
@@ -1341,6 +1599,7 @@
                     return;
                 }
                 const apiUrl = buildApiUrl();
+                console.log(`XUI: Testing API URL: ${apiUrl}`);
                 responseBox.classList.add('active');
                 responseContent.textContent = 'Loading...';
                 responseBox.classList.remove('error');
@@ -1353,6 +1612,7 @@
                 try {
                     const response = await fetch(apiUrl);
                     const data = await response.json();
+                    console.log('XUI: API Response:', data);
                     responseContent.textContent = JSON.stringify(data, null, 2);
                     if (!response.ok) {
                         responseBox.classList.add('error');
@@ -1360,6 +1620,7 @@
                         responseBox.classList.remove('error');
                     }
                 } catch (error) {
+                    console.error('XUI: API Test Error:', error);
                     responseContent.textContent = `Error: ${error.message}. Please check the URL and try again.`;
                     responseBox.classList.add('active', 'error');
                 } finally {
@@ -1372,6 +1633,7 @@
             copyBtn.addEventListener('click', () => {
                 const apiUrl = buildApiUrl();
                 navigator.clipboard.writeText(apiUrl).then(() => {
+                    console.log('XUI: API URL copied to clipboard.');
                     const originalCopyIcon = copyBtn.innerHTML;
                     copyBtn.innerHTML = '<i data-feather="check"></i>Copied!';
                     feather.replace();
@@ -1380,7 +1642,7 @@
                         feather.replace();
                     }, 2000);
                 }).catch(err => {
-                    console.error('Failed to copy: ', err);
+                    console.error('XUI: Failed to copy: ', err);
                 });
             });
 
