@@ -444,8 +444,7 @@
         }
 
         .card {
-            min-width: 100%;
-            flex-shrink: 0;
+            flex: 0 0 100%; /* REPLACED min-width and flex-shrink */
             background: transparent;
             padding: 40px;
             transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s ease, border-color 0.4s ease, opacity 0.5s ease;
