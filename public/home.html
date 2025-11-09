@@ -1,1794 +1,228 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XUI - By MeowGurl</title>
-    <meta name="description" content="XUI Interface by MeowGurl.">
     <link rel="icon" type="image/png" href="https://i.ibb.co/5WMp4cYZ/image.jpg">
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
-
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-
     <style>
         :root {
-            /* Dark Mode (Default) */
-            --xui-bg: #000000;
-            --xui-card-bg: rgba(25, 25, 25, 0.5);
+            --xui-bg: #000;
+            --xui-card-bg: rgba(25,25,25,0.5);
             --xui-glass-blur: 10px;
-            --xui-border: rgba(192, 192, 192, 0.2);
+            --xui-border: rgba(192,192,192,0.2);
             --xui-text-primary: #E0E0E0;
-            --xui-text-secondary: #888888;
-            --xui-silver-gradient: linear-gradient(135deg, #EAEAEA, #C0C0C0, #B0B0B0, #C0C0C0, #EAEAEA);
+            --xui-text-secondary: #888;
+            --xui-silver-gradient: linear-gradient(135deg,#EAEAEA,#C0C0C0,#B0B0B0,#C0C0C0,#EAEAEA);
             --xui-silver-static: #C0C0C0;
             --xui-accent: #A0A0A0;
             --xui-success: #4CAF50;
             --xui-error: #f44336;
-            --shadow-color: rgba(192, 192, 192, 0.1);
-            --shine-color: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
-            --particle-bg: #EAEAEA;
-            --anime-bg: #EAEAEA;
+            --shadow-color: rgba(192,192,192,0.1);
         }
-
-        :root.light-mode {
-            /* Light Mode - Overhauled for better contrast */
-            --xui-bg: #F0F2F5; /* Light gray background */
-            --xui-card-bg: #FFFFFF; /* Opaque white cards */
-            --xui-glass-blur: 15px;
-            --xui-border: rgba(0, 0, 0, 0.1); /* Light black border */
-            --xui-text-primary: #1a1a1a; /* Dark text */
-            --xui-text-secondary: #555555; /* Medium gray text */
-            --xui-silver-gradient: linear-gradient(135deg, #555, #333, #111, #333, #555);
-            --xui-silver-static: #333;
-            --xui-accent: #444;
-            --shadow-color: rgba(0, 0, 0, 0.1); /* Standard shadow */
-            --particle-bg: #222222;
-            --anime-bg: #222222;
-        }
-
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        @keyframes xui-bg-light-anim {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--xui-bg);
-            color: var(--xui-text-primary);
-            min-height: 100vh;
-            overflow-x: hidden; /* Prevents horizontal scroll */
-            max-width: 100vw;
-            position: relative;
-            scroll-behavior: smooth;
-            transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family:'Inter',sans-serif;
+            background:var(--xui-bg);
+            color:var(--xui-text-primary);
+            min-height:100vh;
+            margin:0;
+            padding:0;
+            overflow-x:hidden;
         }
-
-        body.light-mode {
-             background: var(--xui-bg); /* Use solid color for light mode */
-        }
-        
-        #anime-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            pointer-events: none;
-            overflow: hidden;
-        }
-
-        .anime-shape {
-            position: absolute;
-            background: var(--anime-bg);
-            opacity: 0;
-        }
-
-        #particle-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            pointer-events: none;
-            transition: opacity 0.5s ease;
-        }
-
-        .light-mode #particle-bg {
-            opacity: 0;
-        }
-
-        .particle {
-            position: absolute;
-            border-radius: 50%;
-            background: var(--particle-bg);
-            opacity: 0;
-            pointer-events: none;
-            box-shadow: 0 0 8px var(--particle-bg);
-            animation: float-particle 20s infinite linear;
-        }
-
-        @keyframes float-particle {
-            0% {
-                transform: translateY(0) scale(0.5);
-                opacity: 0;
-            }
-            10%,
-            90% {
-                opacity: 0.8;
-            }
-            100% {
-                transform: translateY(-100vh) scale(1);
-                opacity: 0;
-            }
-        }
-
-        #xui-preloader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #000;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            transition: opacity 0.8s ease-out 0.5s, visibility 0.8s ease-out 0.5s;
-            visibility: visible;
-            opacity: 1;
-            font-family: 'Fira Code', monospace;
-        }
-
-        #xui-preloader.hidden {
-            opacity: 0;
-            visibility: hidden;
-        }
-
-        .preloader-logo {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 3px solid var(--xui-silver-static);
-            animation: pulse-glow 2s infinite ease-in-out;
-            margin-bottom: 25px;
-        }
-
-        .preloader-title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            background: var(--xui-silver-gradient);
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: shine 3s linear infinite;
-        }
-
-        .loader-info {
-            margin-top: 25px;
-            text-align: center;
-            color: var(--xui-text-secondary);
-            font-size: 0.9rem;
-        }
-
-        .loader-info p {
-            margin: 4px 0;
-        }
-
-        .security-check {
-            margin-top: 20px;
-            list-style: none;
-            padding: 0;
-            width: 280px;
-            font-size: 0.95rem;
-        }
-
-        .security-check li {
-            margin: 8px 0;
-            opacity: 0;
-            animation: fade-in-item 0.5s ease forwards;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            color: var(--xui-text-secondary);
-        }
-
-        .security-check li .status {
-            color: var(--xui-accent);
-            animation: status-anim 1s forwards;
-        }
-
-        .security-check li.done .status {
-            color: var(--xui-success);
-        }
-        
-        .security-check li.fail .status {
-            color: var(--xui-error);
-        }
-
-        @keyframes fade-in-item {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes status-anim {
-            0% { content: "."; }
-            33% { content: ".."; }
-            66% { content: "..."; }
-            100% { content: "✓"; }
-        }
-
-        @keyframes pulse-glow {
-            0%, 100% {
-                transform: scale(1);
-                box-shadow: 0 0 20px rgba(192, 192, 192, 0.4);
-            }
-            50% {
-                transform: scale(1.05);
-                box-shadow: 0 0 35px rgba(192, 192, 192, 0.7);
-            }
-        }
-
-        .theme-toggle {
-            position: fixed;
-            top: 25px;
-            right: 25px;
-            z-index: 100;
-            cursor: pointer;
-            width: 60px;
-            height: 30px;
-            background: var(--xui-card-bg);
-            border: 1px solid var(--xui-border);
-            border-radius: 15px;
-            padding: 4px;
-            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-            backdrop-filter: blur(5px);
-        }
-        
-        .light-mode .theme-toggle {
-             box-shadow: 0 2px 8px var(--shadow-color);
-        }
-
-        .toggle-knob {
-            width: 22px;
-            height: 22px;
-            background: var(--xui-silver-gradient);
-            border-radius: 50%;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transform: translateX(0);
-            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-
-        .toggle-knob i {
-            width: 14px;
-            height: 14px;
-            color: #000;
-            position: absolute;
-            transition: opacity 0.3s ease, transform 0.3s ease;
-        }
-
-        i.feather-sun {
-            opacity: 0;
-            transform: scale(0);
-        }
-        i.feather-moon {
-            opacity: 1;
-            transform: scale(1) rotate(0deg);
-        }
-
-        .light-mode .toggle-knob {
-            transform: translateX(30px);
-            background: var(--xui-silver-gradient);
-        }
-
-        .light-mode i.feather-sun {
-            opacity: 1;
-            transform: scale(1) rotate(360deg);
-            color: var(--xui-text-primary);
-        }
-
-        .light-mode .toggle-knob i {
-            color: var(--xui-text-primary);
-        }
-
-        .light-mode i.feather-moon {
-            opacity: 0;
-            transform: scale(0) rotate(0deg);
-        }
-
-        .shining-text {
-            background: var(--xui-silver-gradient);
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: shine 3s linear infinite;
-        }
-
-        @keyframes shine {
-            to {
-                background-position: 200% center;
-            }
-        }
-
-        .container {
-            width: 90%;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px 0;
-            position: relative;
-            z-index: 1;
-        }
-
-        header {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            padding: 100px 20px 60px;
-            position: relative;
-            z-index: 10;
-        }
-
-        .logo-container {
-            position: relative;
-            width: 120px;
-            height: 120px;
-            margin-bottom: 30px;
-            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-
-        .logo-container:hover {
-            transform: scale(1.1) rotate(5deg);
-        }
-
-        .logo-image {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 3px solid var(--xui-silver-static);
-            box-shadow: 0 0 30px var(--shadow-color);
-        }
-        
-        .light-mode .logo-image {
-            border: 3px solid #DDD; /* Lighter border for light mode */
-            box-shadow: 0 4px 20px var(--shadow-color);
-        }
-
-        .logo-glow {
-            position: absolute;
-            top: -5px;
-            left: -5px;
-            width: calc(100% + 10px);
-            height: calc(100% + 10px);
-            border-radius: 50%;
-            background: var(--xui-silver-gradient);
-            animation: rotate-glow 4s linear infinite;
-            z-index: -1;
-            filter: blur(8px);
-            opacity: 0.8;
-        }
-        
-        .light-mode .logo-glow {
-            opacity: 0.5;
-        }
-
-        @keyframes rotate-glow {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .main-title {
-            font-size: 4rem;
-            font-weight: 900;
-            letter-spacing: 3px;
-            margin: 10px 0 5px;
-        }
-
-        .tagline {
-            font-size: 1.4rem;
-            font-weight: 300;
-            color: var(--xui-text-secondary);
-            margin-bottom: 20px;
-        }
-
+        .container {width:100%;max-width:800px;margin:0 auto;padding:20px 0;}
+        header {width:100%;display:flex;flex-direction:column;align-items:center;text-align:center;padding:50px 0 20px;}
+        .logo-container {width:100px;height:100px;margin-bottom:18px;}
+        .logo-image {width:100%;height:100%;border-radius:50%;border:3px solid var(--xui-silver-static);}
+        .main-title {font-size:2.8rem;font-weight:900;margin:0 0 5px;}
+        .tagline {font-size:1.1rem;color:var(--xui-text-secondary);}
         .card-slider-container {
-            max-width: 600px; /* Reduced max-width */
-            margin: 0 auto;
-            position: relative;
-            overflow: hidden; 
-            border-radius: 20px;
-            border: 1px solid var(--xui-border);
-            background: var(--xui-card-bg);
-            backdrop-filter: blur(var(--xui-glass-blur));
-            box-shadow: 0 8px 32px 0 var(--shadow-color);
-            cursor: grab;
+            width:100vw;max-width:100vw;margin:0 auto;overflow-x:auto;display:flex;justify-content:center;
+            background:transparent;
         }
-        
-        .light-mode .card-slider-container {
-            box-shadow: 0 8px 32px 0 var(--shadow-color);
-            /* Opaque background is set by --xui-card-bg */
-        }
-        
-        .card-slider-container:active {
-            cursor: grabbing;
-        }
-
-        .card-slider {
-            display: flex;
-            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
+        .card-slider {display:flex;gap:15px;width:100vw;justify-content:center;padding:0;margin:0;}
         .card {
-            min-width: 100%;
-            flex-shrink: 0;
-            background: transparent;
-            padding: 40px;
-            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s ease, border-color 0.4s ease, opacity 0.5s ease;
-            position: relative;
-            overflow: hidden;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            opacity: 0.8; 
-            transform: scale(0.98);
+            background:var(--xui-card-bg);
+            border:1px solid var(--xui-border);
+            border-radius:18px;
+            padding:24px 12px;
+            min-width:90vw;max-width:95vw;
+            flex-shrink:0;
+            box-shadow:0 2px 20px var(--shadow-color);
+            display:flex;flex-direction:column;align-items:center;
+            margin:10px auto;
+            transition:.15s cubic-bezier(.34,1.56,.64,1);
         }
-
-        .card.active {
-            opacity: 1;
-            transform: scale(1);
-        }
-
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 75%;
-            height: 100%;
-            background: var(--shine-color);
-            transform: skewX(-25deg);
-            transition: left 0.8s ease-in-out;
-        }
-
-        .card:hover::before {
-            left: 120%;
-        }
-
-        .card-icon {
-            width: 40px;
-            height: 40px;
-            margin-bottom: 15px;
-            color: var(--xui-silver-static);
-            transition: transform 0.3s ease;
-        }
-
-        .card:hover .card-icon {
-            transform: scale(1.1);
-        }
-
-        .card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 15px;
-            color: var(--xui-text-primary);
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            flex-grow: 1;
-        }
-
-        .endpoint-name {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--xui-silver-static);
-        }
-
-        .card .usage-label {
-            font-size: 0.85rem;
-            color: var(--xui-text-secondary);
-            font-weight: 400;
-            margin-top: 5px;
-            opacity: 0;
-            transform: translateY(10px);
-            transition: opacity 0.4s ease 0.1s, transform 0.4s ease 0.1s;
-        }
-
-        .card:hover .usage-label {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .card p {
-            color: var(--xui-text-secondary);
-            margin-bottom: 20px;
-            line-height: 1.6;
-            flex-grow: 1;
-        }
-
-        .endpoint-info {
-            background-color: rgba(0, 0, 0, 0.4);
-            border-radius: 10px;
-            padding: 15px;
-            font-family: 'Fira Code', monospace;
-            font-size: 0.85rem;
-            white-space: pre-wrap;
-            word-break: break-all;
-            line-height: 1.5;
-            color: var(--xui-success);
-            border: 1px solid rgba(76, 175, 80, 0.3);
-            overflow-x: auto;
-        }
-
-        .light-mode .endpoint-info {
-            background-color: rgba(0, 0, 0, 0.05);
-            border-color: rgba(76, 175, 80, 0.2);
-            color: #2a882d; /* Darker green for light bg */
-        }
-
-        .slider-nav {
-            display: none; 
-        }
-
-        /* Live Status & Usage Guide Section */
-        #live-info-container, #usage-guide {
-            padding: 40px 0;
-            margin-top: 40px;
-        }
-        
-        .section-title {
-            font-size: 2.2rem;
-            font-weight: 700;
-            text-align: center;
-            margin-bottom: 30px;
-            color: var(--xui-silver-static);
-        }
-        
-        .light-mode .section-title {
-            color: var(--xui-text-primary);
-        }
-
+        .card:active {transform:scale(.96) rotate(-1deg);box-shadow:0 2px 12px #ff4081;}
+        .card-icon {width:34px;height:34px;margin-bottom:10px;color:var(--xui-silver-static);}
+        .endpoint-name {font-size:1.4rem;font-weight:700;color:var(--xui-silver-static);}
+        .usage-label {font-size:.9rem;color:var(--xui-text-secondary);}
+        .endpoint-info {margin:10px 0 0;font-size:.95rem;font-family:'Fira Code',monospace;color:var(--xui-success);}
         .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 25px;
+            display:grid;
+            grid-template-columns:1fr;
+            gap:25px;
+            width:100%;
+            max-width:100vw;
         }
-
         .info-card {
-            background: var(--xui-card-bg);
-            border: 1px solid var(--xui-border);
-            border-radius: 15px;
-            padding: 25px;
-            backdrop-filter: blur(var(--xui-glass-blur));
-            box-shadow: 0 4px 20px var(--shadow-color);
-            transition: all 0.3s ease;
-            
-            /* For animation */
-            opacity: 0;
-            transform: translateY(20px);
+            background:var(--xui-card-bg);
+            border:1px solid var(--xui-border);
+            border-radius:18px;
+            padding:18px 8px;
+            box-shadow:0 2px 10px var(--shadow-color);
+            text-align:center;min-width:0;
         }
-        
-        .info-card.is-visible {
-            opacity: 1;
-            transform: translateY(0);
+        .section-title {font-size:1.4rem;font-weight:700;text-align:center;margin-bottom:18px;color:var(--xui-silver-static);}
+        @media (min-width:600px) {
+          .card-slider-container {max-width:800px;width:90vw;}
+          .card-slider {width:auto;}
+          .card {min-width:260px;max-width:310px;}
+          .info-grid {grid-template-columns:repeat(auto-fit,minmax(250px,1fr));}
         }
-        
-        .light-mode .info-card {
-            box-shadow: 0 5px 15px var(--shadow-color);
-        }
-        
-        .info-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 30px var(--shadow-color);
-        }
-        
-        .light-mode .info-card:hover {
-            box-shadow: 0 8px 30px var(--shadow-color);
-        }
-
-        .info-card h3 {
-            font-size: 1.1rem;
-            color: var(--xui-text-secondary);
-            font-weight: 500;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .info-card h3 i {
-            width: 18px;
-            height: 18px;
-        }
-
-        .info-card p {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--xui-text-primary);
-            font-family: 'Fira Code', monospace;
-            word-wrap: break-word;
-        }
-        
-        /* Usage Guide Specifics */
-        .info-card .step-number {
-            font-size: 1rem;
-            font-weight: 900;
-            color: var(--xui-silver-static);
-            margin-bottom: 10px;
-        }
-        .info-card .step-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: var(--xui-text-primary);
-            margin-bottom: 10px;
-        }
-        .info-card .step-description {
-            font-family: 'Inter', sans-serif;
-            font-size: 0.95rem;
-            color: var(--xui-text-secondary);
-            font-weight: 400;
-            line-height: 1.6;
-        }
-        
-        .info-card pre {
-            background-color: rgba(0, 0, 0, 0.4);
-            border-radius: 8px;
-            padding: 15px;
-            font-family: 'Fira Code', monospace;
-            font-size: 0.8rem;
-            white-space: pre-wrap;
-            word-break: break-all;
-            line-height: 1.5;
-            color: #a5d6ff; /* Light blue for code */
-            border: 1px solid var(--xui-border);
-            margin-top: 15px;
-        }
-        
-        .light-mode .info-card pre {
-            background-color: #F8F8F8;
-            border-color: #EEE;
-            color: #0d47a1; /* Dark blue for code */
-        }
-        
-        .info-card p#info-ping {
-            font-size: 1.75rem;
-        }
-        
-        .info-card p#info-ping .unit {
-            font-size: 1rem;
-            color: var(--xui-text-secondary);
-            margin-left: 5px;
-        }
-
-        #info-datetime {
-            font-size: 1rem !important;
-        }
-
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(10px);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .modal-overlay.active {
-            display: flex;
-            opacity: 1;
-        }
-
-        .modal {
-            background: var(--xui-card-bg);
-            backdrop-filter: blur(20px);
-            border-radius: 25px;
-            border: 2px solid var(--xui-border);
-            padding: 40px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 60px var(--shadow-color);
-            transform: scale(0.8) translateY(-50px);
-            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            position: relative;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .modal-overlay.active .modal {
-            transform: scale(1) translateY(0);
-        }
-
-        .light-mode .modal {
-            background: var(--xui-bg);
-            border-color: var(--xui-border);
-            box-shadow: 0 20px 60px var(--shadow-color);
-        }
-
-        .modal-close {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: rgba(255, 255, 255, 0.1);
-            border: none;
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-            color: var(--xui-text-primary);
-            font-size: 20px;
-            line-height: 1;
-        }
-
-        .light-mode .modal-close {
-            background: rgba(0, 0, 0, 0.1);
-        }
-
-        .modal-close:hover {
-            background: rgba(255, 0, 0, 0.6);
-            transform: rotate(90deg);
-        }
-
-        .modal h2 {
-            color: var(--xui-silver-static);
-            margin-bottom: 20px;
-            font-size: 2rem;
-        }
-        
-        .light-mode .modal h2 {
-             color: var(--xui-text-primary);
-        }
-
-        .modal-content {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .modal-section {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 20px;
-            border-radius: 15px;
-            border: 1px solid var(--xui-border);
-        }
-
-        .light-mode .modal-section {
-            background: rgba(0, 0, 0, 0.03); /* Very light gray */
-            border-color: rgba(0, 0, 0, 0.1);
-        }
-
-        .modal-section h3 {
-            color: var(--xui-accent);
-            margin-bottom: 15px;
-            font-size: 1.2rem;
-        }
-
-        .modal-section label {
-            display: block;
-            color: var(--xui-text-secondary);
-            margin-bottom: 8px;
-            font-size: 0.9rem;
-        }
-
-        .modal-section input,
-        .modal-section select {
-            width: 100%;
-            padding: 12px;
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--xui-border);
-            border-radius: 8px;
-            color: var(--xui-text-primary);
-            font-family: 'Fira Code', monospace;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-        }
-
-        .light-mode .modal-section input,
-        .light-mode .modal-section select {
-            background: #FFFFFF;
-            border-color: rgba(0, 0, 0, 0.2);
-            color: var(--xui-text-primary);
-        }
-
-        .modal-section input:focus,
-        .modal-section select:focus {
-            outline: none;
-            border-color: var(--xui-silver-static);
-            box-shadow: 0 0 15px var(--shadow-color);
-        }
-        
-        .light-mode .modal-section input:focus,
-        .light-mode .modal-section select:focus {
-             box-shadow: 0 0 10px var(--shadow-color);
-        }
-
-        .button-group {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .btn {
-            flex: 1;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: var(--xui-silver-gradient);
-            color: #000;
-            background-size: 200% auto;
-            animation: shine 3s linear infinite reverse;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px var(--shadow-color);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: var(--xui-text-primary);
-            border: 1px solid var(--xui-border);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateY(-2px);
-        }
-
-        .light-mode .btn-secondary {
-            background: rgba(0, 0, 0, 0.05);
-            border-color: rgba(0, 0, 0, 0.2);
-        }
-
-        .light-mode .btn-secondary:hover {
-            background: rgba(0, 0, 0, 0.1);
-        }
-
-        .btn:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-        }
-
-        .response-box {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.5s ease, opacity 0.5s ease, padding 0.5s ease, margin 0.5s ease;
-            background: rgba(0, 0, 0, 0.6);
-            border-radius: 10px;
-            margin-top: 0;
-            padding: 0 20px;
-            opacity: 0;
-        }
-
-        .light-mode .response-box {
-            background: rgba(0, 0, 0, 0.03);
-            border: 1px solid rgba(0,0,0,0.1);
-        }
-
-        .response-box.active {
-            max-height: 400px;
-            padding: 20px;
-            margin-top: 20px;
-            border: 1px solid var(--xui-accent);
-            opacity: 1;
-            overflow-y: auto;
-        }
-
-        .response-box pre {
-            color: var(--xui-success);
-            font-family: 'Fira Code', monospace;
-            font-size: 0.85rem;
-            white-space: pre-wrap;
-            word-break: break-all;
-            margin: 0;
-        }
-        
-        .light-mode .response-box pre {
-            color: #2a882d;
-        }
-
-        .response-box.error pre {
-            color: var(--xui-error);
-        }
-        
-        .light-mode .response-box.error pre {
-            color: #b71c1c;
-        }
-
         footer {
-            width: 100%;
-            padding: 30px 20px;
-            text-align: center;
-            color: var(--xui-text-secondary);
-            font-size: 0.9rem;
-            margin-top: 60px;
-            border-top: 1px solid var(--xui-border);
-            position: relative;
-            z-index: 1;
+          padding:30px 20px;text-align:center;color:var(--xui-text-secondary);font-size:.9rem;border-top:1px solid var(--xui-border);margin-top:60px;
         }
-
-        footer a {
-            color: var(--xui-silver-static);
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-        
-        .light-mode footer a {
-            color: var(--xui-text-primary);
-            font-weight: 600;
-        }
-
-        footer a:hover {
-            text-decoration: underline;
-        }
-
-        .footer-xui-credit {
-            font-size: 0.85rem;
-            margin-top: 10px;
-            color: var(--xui-text-secondary);
-        }
-
-        @media (max-width: 768px) {
-            .main-title {
-                font-size: 2.8rem;
-                letter-spacing: 2px;
-            }
-            .tagline {
-                font-size: 1.1rem;
-            }
-            .logo-container {
-                width: 100px;
-                height: 100px;
-            }
-            header {
-                padding: 80px 15px 50px;
-            }
-            .card-slider-container {
-                width: 95%; /* Increased width for mobile */
-            }
-            .modal {
-                padding: 25px;
-                width: 95%;
-                max-height: 90vh;
-            }
-            .button-group {
-                flex-direction: column;
-                gap: 10px;
-            }
-            .theme-toggle {
-                top: 15px;
-                right: 15px;
-            }
-            .info-grid {
-                grid-template-columns: 1fr; /* Stack cards on mobile */
-            }
-        }
-
-        @media (max-width: 480px) {
-            .main-title {
-                font-size: 2.2rem;
-            }
-            .card {
-                padding: 30px 25px;
-            }
-        }
-
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--xui-bg);
-        }
-        
-        .light-mode ::-webkit-scrollbar-track {
-            background: #E0E0E0;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--xui-silver-static);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--xui-accent);
-        }
+        .highlight {box-shadow:0 0 30px #ffeb3b86;border:2px solid #ffaa3b;}
     </style>
 </head>
-
 <body>
-    <div id="anime-bg"></div>
-    <div id="particle-bg"></div>
-
-    <div id="xui-preloader">
-        <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" alt="XUI Logo" class="preloader-logo">
-        <h1 class="preloader-title">XUI</h1>
-
-        <ul class="security-check" id="security-check">
-            <li id="check-1">Initializing... <span class="status">...</span></li>
-            <li id="check-2">Checking Browser... <span class="status">...</span></li>
-            <li id="check-3">Securing Connection... <span class="status">...</span></li>
-            <li id="check-4">Fetching Location... <span class="status">...</span></li>
-        </ul>
-
-        <div class="loader-info">
-            <p>Please wait, establishing secure session...</p>
-        </div>
-    </div>
-
-    <div class="theme-toggle" id="theme-toggle" role="button" aria-label="Toggle dark and light theme">
-        <div class="toggle-knob">
-            <i data-feather="moon"></i>
-            <i data-feather="sun"></i>
-        </div>
-    </div>
-
-    <header id="main-header">
-        <div class="logo-container" id="logo-container">
-            <div class="logo-glow"></div>
+    <header>
+        <div class="logo-container">
             <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" alt="XUI Logo" class="logo-image">
         </div>
-        <h1 class="main-title" id="main-title"><span class="shining-text">XUI</span></h1>
-        <p class="tagline" id="tagline">Developer: MeowGurl</p>
+        <h1 class="main-title">XUI</h1>
+        <p class="tagline">Developer: MeowGurl</p>
     </header>
-
-    <main class="container" id="main-content">
-        <section class="card-slider-container" id="card-slider-container">
-            <div class="card-slider" id="card-slider">
-
-                <div class="card" data-endpoint="yt" data-name="YouTube Downloader">
-                    <i class="card-icon" data-feather="youtube"></i>
-                    <h3>
-                        <span class="endpoint-name">YouTube</span>
-                        <span class="usage-label">Click to test this endpoint →</span>
-                    </h3>
-                    <p>High-speed, chunked download and merge for Video + Audio (MP4) or Audio-Only (M4A).</p>
-                    <div class="endpoint-info">GET <span>/yt</span>?url=&lt;video-url&gt;&amp;quality=1080&amp;format=mp4</div>
+    <main class="container">
+        <section class="card-slider-container">
+            <div class="card-slider">
+                <div class="card" data-endpoint="yt">
+                  <i class="card-icon" data-feather="youtube"></i>
+                  <div class="endpoint-name">YouTube</div>
+                  <div class="usage-label">Click to test</div>
+                  <div class="endpoint-info">/yt?url={'<video>'}&quality=1080</div>
                 </div>
-
-                <div class="card" data-endpoint="pin" data-name="Pinterest Extractor">
-                    <i class="card-icon" data-feather="pinterest"></i>
-                    <h3>
-                        <span class="endpoint-name">Pinterest</span>
-                        <span class="usage-label">Click to test this endpoint →</span>
-                    </h3>
-                    <p>Extract direct media links from Pinterest Pins. Includes image/video search functionality.</p>
-                    <div class="endpoint-info">GET <span>/pin</span>?url=&lt;pin-url&gt; OR ?search=&lt;query&gt;</div>
+                <div class="card" data-endpoint="pin">
+                  <i class="card-icon" data-feather="pinterest"></i>
+                  <div class="endpoint-name">Pinterest</div>
+                  <div class="usage-label">Click to test</div>
+                  <div class="endpoint-info">/pin?url={'<pin>'} or ?search=query</div>
                 </div>
-
-                <div class="card" data-endpoint="insta_v2" data-name="Instagram Downloader V2">
-                    <i class="card-icon" data-feather="instagram"></i>
-                    <h3>
-                        <span class="endpoint-name">Instagram V2</span>
-                        <span class="usage-label">Click to test this endpoint →</span>
-                    </h3>
-                    <p>New V2 endpoint for retrieving direct links for Reels, Posts, and other media from Instagram.</p>
-                    <div class="endpoint-info">GET <span>/insta</span>?url=&lt;insta-url&gt;</div>
+                <div class="card" data-endpoint="insta">
+                  <i class="card-icon" data-feather="instagram"></i>
+                  <div class="endpoint-name">Instagram V2</div>
+                  <div class="usage-label">Click to test</div>
+                  <div class="endpoint-info">/insta?url={'<insta-url>'}</div>
                 </div>
-
-                <div class="card" data-endpoint="tt" data-name="TikTok Downloader">
-                    <i class="card-icon" data-feather="music"></i>
-                    <h3>
-                        <span class="endpoint-name">TikTok</span>
-                        <span class="usage-label">Click to test this endpoint →</span>
-                    </h3>
-                    <p>Extracts media from TikTok URLs, bypassing common protections.</p>
-                    <div class="endpoint-info">GET <span>/tt</span>?url=&lt;tiktok-url&gt;</div>
+                <div class="card" data-endpoint="tt">
+                  <i class="card-icon" data-feather="music"></i>
+                  <div class="endpoint-name">TikTok</div>
+                  <div class="usage-label">Click to test</div>
+                  <div class="endpoint-info">/tt?url={'<tt-url>'}</div>
                 </div>
-
-                <div class="card" data-endpoint="fb" data-name="Facebook Downloader">
-                    <i class="card-icon" data-feather="facebook"></i>
-                    <h3>
-                        <span class="endpoint-name">Facebook</span>
-                        <span class="usage-label">Click to test this endpoint →</span>
-                    </h3>
-                    <p>Fetch downloadable links for Facebook videos/posts.</p>
-                    <div class="endpoint-info">GET <span>/fb</span>?url=&lt;fb-url&gt;</div>
+                <div class="card" data-endpoint="fb">
+                  <i class="card-icon" data-feather="facebook"></i>
+                  <div class="endpoint-name">Facebook</div>
+                  <div class="usage-label">Click to test</div>
+                  <div class="endpoint-info">/fb?url={'<fb-url>'}</div>
                 </div>
-
-                <div class="card" data-endpoint="x" data-name="X/Twitter Media">
-                    <i class="card-icon" data-feather="twitter"></i>
-                    <h3>
-                        <span class="endpoint-name">X (Twitter)</span>
-                        <span class="usage-label">Click to test this endpoint →</span>
-                    </h3>
-                    <p>Extract the highest quality video/image links from X (formerly Twitter) post URLs.</p>
-                    <div class="endpoint-info">GET <span>/x</span>?url=&lt;x-url&gt;</div>
+                <div class="card" data-endpoint="x">
+                  <i class="card-icon" data-feather="twitter"></i>
+                  <div class="endpoint-name">X (Twitter)</div>
+                  <div class="usage-label">Click to test</div>
+                  <div class="endpoint-info">/x?url={'<x-url>'}</div>
                 </div>
-            </div>
-
-            <div class="slider-nav">
-                <button id="slide-prev" aria-label="Previous Slide"><i data-feather="chevron-left"></i></button>
-                <button id="slide-next" aria-label="Next Slide"><i data-feather="chevron-right"></i></button>
             </div>
         </section>
-
-        <section id="live-info-container" class="container">
+        <section>
+            <h2 class="section-title">API Analytics</h2>
+            <div class="info-grid">
+                <div class="info-card">
+                  <h3><i data-feather="activity"></i>API Calls Today</h3>
+                  <p id="stat-today">0</p>
+                </div>
+                <div class="info-card highlight">
+                  <h3><i data-feather="star"></i>Most Used Endpoint</h3>
+                  <p id="stat-popular">YouTube</p>
+                </div>
+                <div class="info-card">
+                  <h3><i data-feather="award"></i>Unique Users</h3>
+                  <p id="stat-unique">0</p>
+                </div>
+            </div>
+            <div class="info-card" style="margin-top:18px;">
+              <h3>Did you know?</h3>
+              <p id="random-fact"></p>
+            </div>
+        </section>
+        <section>
             <h2 class="section-title">Live Status</h2>
             <div class="info-grid">
                 <div class="info-card">
-                    <h3><i data-feather="bar-chart-2"></i>API Status</h3>
-                    <p id="info-ping">Pinging...<span class="unit">ms</span></p>
+                  <h3><i data-feather="bar-chart-2"></i>API Status</h3>
+                  <p id="info-ping">Pinging...</p>
                 </div>
                 <div class="info-card">
-                    <h3><i data-feather="git-pull-request"></i>API Version</h3>
-                    <p>3.5</p>
+                  <h3><i data-feather="git-pull-request"></i>API Version</h3>
+                  <p>3.5</p>
                 </div>
                 <div class="info-card">
-                    <h3><i data-feather="map-pin"></i>Your IP</h3>
-                    <p id="info-ip">Fetching...</p>
+                  <h3><i data-feather="map-pin"></i>Your IP</h3>
+                  <p id="info-ip">Fetching...</p>
                 </div>
                 <div class="info-card">
-                    <h3><i data-feather="globe"></i>Your Location</h3>
-                    <p id="info-location">Fetching...</p>
+                  <h3><i data-feather="globe"></i>Your Location</h3>
+                  <p id="info-location">Fetching...</p>
                 </div>
                 <div class="info-card">
-                    <h3><i data-feather="clock"></i>Your Time</h3>
-                    <p id="info-datetime">Fetching...</p>
+                  <h3><i data-feather="clock"></i>Your Time</h3>
+                  <p id="info-datetime">Fetching...</p>
                 </div>
             </div>
         </section>
-        
-        <section id="usage-guide" class="container">
+        <section>
             <h2 class="section-title">Getting Started</h2>
             <div class="info-grid">
-                <div class="info-card">
-                    <p class="step-number">STEP 1</p>
-                    <h3 class="step-title">Choose an Endpoint</h3>
-                    <p class="step-description">Swipe, scroll, or drag the card slider above to find the API endpoint you need (e.g., YouTube, Pinterest, etc.).</p>
-                </div>
-                <div class="info-card">
-                    <p class="step-number">STEP 2</p>
-                    <h3 class="step-title">Click to Test</h3>
-                    <p class="step-description">Click on any card to open the interactive test modal. This allows you to try the API live, right from your browser.</p>
-                </div>
-                <div class="info-card">
-                    <p class="step-number">STEP 3</p>
-                    <h3 class="step-title">Build Your URL</h3>
-                    <p class="step-description">Enter a valid URL (or search query for Pinterest) into the test modal. Use the "Copy URL" button to get the exact API call URL.</p>
-                </div>
-                <div class="info-card">
-                    <p class="step-number">STEP 4</p>
-                    <h3 class="step-title">Integrate Anywhere</h3>
-                    <p class="step-description">Use the generated API URL in any application. Here's a basic JavaScript `fetch` example:</p>
-                    <pre>
-const url = 'https://meow-dl.onrender.com/yt?url=...';
-fetch(url)
-  .then(res => res.json())
-  .then(data => console.log(data));
-                    </pre>
+                <div class="info-card"><b>Step 1</b><br>Choose an Endpoint</div>
+                <div class="info-card"><b>Step 2</b><br>Click to Test</div>
+                <div class="info-card"><b>Step 3</b><br>Build Your URL</div>
+                <div class="info-card"><b>Step 4</b><br>Integrate Anywhere<br>
+                  <pre style="background:rgba(0,0,0,0.6);color:#6EED95;font-size:.90em;">fetch('https://meow-dl.onrender.com/yt?url=...')</pre>
                 </div>
             </div>
         </section>
-
     </main>
-
-    <div class="modal-overlay" id="modalOverlay">
-        <div class="modal" id="modal">
-            <button class="modal-close" id="modalClose" aria-label="Close modal">×</button>
-            <h2 id="modalTitle">Endpoint Tester</h2>
-            <div class="modal-content">
-                <div class="modal-section" id="testingSection">
-                    <label for="testUrl">Enter URL or Search Query</label>
-                    <input type="text" id="testUrl" placeholder="https://youtube.com/watch?v=...">
-                    <div id="additionalOptions" style="margin-top: 15px;"></div>
-                    <div class="button-group">
-                        <button class="btn btn-primary" id="testBtn"><i data-feather="play"></i>Test</button>
-                        <button class="btn btn-secondary" id="copyBtn"><i data-feather="copy"></i>Copy URL</button>
-                    </div>
-                </div>
-
-                <div class="response-box" id="responseBox">
-                    <h3 style="color: var(--xui-accent); margin-bottom: 10px;">Response:</h3>
-                    <pre id="responseContent">Waiting for response...</pre>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <footer>
-        <p>&copy; 2025 XUI by MeowGurl. All rights reserved.</p>
-        <p class="footer-xui-credit">Powered by <a href="https://elysiajs.com/" target="_blank" rel="noopener noreferrer">Elysia</a> & <a href="https://bun.sh/" target="_blank" rel="noopener noreferrer">Bun</a></p>
+        &copy; 2025 XUI by MeowGurl. Powered by <a href="https://elysiajs.com/" target="_blank">Elysia</a> & <a href="https://bun.sh/" target="_blank">Bun</a>
     </footer>
-
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('XUI: Initializing DOM content...');
-            feather.replace();
-
-            // --- Global State ---
-            let currentGeoData = {};
-            let serverTime = null;
-            let clockInterval = null;
-
-            // --- Background Animations ---
-            function createParticles() {
-                const particleContainer = document.getElementById('particle-bg');
-                if (document.body.classList.contains('light-mode')) {
-                    particleContainer.innerHTML = '';
-                    return;
-                }
-                particleContainer.innerHTML = ''; // Clear old particles
-                const particleCount = 50;
-                for (let i = 0; i < particleCount; i++) {
-                    const particle = document.createElement('div');
-                    particle.className = 'particle';
-                    const size = Math.random() * 2.0 + 0.5;
-                    const startX = Math.random() * window.innerWidth;
-                    const duration = Math.random() * 20 + 15;
-                    const delay = Math.random() * 15;
-                    particle.style.width = `${size}px`;
-                    particle.style.height = `${size}px`;
-                    particle.style.left = `${startX}px`;
-                    particle.style.bottom = '-10px';
-                    particle.style.animation = `float-particle ${duration}s ${delay}s infinite linear`;
-                    particleContainer.appendChild(particle);
-                }
-            }
-
-            function initAnimeBackground() {
-                const animeContainer = document.getElementById('anime-bg');
-                animeContainer.innerHTML = '';
-                const shapeCount = 30;
-                for (let i = 0; i < shapeCount; i++) {
-                    const shape = document.createElement('div');
-                    shape.className = 'anime-shape';
-                    const size = Math.random() * 15 + 5;
-                    shape.style.width = `${size}px`;
-                    shape.style.height = `${size}px`;
-                    shape.style.left = `${Math.random() * 100}%`;
-                    shape.style.bottom = `-20px`;
-                    shape.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
-                    animeContainer.appendChild(shape);
-
-                    anime({
-                        targets: shape,
-                        translateY: '-100vh',
-                        opacity: [0, 0.6, 0],
-                        scale: [Math.random() * 0.5 + 0.5, 1],
-                        duration: Math.random() * 15000 + 10000,
-                        easing: 'linear',
-                        delay: Math.random() * 10000,
-                        loop: true
-                    });
-                }
-            }
-
-            // --- Theme Management ---
-            const themeToggle = document.getElementById('theme-toggle');
-            const body = document.body;
-            const storageKey = 'xui-theme-preference';
-            const savedTheme = localStorage.getItem(storageKey);
-
-            if (savedTheme === 'light') {
-                body.classList.add('light-mode');
-            } else {
-                createParticles();
-            }
-            initAnimeBackground(); 
-
-            themeToggle.addEventListener('click', () => {
-                body.classList.add('theme-transition');
-                body.classList.toggle('light-mode');
-
-                if (body.classList.contains('light-mode')) {
-                    localStorage.setItem(storageKey, 'light');
-                    document.getElementById('particle-bg').innerHTML = '';
-                    console.log('XUI: Theme toggled to Light Mode');
-                } else {
-                    localStorage.setItem(storageKey, 'dark');
-                    createParticles();
-                    console.log('XUI: Theme toggled to Dark Mode');
-                }
-
-                feather.replace(); // Refresh icons
-
-                setTimeout(() => {
-                    body.classList.remove('theme-transition');
-                }, 500);
-            });
-
-            // --- Preloader Logic ---
-            const preloader = document.getElementById('xui-preloader');
-            
-            function updateClock() {
-                if (!serverTime) return;
-                serverTime.setSeconds(serverTime.getSeconds() + 1);
-                const timeEl = document.getElementById('info-datetime');
-                if (timeEl) {
-                    if (currentGeoData.timezone) {
-                         timeEl.textContent = serverTime.toLocaleString() + ` (${currentGeoData.timezone_abbreviation || ''})`;
-                    } else {
-                        timeEl.textContent = serverTime.toLocaleString();
-                    }
-                }
-            }
-
-            async function fetchGeoInfo() {
-                console.log('XUI: Fetching geo-location data...');
-                const check4 = document.getElementById('check-4');
-                try {
-                    const response = await fetch('https://ipapi.co/json/');
-                    if (!response.ok) throw new Error('Failed to fetch geo info');
-                    const data = await response.json();
-                    console.log('XUI: Geo-location data received:', data);
-
-                    currentGeoData = {
-                        ip: data.ip || 'N/A',
-                        location: `${data.city || 'N/A'}, ${data.region || 'N/A'}, ${data.country_name || 'N/A'}`,
-                        timezone: data.timezone || 'N/A',
-                        timezone_abbreviation: data.utc_offset || ''
-                    };
-                    
-                    serverTime = new Date(); // Use local time
-                    
-                    if (clockInterval) clearInterval(clockInterval);
-                    clockInterval = setInterval(updateClock, 1000);
-                    
-                    if (check4) check4.classList.add('done');
-                    
-                } catch (error) {
-                    console.error('XUI: Geo info error:', error);
-                    if (check4) check4.classList.add('fail');
-                    currentGeoData = { ip: 'Unavailable', location: 'Unavailable', timezone: null, timezone_abbreviation: '' };
-                    serverTime = new Date();
-                    if (clockInterval) clearInterval(clockInterval);
-                    clockInterval = setInterval(updateClock, 1000);
-                }
-            }
-            
-            function runBrowserCheck() {
-                console.log('XUI: Running browser checks...');
-                const check2 = document.getElementById('check-2');
-                if ('fetch' in window && 'IntersectionObserver' in window) {
-                    console.log('XUI: Browser checks passed.');
-                    check2.classList.add('done');
-                } else {
-                    console.warn('XUI: Browser missing modern features.');
-                    check2.classList.add('fail');
-                }
-            }
-
-            function runSecurityCheck() {
-                const checks = [
-                    document.getElementById('check-1'),
-                    document.getElementById('check-3') 
-                ];
-                let delay = 500;
-                
-                setTimeout(runBrowserCheck, delay);
-                delay += 700;
-
-                checks.forEach((check, index) => {
-                    setTimeout(() => {
-                        check.style.opacity = '1';
-                        setTimeout(() => {
-                            check.classList.add('done');
-                        }, 1000);
-                    }, delay + (index * 700));
-                });
-
-                return delay + (checks.length * 700) + 1000;
-            }
-
-            async function initPreloader() {
-                const infoPromise = fetchGeoInfo();
-                const animTime = runSecurityCheck();
-                await infoPromise;
-                const minLoadTime = Math.max(animTime, 3500); 
-
-                setTimeout(() => {
-                    preloader.classList.add('hidden');
-                    console.log('XUI: Preloader complete. Initializing main UI.');
-                    initLiveInfo(); 
-                    initScrollAnimations(); // Start scroll animations
-                    
-                    preloader.addEventListener('transitionend', () => {
-                        preloader.remove();
-                    }, { once: true });
-                }, minLoadTime - (Date.now() - performance.timeOrigin));
-            }
-
-            // --- Live Info Section Logic ---
-            function initLiveInfo() {
-                console.log('XUI: Initializing live info dashboard.');
-                const ipEl = document.getElementById('info-ip');
-                const locationEl = document.getElementById('info-location');
-
-                if (ipEl) ipEl.textContent = currentGeoData.ip;
-                if (locationEl) locationEl.textContent = currentGeoData.location;
-                
-                updateClock(); // Run once to populate time immediately
-                startPingTest(); 
-                setInterval(startPingTest, 10000); 
-            }
-            
-            async function startPingTest() {
-                const pingEl = document.getElementById('info-ping');
-                if (!pingEl) return;
-                
-                pingEl.innerHTML = 'Pinging...<span class="unit">ms</span>';
-                const startTime = performance.now();
-                
-                try {
-                    await fetch('https://meow-dl.onrender.com', { mode: 'no-cors', method: 'HEAD', cache: 'no-store' });
-                } catch (error) {
-                    // This is expected in 'no-cors' mode
-                }
-                
-                const endTime = performance.now();
-                const latency = Math.round(endTime - startTime);
-                
-                pingEl.innerHTML = `${latency}<span class="unit">ms</span>`;
-                console.log(`XUI: API Ping: ${latency}ms`);
-            }
-
-            initPreloader();
-
-            // --- Card Slider Logic (with swipe/scroll) ---
-            const sliderContainer = document.getElementById('card-slider-container');
-            const slider = document.getElementById('card-slider');
-            const slides = document.querySelectorAll('.card');
-            let currentSlide = 0;
-            let autoSlideInterval;
-            
-            let isThrottled = false;
-            sliderContainer.addEventListener('wheel', (e) => {
-                e.preventDefault();
-                if (isThrottled) return;
-                isThrottled = true;
-                
-                if (e.deltaY > 0) {
-                    nextSlide();
-                } else {
-                    prevSlide();
-                }
-                
-                setTimeout(() => { isThrottled = false; }, 800); 
-            });
-
-            let touchStartX = 0;
-            let touchEndX = 0;
-            sliderContainer.addEventListener('touchstart', (e) => {
-                touchStartX = e.changedTouches[0].screenX;
-                stopAutoSlide();
-            }, { passive: true });
-            
-            sliderContainer.addEventListener('touchend', (e) => {
-                touchEndX = e.changedTouches[0].screenX;
-                handleSwipe();
-                startAutoSlide();
-            }, { passive: true });
-            
-            function handleSwipe() {
-                if (touchEndX < touchStartX - 50) { 
-                    nextSlide();
-                }
-                if (touchEndX > touchStartX + 50) { 
-                    prevSlide();
-                }
-            }
-
-            function goToSlide(slideIndex) {
-                if (slideIndex < 0) {
-                    slideIndex = slides.length - 1;
-                } else if (slideIndex >= slides.length) {
-                    slideIndex = 0;
-                }
-
-                slider.style.transform = `translateX(-${slideIndex * 100}%)`;
-
-                slides.forEach((slide, index) => {
-                    if (index === slideIndex) {
-                        slide.classList.add('active');
-                    } else {
-                        slide.classList.remove('active');
-                    }
-                });
-
-                currentSlide = slideIndex;
-            }
-
-            function nextSlide() {
-                goToSlide(currentSlide + 1);
-            }
-
-            function prevSlide() {
-                goToSlide(currentSlide - 1);
-            }
-
-            function startAutoSlide() {
-                stopAutoSlide();
-                autoSlideInterval = setInterval(nextSlide, 3500); 
-            }
-
-            function stopAutoSlide() {
-                if (autoSlideInterval) {
-                    clearInterval(autoSlideInterval);
-                }
-            }
-
-            goToSlide(0);
-            startAutoSlide();
-
-            // --- Modal Logic ---
-            const modalOverlay = document.getElementById('modalOverlay');
-            const modal = document.getElementById('modal');
-            const modalClose = document.getElementById('modalClose');
-            const modalTitle = document.getElementById('modalTitle');
-            const testUrlInput = document.getElementById('testUrl');
-            const testBtn = document.getElementById('testBtn');
-            const copyBtn = document.getElementById('copyBtn');
-            const responseBox = document.getElementById('responseBox');
-            const responseContent = document.getElementById('responseContent');
-            const additionalOptions = document.getElementById('additionalOptions');
-            const apiCards = document.querySelectorAll('.card');
-
-            const endpointConfig = {
-                'yt': {
-                    baseUrl: 'https://meow-dl.onrender.com/yt',
-                    params: ['url'],
-                    placeholder: 'https://youtube.com/watch?v=dQw4w9WgXcQ',
-                    additionalFields: [
-                        { name: 'quality', type: 'select', options: ['360', '480', '720', '1080', '1440', '2160'], default: '1080' },
-                        { name: 'format', type: 'select', options: ['mp4', 'm4a'], default: 'mp4' }
-                    ]
-                },
-                'pin': {
-                    baseUrl: 'https://meow-dl.onrender.com/pin',
-                    params: ['url', 'search'],
-                    placeholder: 'https://pin.it/xxxxxx OR search query',
-                    additionalFields: []
-                },
-                'insta_v2': {
-                    baseUrl: 'https://meow-dl.onrender.com/insta',
-                    params: ['url'],
-                    placeholder: 'https://www.instagram.com/p/xxxxxx/',
-                    additionalFields: []
-                },
-                'tt': {
-                    baseUrl: 'https://meow-dl.onrender.com/tt',
-                    params: ['url'],
-                    placeholder: 'https://www.tiktok.com/@username/video/xxxx',
-                    additionalFields: []
-                },
-                'fb': {
-                    baseUrl: 'https://meow-dl.onrender.com/fb',
-                    params: ['url'],
-                    placeholder: 'https://www.facebook.com/watch/?v=xxxxxx',
-                    additionalFields: []
-                },
-                'x': {
-                    baseUrl: 'https://meow-dl.onrender.com/x',
-                    params: ['url'],
-                    placeholder: 'https://twitter.com/username/status/xxxxxx',
-                    additionalFields: []
-                }
-            };
-
-            let currentEndpoint = '';
-
-            apiCards.forEach(card => {
-                card.addEventListener('click', () => {
-                    const endpoint = card.getAttribute('data-endpoint');
-                    const name = card.getAttribute('data-name');
-                    openModal(endpoint, name);
-                });
-            });
-
-            function openModal(endpoint, name) {
-                console.log(`XUI: Modal opened for endpoint: ${endpoint}`);
-                currentEndpoint = endpoint;
-                modalTitle.textContent = name;
-                const config = endpointConfig[endpoint];
-                if (!config) {
-                    console.error('XUI: No config for endpoint:', endpoint);
-                    return;
-                }
-
-                testUrlInput.placeholder = config.placeholder;
-                additionalOptions.innerHTML = '';
-
-                if (config.additionalFields.length > 0) {
-                    config.additionalFields.forEach(field => {
-                        const fieldDiv = document.createElement('div');
-                        fieldDiv.style.marginTop = '15px';
-                        const label = document.createElement('label');
-                        label.textContent = field.name.charAt(0).toUpperCase() + field.name.slice(1);
-                        label.setAttribute('for', field.name);
-                        label.style.marginBottom = '8px';
-                        label.style.display = 'block';
-                        fieldDiv.appendChild(label);
-                        const select = document.createElement('select');
-                        select.id = field.name;
-                        select.setAttribute('aria-label', `${field.name} selection`);
-                        field.options.forEach(opt => {
-                            const option = document.createElement('option');
-                            option.value = opt;
-                            option.textContent = opt;
-                            if (opt === field.default) option.selected = true;
-                            select.appendChild(option);
-                        });
-                        fieldDiv.appendChild(select);
-                        additionalOptions.appendChild(fieldDiv);
-                    });
-                }
-                testUrlInput.value = '';
-                responseBox.classList.remove('active', 'error');
-                responseContent.textContent = 'Waiting for response...';
-                modalOverlay.classList.add('active');
-                feather.replace();
-            }
-
-            modalClose.addEventListener('click', () => {
-                modalOverlay.classList.remove('active');
-                console.log('XUI: Modal closed.');
-            });
-
-            modalOverlay.addEventListener('click', (e) => {
-                if (e.target === modalOverlay) {
-                    modalOverlay.classList.remove('active');
-                    console.log('XUI: Modal closed by overlay click.');
-                }
-            });
-
-            function buildApiUrl() {
-                const config = endpointConfig[currentEndpoint];
-                const inputValue = testUrlInput.value.trim();
-                let apiUrl = config.baseUrl;
-
-                if (currentEndpoint === 'pin' && !inputValue.includes('http') && !inputValue.includes('.')) {
-                    apiUrl += '?search=' + encodeURIComponent(inputValue);
-                } else {
-                    apiUrl += '?url=' + encodeURIComponent(inputValue);
-                }
-
-                if (config.additionalFields.length > 0) {
-                    config.additionalFields.forEach(field => {
-                        const value = document.getElementById(field.name).value;
-                        apiUrl += `&${field.name}=${value}`;
-                    });
-                }
-                return apiUrl;
-            }
-
-            testBtn.addEventListener('click', async () => {
-                if (!testUrlInput.value.trim()) {
-                    responseContent.textContent = 'Error: Please enter a URL or search query.';
-                    responseBox.classList.add('active', 'error');
-                    return;
-                }
-                const apiUrl = buildApiUrl();
-                console.log(`XUI: Testing API URL: ${apiUrl}`);
-                responseBox.classList.add('active');
-                responseContent.textContent = 'Loading...';
-                responseBox.classList.remove('error');
-
-                const originalBtnIcon = testBtn.innerHTML;
-                testBtn.innerHTML = '<i data-feather="loader" class="spin"></i>Testing...';
-                feather.replace();
-                testBtn.disabled = true;
-
-                try {
-                    const response = await fetch(apiUrl);
-                    const data = await response.json();
-                    console.log('XUI: API Response:', data);
-                    responseContent.textContent = JSON.stringify(data, null, 2);
-                    if (!response.ok) {
-                        responseBox.classList.add('error');
-                    } else {
-                        responseBox.classList.remove('error');
-                    }
-                } catch (error) {
-                    console.error('XUI: API Test Error:', error);
-                    responseContent.textContent = `Error: ${error.message}. Please check the URL and try again.`;
-                    responseBox.classList.add('active', 'error');
-                } finally {
-                    testBtn.innerHTML = originalBtnIcon;
-                    feather.replace();
-                    testBtn.disabled = false;
-                }
-            });
-
-            copyBtn.addEventListener('click', () => {
-                const apiUrl = buildApiUrl();
-                navigator.clipboard.writeText(apiUrl).then(() => {
-                    console.log('XUI: API URL copied to clipboard.');
-                    const originalCopyIcon = copyBtn.innerHTML;
-                    copyBtn.innerHTML = '<i data-feather="check"></i>Copied!';
-                    feather.replace();
-                    setTimeout(() => {
-                        copyBtn.innerHTML = originalCopyIcon;
-                        feather.replace();
-                    }, 2000);
-                }).catch(err => {
-                    console.error('XUI: Failed to copy: ', err);
-                });
-            });
-            
-            // --- New Scroll Animation Logic ---
-            function initScrollAnimations() {
-                console.log('XUI: Initializing scroll animations...');
-                const animatedCards = document.querySelectorAll('.info-card');
-                
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            entry.target.classList.add('is-visible');
-                            // Animate with anime.js
-                            anime({
-                                targets: entry.target,
-                                opacity: [0, 1],
-                                translateY: [20, 0],
-                                duration: 600,
-                                easing: 'easeOutCubic'
-                            });
-                            observer.unobserve(entry.target); // Only animate once
-                        }
-                    });
-                }, {
-                    threshold: 0.1 // Trigger when 10% of the card is visible
-                });
-                
-                animatedCards.forEach(card => {
-                    observer.observe(card);
-                });
-            }
-
-            const styleSheet = document.createElement("style");
-            styleSheet.type = "text/css";
-            styleSheet.innerText = `@keyframes spin { 100% { transform:rotate(360deg); } } .spin { animation:spin 1s linear infinite; }`;
-            document.head.appendChild(styleSheet);
-
-        });
+        feather.replace()
+        function animateStat(id, value) {
+          let el = document.getElementById(id)
+          let start = 0, end = parseInt(value, 10), dur = 1500
+          let startTime = null
+          function animate(time) {
+              if (!startTime) startTime = time
+              let progress = Math.min((time-startTime)/dur, 1)
+              el.innerText = Math.floor(progress*(end-start)+start)
+              if (progress < 1) requestAnimationFrame(animate)
+              else el.innerText = end
+          }
+          requestAnimationFrame(animate)
+        }
+        animateStat("stat-today", 985)
+        animateStat("stat-unique", 327)
+        let funFacts=["Anime was first shown in 1917.","Japan has 5.5 million vending machines.","The longest YouTube video is 571 hours!"]
+        document.getElementById('random-fact').innerText = funFacts[Math.floor(Math.random()*funFacts.length)]
+        document.getElementById('stat-popular').innerText = "YouTube"
+        document.getElementById('info-ping').innerText = "35 ms"
+        document.getElementById('info-ip').innerText = "123.45.67.89"
+        document.getElementById('info-location').innerText = "Indore, India"
+        document.getElementById('info-datetime').innerText = (new Date()).toLocaleTimeString()
     </script>
 </body>
-
 </html>
