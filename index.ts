@@ -1,12 +1,6 @@
 import { Elysia, t } from "elysia";
 import { staticPlugin } from "@elysiajs/static";
-import {
-  Innertube,
-  UniversalCache,
-  Platform,
-  Types,
-  type YTNodes,
-} from "youtubei.js";
+import { Innertube, UniversalCache, Platform, Types, Misc } from "youtubei.js";
 import ffmpeg from "ffmpeg-static";
 import { mkdir, rm, rename } from "node:fs/promises";
 import { join } from "node:path";
@@ -39,7 +33,7 @@ function getClientId(request: Request): string {
   return forwarded?.split(",")[0].trim() || realIp || cfConnecting || "unknown";
 }
 
-type YTFormat = YTNodes.Format & {
+type YTFormat = Misc.Format & {
   content_length: number;
   is_original?: boolean;
   deciphered_url?: string;
@@ -492,9 +486,7 @@ const app = new Elysia()
         : "m4a";
       const sourceAudioQualityLabel = `${Math.round(
         (audioFormat.bitrate || 0) / 1000,
-      )}kbps ${
-        audioFormat.mime_type?.includes("opus") ? "Opus" : "AAC"
-      }`;
+      )}kbps ${audioFormat.mime_type?.includes("opus") ? "Opus" : "AAC"}`;
 
       const sessionId = crypto.randomUUID();
       const tempDir = join(process.cwd(), "temp", sessionId);
@@ -681,8 +673,7 @@ const app = new Elysia()
         set.status = 400;
         return {
           status: "error",
-          message:
-            "This session is for audio-only. Use /stream/audio/:id.",
+          message: "This session is for audio-only. Use /stream/audio/:id.",
         };
       }
 
@@ -803,7 +794,7 @@ const app = new Elysia()
       set.headers["Content-Length"] = file.size.toString();
 
       return new Response(file, {
-        headers: set.headers,
+        headers: set.headers as HeadersInit,
       });
     },
     {
@@ -831,8 +822,7 @@ const app = new Elysia()
         set.status = 400;
         return {
           status: "error",
-          message:
-            "This session is for video. Use /stream/video/:id.",
+          message: "This session is for video. Use /stream/video/:id.",
         };
       }
 
@@ -854,8 +844,7 @@ const app = new Elysia()
             if (
               (sourceExtension === "m4a" &&
                 session.requestedFormat === "m4a") ||
-              (sourceExtension === "webm" &&
-                session.requestedFormat === "opus")
+              (sourceExtension === "webm" && session.requestedFormat === "opus")
             ) {
               console.log(
                 `[${sessionId}] ✅ Audio download complete. No conversion needed.`,
@@ -879,7 +868,14 @@ const app = new Elysia()
                 ffmpegArgs.push("-q:a", "0"); // VBR, highest quality
                 break;
               case "opus":
-                ffmpegArgs.push("-c:a", "libopus", "-vbr", "on", "-b:a", "256k");
+                ffmpegArgs.push(
+                  "-c:a",
+                  "libopus",
+                  "-vbr",
+                  "on",
+                  "-b:a",
+                  "256k",
+                );
                 break;
               case "wav":
                 ffmpegArgs.push("-f", "wav"); // Uncompressed
@@ -946,7 +942,8 @@ const app = new Elysia()
         return {
           status: "error",
           message:
-            session.error || "An unexpected download/conversion error occurred.",
+            session.error ||
+            "An unexpected download/conversion error occurred.",
         };
       }
 
@@ -981,7 +978,7 @@ const app = new Elysia()
       set.headers["Content-Length"] = file.size.toString();
 
       return new Response(file, {
-        headers: set.headers,
+        headers: set.headers as HeadersInit,
       });
     },
     {
