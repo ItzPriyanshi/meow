@@ -752,10 +752,11 @@ const app = new Elysia()
       }
 
       let attempts = 0;
+      // Increased timeout to ~120 seconds
       while (
         session.status !== "completed" &&
         session.status !== "error" &&
-        attempts < 10
+        attempts < 60
       ) {
         await new Promise((r) => setTimeout(r, 2000));
         attempts++;
@@ -778,6 +779,9 @@ const app = new Elysia()
           message: "Download/merge timed out. Try again.",
         };
       }
+
+      // Small delay to ensure FS is ready
+      await new Promise((r) => setTimeout(r, 100));
 
       const file = Bun.file(session.finalFilePath);
       if (!(await file.exists())) {
@@ -840,7 +844,6 @@ const app = new Elysia()
               ? "webm"
               : "m4a";
 
-            // If no conversion is needed (e.g., requested m4a and downloaded m4a)
             if (
               (sourceExtension === "m4a" &&
                 session.requestedFormat === "m4a") ||
@@ -854,18 +857,16 @@ const app = new Elysia()
               return;
             }
 
-            // Conversion is needed
-            session.status = "merging"; // "merging" status is used for "converting"
+            session.status = "merging";
             console.log(
               `[${sessionId}] ✅ Audio download complete. Starting conversion to ${session.requestedFormat}...`,
             );
 
             const ffmpegArgs = ["-i", session.tempAudioFile];
 
-            // Add format-specific, high-quality conversion flags
             switch (session.requestedFormat) {
               case "mp3":
-                ffmpegArgs.push("-q:a", "0"); // VBR, highest quality
+                ffmpegArgs.push("-q:a", "0");
                 break;
               case "opus":
                 ffmpegArgs.push(
@@ -878,10 +879,10 @@ const app = new Elysia()
                 );
                 break;
               case "wav":
-                ffmpegArgs.push("-f", "wav"); // Uncompressed
+                ffmpegArgs.push("-f", "wav");
                 break;
               case "m4a":
-                ffmpegArgs.push("-c:a", "aac", "-b:a", "256k"); // High bitrate AAC
+                ffmpegArgs.push("-c:a", "aac", "-b:a", "256k");
                 break;
             }
 
@@ -927,10 +928,11 @@ const app = new Elysia()
       }
 
       let attempts = 0;
+      // Increased timeout to ~120 seconds for audio conversion
       while (
         session.status !== "completed" &&
         session.status !== "error" &&
-        attempts < 10
+        attempts < 60
       ) {
         await new Promise((r) => setTimeout(r, 2000));
         attempts++;
@@ -954,6 +956,9 @@ const app = new Elysia()
           message: "Download/conversion timed out. Try again.",
         };
       }
+
+      // Small delay to ensure FS is ready
+      await new Promise((r) => setTimeout(r, 100));
 
       const file = Bun.file(session.finalFilePath);
       if (!(await file.exists())) {
@@ -1052,10 +1057,14 @@ const app = new Elysia()
         url: t.String(),
       }),
     },
-  )
-  .listen({
+  );
+
+export default app;
+
+if (import.meta.main) {
+  app.listen({
     port: PORT,
     idleTimeout: BUN_IDLE_TIMEOUT,
   });
-
-console.log(`🦊 Elysia API running at http://localhost:${app.server?.port}`);
+  console.log(`🦊 Elysia API running at http://localhost:${PORT}`);
+}
