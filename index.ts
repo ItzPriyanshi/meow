@@ -331,6 +331,9 @@ const app = new Elysia()
   .get("/", () => {
     return new Response(Bun.file("public/home.html"));
   })
+  .get("/health", () => {
+    return { status: "ok", uptime: process.uptime() };
+  })
   .get(
     "/robots.txt",
     () =>

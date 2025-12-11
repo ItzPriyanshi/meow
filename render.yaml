@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: meowdl-api
+    env: docker
+    plan: free
+    dockerContext: .
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 3000
