@@ -16,6 +16,10 @@ import pinHandler, {
 } from "./api/pin";
 import ttHandler from "./api/tt";
 import xHandler from "./api/x";
+import { getIp, getIpInfo } from "./handler/ip";
+import { getDeviceInfo } from "./handler/device";
+import { checkRateLimit, isSpam } from "./handler/protection";
+import { getSystemStats } from "./handler/system";
 
 const PORT = 3041;
 const BUN_IDLE_TIMEOUT = 255;
@@ -302,6 +306,28 @@ const app = new Elysia()
       message: error.toString(),
     };
   })
+  // API Stats Endpoints
+  .get("/api/stats", () => getSystemStats())
+  .get("/api/ip", async ({ request }) => {
+    const ip = getIp(request);
+    return await getIpInfo(ip);
+  })
+  .get("/api/device", ({ request }) => getDeviceInfo(request))
+
+  // Global Protection Middleware
+  .onBeforeHandle(({ request, set }) => {
+    const ip = getIp(request);
+    if (!checkRateLimit(ip)) {
+      set.status = 429;
+      return { status: "error", message: "Rate limit exceeded" };
+    }
+    if (isSpam(request)) {
+      // Optional: block spam bots
+      // set.status = 403;
+      // return { status: "error", message: "Suspicious activity detected" };
+    }
+  })
+
   .get("/", () => {
     return new Response(Bun.file("public/home.html"));
   })
@@ -403,13 +429,15 @@ const app = new Elysia()
 
         const newSession: DownloadSession = {
           ...sessionData,
+          status: "pending",
+          error: undefined,
           tempDir,
           tempVideoFile: sessionData.tempVideoFile
             ? join(tempDir, "video.mp4")
             : undefined,
           tempAudioFile: join(
             tempDir,
-            sessionData.tempAudioFile.split("/").pop(),
+            sessionData.tempAudioFile.split("/").pop()!,
           ),
           finalFilename: sessionData.finalFilename,
           finalFilePath: join(tempDir, sessionData.finalFilename),
