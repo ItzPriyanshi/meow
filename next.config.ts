@@ -2,42 +2,43 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   async rewrites() {
+    const API_URL = process.env.API_URL || "http://localhost:3041";
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:3041/api/:path*",
+        destination: `${API_URL}/api/:path*`,
       },
       {
         source: "/yt",
-        destination: "http://localhost:3041/yt",
+        destination: `${API_URL}/yt`,
       },
       {
         source: "/stream/:path*",
-        destination: "http://localhost:3041/stream/:path*",
+        destination: `${API_URL}/stream/:path*`,
       },
       {
         source: "/pin",
-        destination: "http://localhost:3041/pin",
+        destination: `${API_URL}/pin`,
       },
        {
         source: "/insta",
-        destination: "http://localhost:3041/insta",
+        destination: `${API_URL}/insta`,
       },
        {
         source: "/instav2",
-        destination: "http://localhost:3041/instav2",
+        destination: `${API_URL}/instav2`,
       },
        {
         source: "/fb",
-        destination: "http://localhost:3041/fb",
+        destination: `${API_URL}/fb`,
       },
        {
         source: "/tt",
-        destination: "http://localhost:3041/tt",
+        destination: `${API_URL}/tt`,
       },
        {
         source: "/x",
-        destination: "http://localhost:3041/x",
+        destination: `${API_URL}/x`,
       },
     ];
   },

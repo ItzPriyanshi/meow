@@ -329,7 +329,7 @@ const app = new Elysia()
   })
 
   .get("/", () => {
-    return new Response(Bun.file("public/home.html"));
+    return { status: "MeowDL API Backend v4.6", authors: "@MeowGurl & AjKing" };
   })
   .get("/health", () => {
     return { status: "ok", uptime: process.uptime() };
@@ -430,6 +430,8 @@ const app = new Elysia()
         const tempDir = join(process.cwd(), "temp", newSessionId);
         await mkdir(tempDir, { recursive: true });
 
+        // FORCE RE-DOWNLOAD: Set status to "pending" to trigger download logic in /stream/...
+        // This ensures that even if the original file is deleted, we re-fetch it in the new tempDir.
         const newSession: DownloadSession = {
           ...sessionData,
           status: "pending",
