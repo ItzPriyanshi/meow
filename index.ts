@@ -1,5 +1,4 @@
 import { Elysia, t } from "elysia";
-import { staticPlugin } from "@elysiajs/static";
 import { Innertube, UniversalCache, Platform, Types, Misc } from "youtubei.js";
 import ffmpeg from "ffmpeg-static";
 import { mkdir, rm, rename } from "node:fs/promises";
@@ -264,13 +263,6 @@ Platform.shim.eval = async (
 };
 
 const app = new Elysia()
-  .use(
-    staticPlugin({
-      assets: "public",
-      prefix: "",
-      alwaysStatic: true,
-    }),
-  )
   .onStart(async () => {
     try {
       await mkdir(join(process.cwd(), "temp"), {

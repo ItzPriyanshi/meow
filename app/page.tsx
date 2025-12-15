@@ -90,7 +90,7 @@ export default function LoginPage() {
             className="mb-8 bg-purple-900/30 border border-purple-500/30 p-4 rounded-lg text-xs text-purple-200 leading-relaxed"
         >
             <p>
-                The MeowDL Team is introducing a Login Page in the Dashboard. This is a required update for future versions. In upcoming updates, logging in will be mandatory to obtain an API Key, and you will not be able to use our APIs without one.
+                MeowDL Team is going to add a Login Page in the Dashboard. This is a required update for future versions. In upcoming updates, logging in will be mandatory to obtain an API Key, and you will not be able to use our APIs without one.
             </p>
         </motion.div>
 
