@@ -38,7 +38,7 @@ const DOWNLOAD_CHUNK_SIZE_MB = 1;
 const IDLE_RESTART_DELAY_MS = 5000;
 
 const SEARCH_CACHE_TTL = 5 * 60 * 60 * 1000;
-const COOKIE_FILE_PATH = "cookies-BTU.txt"; // Keeping New Code Cookie File
+const COOKIE_FILE_PATH = "cookies.txt"; 
 
 // --- Type Definitions (New Code) ---
 type YTInfo = YT.VideoInfo;
