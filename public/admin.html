@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Admin | Priyanshi Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff00ff;
+            --glass-bg: rgba(17, 25, 40, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.125);
+        }
+
+        body {
+            background-color: #0f172a;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+            font-family: 'Inter', sans-serif;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Glassmorphism */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Animations */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-slide-up { animation: slideUp 0.5s ease-out forwards; }
+        .animate-float { animation: float 6s ease-in-out infinite; }
+
+        .hidden-section { display: none; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Notification Toast */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 100;
+            right: 30px;
+            bottom: 30px;
+            font-size: 17px;
+            opacity: 0;
+            transition: opacity 0.5s, bottom 0.5s;
+        }
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 50px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900 bg-opacity-95 backdrop-blur-sm">
+        <div class="glass p-8 rounded-2xl w-96 animate-slide-up border border-slate-700">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center animate-float">
+                    <i class="fas fa-shield-alt text-2xl text-white"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-white tracking-tight">System Access</h2>
+                <p class="text-slate-400 text-sm mt-2">Authentication Required</p>
+            </div>
+            
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 mb-1">USERNAME</label>
+                    <input type="text" id="username" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="Enter username">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 mb-1">PASSWORD</label>
+                    <input type="password" id="password" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="••••••">
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-lg hover:opacity-90 transition-opacity transform active:scale-95">
+                    AUTHENTICATE
+                </button>
+            </form>
+            <p id="login-error" class="text-red-400 text-xs text-center mt-4 hidden"><i class="fas fa-exclamation-circle mr-1"></i> Invalid Credentials</p>
+        </div>
+    </div>
+
+    <div id="dashboard" class="flex-1 flex hidden-section">
+        
+        <aside class="w-64 glass border-r border-slate-700 hidden md:flex flex-col">
+            <div class="p-6 border-b border-slate-700">
+                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+                    <i class="fas fa-server mr-2 text-white"></i>NEXUS
+                </h1>
+                <p class="text-xs text-slate-400 font-mono mt-1">v2.4.0-stable</p>
+            </div>
+            <nav class="flex-1 p-4 space-y-2">
+                <a href="#" class="flex items-center space-x-3 px-4 py-3 rounded-lg bg-slate-800 text-blue-400 border border-blue-500/30">
+                    <i class="fas fa-chart-line w-5"></i><span>Overview</span>
+                </a>
+                <a href="#" onclick="fetchProtectionStats()" class="flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+                    <i class="fas fa-shield-virus w-5"></i><span>Firewall</span>
+                </a>
+                <a href="#" onclick="showLogs()" class="flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+                    <i class="fas fa-terminal w-5"></i><span>System Logs</span>
+                </a>
+            </nav>
+            <div class="p-4 border-t border-slate-700">
+                <button onclick="logout()" class="w-full flex items-center justify-center space-x-2 text-red-400 hover:bg-red-400/10 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-sign-out-alt"></i><span>Logout</span>
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 overflow-y-auto p-4 md:p-8">
+            <header class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">System Overview</h2>
+                    <p class="text-slate-400 text-sm">Real-time metrics and controls</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+                        <span class="w-2 h-2 rounded-full bg-green-400 mr-2 animate-pulse"></span>
+                        Operational
+                    </span>
+                    <button onclick="refreshData()" class="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-lg border border-slate-700">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="glass p-5 rounded-xl border-l-4 border-blue-500">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-slate-400 text-xs font-mono uppercase">Active Downloads</p>
+                            <h3 class="text-2xl font-bold text-white mt-1" id="stat-downloads">0</h3>
+                        </div>
+                        <div class="p-2 bg-blue-500/10 rounded-lg text-blue-400"><i class="fas fa-download"></i></div>
+                    </div>
+                </div>
+                
+                <div class="glass p-5 rounded-xl border-l-4 border-purple-500">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-slate-400 text-xs font-mono uppercase">Memory Usage</p>
+                            <h3 class="text-2xl font-bold text-white mt-1" id="stat-memory">0 MB</h3>
+                        </div>
+                        <div class="p-2 bg-purple-500/10 rounded-lg text-purple-400"><i class="fas fa-memory"></i></div>
+                    </div>
+                </div>
+
+                <div class="glass p-5 rounded-xl border-l-4 border-red-500">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-slate-400 text-xs font-mono uppercase">Blocked IPs</p>
+                            <h3 class="text-2xl font-bold text-white mt-1" id="stat-blocked">0</h3>
+                        </div>
+                        <div class="p-2 bg-red-500/10 rounded-lg text-red-400"><i class="fas fa-ban"></i></div>
+                    </div>
+                </div>
+
+                <div class="glass p-5 rounded-xl border-l-4 border-green-500">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-slate-400 text-xs font-mono uppercase">Uptime</p>
+                            <h3 class="text-2xl font-bold text-white mt-1" id="stat-uptime">0h</h3>
+                        </div>
+                        <div class="p-2 bg-green-500/10 rounded-lg text-green-400"><i class="fas fa-clock"></i></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 glass p-6 rounded-xl">
+                    <h3 class="text-lg font-bold text-white mb-4">Traffic Analysis</h3>
+                    <div class="relative h-64 w-full">
+                        <canvas id="trafficChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass p-6 rounded-xl flex flex-col space-y-6">
+                    <div>
+                        <h3 class="text-lg font-bold text-white mb-4">Admin Actions</h3>
+                        <div class="space-y-3">
+                            <button onclick="adminAction('clear-cache')" class="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-left flex items-center justify-between transition-colors group">
+                                <span class="text-sm font-medium"><i class="fas fa-trash-alt mr-2 text-slate-400 group-hover:text-red-400"></i> Clear System Cache</span>
+                                <i class="fas fa-chevron-right text-xs text-slate-600"></i>
+                            </button>
+                            <button onclick="adminAction('restart-timer')" class="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-left flex items-center justify-between transition-colors group">
+                                <span class="text-sm font-medium"><i class="fas fa-hourglass-start mr-2 text-slate-400 group-hover:text-yellow-400"></i> Reset Idle Timer</span>
+                                <i class="fas fa-chevron-right text-xs text-slate-600"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-bold text-white mb-2">IP Management</h3>
+                        <div class="flex space-x-2">
+                            <input type="text" id="ip-input" placeholder="Enter IP Address" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none">
+                            <button onclick="blockIP()" class="bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500 hover:text-white px-3 py-2 rounded-lg transition-colors">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                            <button onclick="unblockIP()" class="bg-green-500/20 text-green-400 border border-green-500/50 hover:bg-green-500 hover:text-white px-3 py-2 rounded-lg transition-colors">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="toast">Action Completed</div>
+
+    <script>
+        // CONFIG
+        const CREDS = { u: "PriyanshiKaurJi", p: "787957" };
+        let AUTH_TOKEN = null;
+        let trafficChart = null;
+
+        // AUTH LOGIC
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+
+            if (u === CREDS.u && p === CREDS.p) {
+                // Create a basic auth token for the API headers
+                AUTH_TOKEN = "Basic " + btoa(u + ":" + p);
+                
+                // UI Transition
+                document.getElementById('login-screen').classList.add('hidden-section');
+                document.getElementById('dashboard').classList.remove('hidden-section');
+                document.getElementById('dashboard').classList.add('animate-slide-up');
+                
+                initDashboard();
+            } else {
+                const err = document.getElementById('login-error');
+                err.classList.remove('hidden');
+                err.classList.add('animate-pulse');
+            }
+        });
+
+        function logout() {
+            location.reload();
+        }
+
+        // DASHBOARD LOGIC
+        function initDashboard() {
+            initChart();
+            refreshData();
+            // Auto-refresh every 5 seconds
+            setInterval(refreshData, 5000);
+        }
+
+        function showToast(msg) {
+            const x = document.getElementById("toast");
+            x.innerText = msg;
+            x.className = "show";
+            setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
+        }
+
+        async function apiCall(endpoint, method = "GET", body = null) {
+            try {
+                const headers = { 
+                    "Authorization": AUTH_TOKEN,
+                    "Content-Type": "application/json"
+                };
+                const opts = { method, headers };
+                if (body) opts.body = JSON.stringify(body);
+
+                const res = await fetch(endpoint, opts);
+                if (res.status === 401) logout();
+                return await res.json();
+            } catch (e) {
+                console.error("API Error", e);
+                return null;
+            }
+        }
+
+        async function refreshData() {
+            const stats = await apiCall('/admin/stats');
+            if (stats) {
+                document.getElementById('stat-downloads').innerText = stats.activeOperations || 0;
+                document.getElementById('stat-memory').innerText = stats.memoryUsage || "0 MB";
+                document.getElementById('stat-blocked').innerText = stats.blockedCount || 0;
+                document.getElementById('stat-uptime').innerText = stats.uptime || "0h";
+                
+                // Update Chart (Mock Data simulation based on real activity)
+                updateChart(stats.activeRequests || 0);
+            }
+        }
+
+        async function blockIP() {
+            const ip = document.getElementById('ip-input').value;
+            if(!ip) return;
+            const res = await apiCall('/admin/block', 'POST', { ip });
+            if(res && res.success) {
+                showToast(`IP ${ip} Blocked`);
+                document.getElementById('ip-input').value = "";
+                refreshData();
+            }
+        }
+
+        async function unblockIP() {
+            const ip = document.getElementById('ip-input').value;
+            if(!ip) return;
+            const res = await apiCall('/admin/unblock', 'POST', { ip });
+            if(res && res.success) {
+                showToast(`IP ${ip} Unblocked`);
+                document.getElementById('ip-input').value = "";
+                refreshData();
+            }
+        }
+
+        async function adminAction(action) {
+            if(confirm("Are you sure you want to perform this action?")) {
+                const res = await apiCall(`/admin/${action}`, 'POST');
+                if(res) showToast(res.message || "Action executed");
+            }
+        }
+
+        // CHART.JS SETUP
+        function initChart() {
+            const ctx = document.getElementById('trafficChart').getContext('2d');
+            
+            // Gradient Fill
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(0, 243, 255, 0.5)');
+            gradient.addColorStop(1, 'rgba(0, 243, 255, 0)');
+
+            trafficChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(10).fill(''),
+                    datasets: [{
+                        label: 'Requests/min',
+                        data: Array(10).fill(0),
+                        borderColor: '#00f3ff',
+                        backgroundColor: gradient,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        x: { 
+                            grid: { display: false } 
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChart(newValue) {
+            if (!trafficChart) return;
+            const data = trafficChart.data.datasets[0].data;
+            data.shift();
+            data.push(newValue);
+            trafficChart.update('none'); // 'none' for performance
+        }
+    </script>
+</body>
+</html>
