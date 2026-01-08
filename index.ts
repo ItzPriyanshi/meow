@@ -1,11 +1,12 @@
 import { Elysia, t } from "elysia";
-import { staticPlugin } from "@elysiajs/static";
-import { Innertube, UniversalCache, Platform, Types, Misc } from "youtubei.js";
-import ffmpeg from "ffmpeg-static";
-import { mkdir, rm, rename } from "node:fs/promises";
-import { join } from "node:path";
+import { staticPlugin } from "@elysiajs/static"; // Added from Old
+import { Innertube, UniversalCache, Platform, Types, YT } from "youtubei.js";
 import { performance } from "node:perf_hooks";
-import { spawn } from "node:child_process";
+import { join } from "node:path";
+import { mkdir, rm } from "node:fs/promises";
+import ffmpeg from "ffmpeg-static";
+
+// --- Custom Imports from Old Code ---
 import instaHandler from "./api/insta";
 import instav2Handler from "./api/instav2";
 import fbHandler from "./api/fb";
@@ -21,14 +22,96 @@ import { getDeviceInfo } from "./handler/device";
 import { checkRateLimit, isSpam } from "./handler/protection";
 import { getSystemStats } from "./handler/system";
 
-const PORT = 3041;
-const BUN_IDLE_TIMEOUT = 255;
-const EXPIRATION_SECONDS = 180;
-const MAX_CONCURRENT_DOWNLOADS = 16;
-const DOWNLOAD_CHUNK_SIZE_MB = 10;
-const COOKIE_FILE_PATH = "cookies.txt";
-const CACHE_EXPIRATION_MS = 3 * 60 * 1000;
+// --- State Variables (New Code) ---
+let activeOperations = 0; 
+let activeRequests = 0;
+let restartScheduled = false;
+let shutdownTimer: Timer | null = null;
 
+// --- Constants (Mixed) ---
+const PORT = 3040; // Using New Code Port
+const DOWNLOAD_DIR = join(process.cwd(), "downloads");
+const TEMP_DIR_BASE = join(process.cwd(), "temp");
+
+const MAX_CONCURRENT_DOWNLOADS = 16;
+const DOWNLOAD_CHUNK_SIZE_MB = 1;
+const IDLE_RESTART_DELAY_MS = 5000;
+
+const SEARCH_CACHE_TTL = 5 * 60 * 60 * 1000;
+const COOKIE_FILE_PATH = "cookies-BTU.txt"; // Keeping New Code Cookie File
+
+// --- Type Definitions (New Code) ---
+type YTInfo = YT.VideoInfo;
+type ParsedYTFormat = NonNullable<
+  YTInfo["streaming_data"]
+>["adaptive_formats"][number];
+
+interface MediaInfo {
+  quality: string | undefined;
+  size: string;
+  codec: string;
+  url: string;
+}
+
+interface SearchCacheEntry {
+  results: VideoResult[];
+  expires: number;
+}
+
+const searchCache = new Map<string, SearchCacheEntry>();
+
+interface VideoResult {
+  videoId: string;
+  title: string;
+  author: string;
+  duration: string;
+  thumbnail: string;
+}
+
+interface DownloadTask {
+  index: number;
+  format: ParsedYTFormat;
+  start: number;
+  end: number;
+  description: string;
+  retries: number;
+}
+
+interface TunnelSession {
+  videoId: string;
+  itag: number;
+  info: YTInfo;
+  player: any;
+  bestAudioFormat: ParsedYTFormat;
+  chosenVideoFormat?: ParsedYTFormat;
+  expiryTimestamp: number;
+  filename: string;
+}
+
+interface FileCacheEntry {
+  filePath: string;
+  filename: string;
+  expiryTimeoutId: Timer;
+}
+
+interface VideoCacheEntry {
+  info: YTInfo;
+  player: any;
+  tunnels: Map<number, string>;
+  expiryTimestamp: number;
+  bestAudioFormat: ParsedYTFormat;
+}
+
+const videoDataCache = new Map<string, VideoCacheEntry>();
+const tunnelSessions = new Map<string, TunnelSession>();
+const activeDownloads = new Map<string, Promise<FileCacheEntry>>();
+const remuxedFileCache = new Map<string, FileCacheEntry>();
+
+let innertube: Innertube;
+
+// --- Helper Functions (Merged) ---
+
+// From Old Code (Required for Pinterest)
 function getClientId(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
   const realIp = request.headers.get("x-real-ip");
@@ -37,216 +120,193 @@ function getClientId(request: Request): string {
   return forwarded?.split(",")[0].trim() || realIp || cfConnecting || "unknown";
 }
 
-type YTFormat = Misc.Format & {
-  content_length: number;
-  is_original?: boolean;
-  deciphered_url?: string;
-};
-
-interface DownloadTask {
-  index: number;
-  format: YTFormat;
-  start: number;
-  end: number;
-  description: string;
-  retries: number;
+// From New Code
+function getVideoId(url: string): string | null {
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname.includes("youtube.com")) {
+      if (urlObj.pathname === "/watch") return urlObj.searchParams.get("v");
+      const shortsMatch = urlObj.pathname.match(
+        /^\/(shorts|live|embed)\/([a-zA-Z0-9_-]{11})/,
+      );
+      if (shortsMatch) return shortsMatch[2];
+    }
+    if (urlObj.hostname.includes("youtu.be"))
+      return urlObj.pathname.split("/")[1];
+  } catch (error) {
+    console.warn(`Failed to parse video ID from URL: ${url}`, error);
+  }
+  return null;
 }
-
-interface DownloadSession {
-  status: "pending" | "downloading" | "merging" | "completed" | "error";
-  videoFormat?: YTFormat;
-  audioFormat: YTFormat;
-  tempDir: string;
-  tempVideoFile?: string;
-  tempAudioFile: string;
-  finalFilename: string;
-  finalFilePath: string;
-  videoTasks: DownloadTask[];
-  audioTasks: DownloadTask[];
-  error?: string;
-  isAudioOnly: boolean;
-  requestedFormat: string;
-  createdAt: number;
-  cleanupTimeoutId: NodeJS.Timeout | null;
-}
-
-interface CacheEntry {
-  timestamp: number;
-  data: any;
-}
-
-const downloadSessions = new Map<string, DownloadSession>();
-const infoCache = new Map<string, CacheEntry>();
-let yt: Innertube;
 
 async function getCookieFileContent(cookieFilePath: string): Promise<string> {
   const cookieFile = Bun.file(cookieFilePath);
   if (!(await cookieFile.exists())) {
-    console.warn(`🔴 WARNING: Cookie file not found at '${cookieFilePath}'`);
+    console.warn(
+      `🔴 WARNING: Cookie file not found at '${cookieFilePath}'. Running unauthenticated.`,
+    );
     return "";
   }
-  try {
-    const content = await cookieFile.text();
-    console.log(`✅ Cookies loaded from ${cookieFilePath}`);
-    return content;
-  } catch (err) {
-    console.error("Error reading cookies:", err);
-    return "";
+  return cookieFile.text();
+}
+
+function sanitizeFilename(name: string): string {
+  let clean = name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+
+  clean = clean
+    .replace(/[^\x20-\x7E]/g, "")
+    .replace(/[\\/:*?"<>|#!]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (clean.length > 200) {
+    clean = clean.substring(0, 200);
   }
+
+  return clean || `video_${Date.now()}`;
 }
 
-function getVideoId(url: string): string | null {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtube.com")) {
-      if (u.pathname === "/watch") return u.searchParams.get("v");
-      const m = u.pathname.match(/^\/(shorts|live|embed)\/([a-zA-Z0-9_-]{11})/);
-      if (m) return m[2];
-    }
-    if (u.hostname.includes("youtu.be")) return u.pathname.split("/")[1];
-  } catch (e) {}
-  return null;
-}
-
-function formatBytes(bytes: number, decimals = 2): string {
-  if (!bytes) return "0 Bytes";
+function formatBytes(bytes: number | undefined, decimals = 2): string {
+  if (bytes === undefined || bytes === null) return "N/A";
+  if (bytes === 0) return "0 Bytes";
   const k = 1024;
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${
-    ["Bytes", "KiB", "MiB", "GiB"][i]
-  }`;
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${["Bytes", "KiB", "MiB", "GiB"][i]}`;
 }
 
-function formatDuration(totalSeconds: number): string {
-  if (totalSeconds >= 60) {
-    const m = Math.floor(totalSeconds / 60);
-    return `${m} minute${m > 1 ? "s" : ""}`;
+function formatDuration(_): string {
+  const TUNNEL_LINK_EXPIRATION_HOURS = 5;
+  const totalSeconds = TUNNEL_LINK_EXPIRATION_HOURS * 3600;
+
+  if (totalSeconds < 3600) return `In ${Math.round(totalSeconds / 60)} minutes`;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.round((totalSeconds % 3600) / 60);
+  if (minutes === 0) return `In ${hours} hour${hours > 1 ? "s" : ""}`;
+  return `In ${hours} hour${hours > 1 ? "s" : ""} and ${minutes} minutes`;
+}
+
+function createContentDisposition(filename: string): string {
+  const asciiFilename = filename.replace(/[^ -~]/g, "_");
+  const encodedFilename = encodeURIComponent(filename);
+  return `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`;
+}
+
+// --- Caching and Cleanup (New Code) ---
+
+async function cleanupCachedFile(cacheKey: string) {
+  const cacheEntry = remuxedFileCache.get(cacheKey);
+  if (cacheEntry) {
+    console.log(`[Cache] Cleaning up expired file: ${cacheEntry.filename}`);
+    remuxedFileCache.delete(cacheKey);
+    try {
+      await rm(cacheEntry.filePath, { force: true });
+    } catch (err: any) {
+      console.error(
+        `[Cache] Error deleting cached file ${cacheEntry.filePath}:`,
+        err.message,
+      );
+    }
   }
-  const s = Math.floor(totalSeconds);
-  return `${s} second${s > 1 ? "s" : ""}`;
 }
 
-async function downloadAndCombineManager(
+function scheduleFileCleanup(cacheKey: string) {
+  const cacheEntry = remuxedFileCache.get(cacheKey);
+  if (!cacheEntry) return;
+  const REMUXED_FILE_CACHE_SECONDS = 300;
+  if (cacheEntry.expiryTimeoutId) clearTimeout(cacheEntry.expiryTimeoutId);
+  cacheEntry.expiryTimeoutId = setTimeout(
+    () => cleanupCachedFile(cacheKey),
+    REMUXED_FILE_CACHE_SECONDS * 1000,
+  );
+}
+
+// --- Download Manager (New Code) ---
+
+async function parallelDownloadManager(
   sessionId: string,
   tasks: DownloadTask[],
   destinationFile: string,
+  mediaType: "Audio" | "Video",
+  player: any,
 ) {
+  if (!player)
+    throw new Error("Player object is required for deciphering URLs.");
   const startTime = performance.now();
-  const totalSize = tasks.reduce((sum, t) => sum + (t.end - t.start + 1), 0);
+  const totalSize = tasks.reduce(
+    (sum, task) => sum + (task.end - task.start + 1),
+    0,
+  );
   const actualWorkers = Math.min(tasks.length, MAX_CONCURRENT_DOWNLOADS);
   console.log(
-    `[${sessionId}] Starting combined download of ${
-      tasks.length
-    } chunks for ${destinationFile
-      .split("/")
-      .pop()}... (Using ${actualWorkers} workers)`,
+    `[${sessionId}] ⬇️  Starting ${mediaType} download: ${tasks.length} chunks, ${formatBytes(totalSize)}. Using ${actualWorkers} workers...`,
   );
   const downloadedChunks = new Map<number, Buffer>();
   let chunksWritten = 0;
   const writer = Bun.file(destinationFile).writer();
-  const processTask = async (task: DownloadTask, workerId: number) => {
+  const processTask = async (
+    task: DownloadTask,
+    workerId: number,
+  ): Promise<void> => {
     let attempt = 0;
-    const url = await task.format.deciphered_url;
-    if (!url)
-      throw new Error(`Task ${task.description} missing deciphered URL.`);
     while (attempt <= task.retries) {
       try {
-        const resp = await fetch(url, {
-          headers: {
-            Range: `bytes=${task.start}-${task.end}`,
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
-          },
+        const streamUrl = new URL(await task.format.decipher(player));
+        const response = await fetch(streamUrl.toString(), {
+          headers: { Range: `bytes=${task.start}-${task.end}` },
         });
-        if (!resp.ok)
-          throw new Error(`Fetch failed with status ${resp.status}`);
-        const buf = Buffer.from(await resp.arrayBuffer());
-        downloadedChunks.set(task.index, buf);
+        if (!response.ok)
+          throw new Error(`Server responded with ${response.status}`);
+        const buffer = Buffer.from(await response.arrayBuffer());
+        if (buffer.byteLength !== task.end - task.start + 1)
+          throw new Error(`Chunk ${task.index} size mismatch.`);
+        downloadedChunks.set(task.index, buffer);
         while (downloadedChunks.has(chunksWritten)) {
           writer.write(downloadedChunks.get(chunksWritten)!);
           downloadedChunks.delete(chunksWritten);
           chunksWritten++;
         }
         return;
-      } catch (e) {
+      } catch (error: any) {
         console.error(
-          `[${sessionId}] Worker ${workerId} FAILED task ${
-            task.description
-          } attempt ${attempt + 1}`,
+          `\n[${sessionId}] Worker ${workerId} FAILED task ${task.description} (attempt ${attempt + 1}/${task.retries + 1}). Error: ${error.message}`,
         );
         if (attempt < task.retries) {
           attempt++;
-          await new Promise((r) => setTimeout(r, 250 * attempt));
-        } else throw new Error(`Task ${task.description} failed permanently.`);
+          await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+        } else {
+          await writer.end();
+          throw new Error(`Task ${task.description} failed permanently.`);
+        }
       }
     }
   };
   const tasksToProcess = [...tasks];
-  const workerPromises = Array.from(
-    {
-      length: actualWorkers,
-    },
-    (_, i) => {
-      const id = i + 1;
-      return (async () => {
-        while (tasksToProcess.length > 0) {
-          const task = tasksToProcess.shift();
-          if (task) await processTask(task, id);
-        }
-      })();
-    },
-  );
+  const workerPromises = Array.from({ length: actualWorkers }, (_, i) => {
+    const workerId = i + 1;
+    return (async () => {
+      while (tasksToProcess.length > 0) {
+        const task = tasksToProcess.shift();
+        if (task) await processTask(task, workerId);
+      }
+    })();
+  });
   await Promise.all(workerPromises);
   await writer.end();
   const endTime = performance.now();
   const durationSec = (endTime - startTime) / 1000;
   const speed = durationSec > 0 ? totalSize / durationSec : 0;
   console.log(
-    `[${sessionId}] Download & Combine Complete: ${formatBytes(
-      totalSize,
-    )} in ${durationSec.toFixed(2)}s (${formatBytes(speed)}/s)`,
+    `[${sessionId}]    ✅ ${mediaType} Download Complete: ${formatBytes(totalSize)} in ${durationSec.toFixed(2)}s (${formatBytes(speed)}/s)`,
   );
+  return destinationFile;
 }
 
-async function cleanupSession(sessionId: string) {
-  const session = downloadSessions.get(sessionId);
-  if (session) {
-    console.log(`[${sessionId}] Cleaning up session...`);
-    if (session.cleanupTimeoutId) clearTimeout(session.cleanupTimeoutId);
-    downloadSessions.delete(sessionId);
-    try {
-      await rm(session.tempDir, {
-        recursive: true,
-        force: true,
-      });
-      console.log(`[${sessionId}] Removed temp dir: ${session.tempDir}`);
-    } catch (err) {
-      if (err instanceof Error && "code" in err && err.code !== "ENOENT")
-        console.error(`[${sessionId}] Final cleanup error:`, err);
-    }
-  }
-}
-
-function scheduleSessionCleanup(sessionId: string, delayMs: number) {
-  const session = downloadSessions.get(sessionId);
-  if (!session) return;
-  if (session.cleanupTimeoutId) clearTimeout(session.cleanupTimeoutId);
-  session.cleanupTimeoutId = setTimeout(() => {
-    console.log(
-      `[${sessionId}] Session expired after ${formatDuration(
-        delayMs / 1000,
-      )}. Cleaning up.`,
-    );
-    cleanupSession(sessionId);
-  }, delayMs);
-}
-
+// --- Platform Shim (Shared) ---
 Platform.shim.eval = async (
   data: Types.BuildScriptResult,
   env: Record<string, Types.VMPrimative>,
 ) => {
   const properties: string[] = [];
-
   if (env.n) {
     properties.push(
       `n: exportedVars.nFunction(${JSON.stringify(String(env.n))})`,
@@ -257,13 +317,684 @@ Platform.shim.eval = async (
       `sig: exportedVars.sigFunction(${JSON.stringify(String(env.sig))})`,
     );
   }
-
   const fullCode = `${data.output}\nreturn { ${properties.join(", ")} }`;
-
   return new Function(fullCode)();
 };
 
+// --- Setup ---
+console.log("🚀 Server starting: Performing one-time expensive setup...");
+const setupStartTime = performance.now();
+const cookie = await getCookieFileContent(COOKIE_FILE_PATH);
+innertube = await Innertube.create({
+  cookie,
+  cache: new UniversalCache(false),
+});
+if (!innertube.session.player) {
+  console.warn(
+    "⚠️ Innertube session is missing the Player object. Deciphering may fail.",
+  );
+}
+console.log(
+  `✅ One-time setup complete in ${(performance.now() - setupStartTime).toFixed(2)}ms.`,
+);
+
+// --- Lifecycle Management (New Code) ---
+function scheduleIdleRestart() {
+  if (!restartScheduled) return;
+
+  if (shutdownTimer) {
+    clearTimeout(shutdownTimer);
+  }
+
+  console.log(
+    `[Auto-Restart] Scheduling restart in ${IDLE_RESTART_DELAY_MS / 1000} seconds if server remains idle.`,
+  );
+
+  shutdownTimer = setTimeout(() => {
+    if (activeOperations === 0 && activeRequests === 0) {
+      gracefulShutdown("High latency detected and server is idle.");
+    } else {
+      console.log(
+        `[Auto-Restart] Restart postponed. Server is not idle (Downloads: ${activeOperations}, Requests: ${activeRequests}).`,
+      );
+    }
+  }, IDLE_RESTART_DELAY_MS);
+}
+
+async function gracefulShutdown(reason: string) {
+  if (!restartScheduled) return;
+  console.log(`[Graceful Shutdown] Initiating shutdown. Reason: ${reason}`);
+  restartScheduled = false;
+
+  if (shutdownTimer) {
+    clearTimeout(shutdownTimer);
+    shutdownTimer = null;
+  }
+
+  await app.stop();
+  console.log(
+    "[Graceful Shutdown] Server has stopped accepting new connections.",
+  );
+
+  const waitForIdle = async () => {
+    if (activeOperations === 0 && activeRequests === 0) {
+      console.log("[Graceful Shutdown] All operations finished. Exiting now.");
+      process.exit(0);
+    } else {
+      console.log(
+        `[Graceful Shutdown] Waiting for operations to complete. Downloads: ${activeOperations}, Requests: ${activeRequests}`,
+      );
+      setTimeout(waitForIdle, 1000);
+    }
+  };
+
+  await waitForIdle();
+}
+
+// --- Data Fetching Logic (New Code) ---
+
+async function getOrFetchVideoData(videoId: string): Promise<{
+  videoData: VideoCacheEntry;
+  cacheHit: boolean;
+  audioTunnelId: string;
+}> {
+  const cachedData = videoDataCache.get(videoId);
+  if (cachedData && cachedData.expiryTimestamp > Date.now()) {
+    console.log(`\n♻️  [${videoId}] Full Cache HIT.`);
+    const audioFormat = cachedData.info.streaming_data?.adaptive_formats.find(
+      (f) => f.itag === cachedData.bestAudioFormat.itag,
+    );
+    const audioTunnelId = audioFormat
+      ? cachedData.tunnels.get(audioFormat.itag)
+      : undefined;
+    if (!audioTunnelId) throw new Error("Cached audio tunnel ID is missing.");
+    return { videoData: cachedData, cacheHit: true, audioTunnelId };
+  }
+
+  console.log(`\n📥 [${videoId}] API Cache MISS. Fetching from YouTube.`);
+  const infoFetchStart = performance.now();
+
+  const playerResponse = await innertube.actions.execute("/player", {
+    videoId,
+    client: "WEB_EMBEDDED",
+    playbackContext: {
+      contentPlaybackContext: {
+        signatureTimestamp: innertube.session.player?.signature_timestamp,
+      },
+    },
+  });
+
+  const info = new YT.VideoInfo([playerResponse], innertube.actions, videoId);
+  const player = innertube.session.player!;
+  const fetchDuration = performance.now() - infoFetchStart;
+  console.log(`[${videoId}] Info fetched in ${fetchDuration.toFixed(2)}ms.`);
+
+  if (fetchDuration > 20000 && !restartScheduled) {
+    console.warn(`
+    ####################################################################
+    ## ⚠️  High Latency Detected: ${fetchDuration.toFixed(2)}ms.
+    ## A safe restart will be triggered when the server is idle.
+    ####################################################################
+    `);
+    restartScheduled = true;
+    scheduleIdleRestart(); 
+  }
+
+  if (info.playability_status?.status !== "OK")
+    throw new Error(`Video not playable: ${info.playability_status?.reason}`);
+  if (!info.streaming_data) throw new Error("No streaming data found.");
+
+  console.log(`\n✨ [${videoId}] Generating and caching all static URLs.`);
+  const adaptiveFormats = info.streaming_data.adaptive_formats;
+  const audio_only_streams = adaptiveFormats.filter(
+    (f) => f.has_audio && !f.has_video,
+  );
+  let bestAudioFormat: ParsedYTFormat | undefined = audio_only_streams.find(
+    (f) => f.audio_track?.audio_is_default,
+  );
+  if (!bestAudioFormat)
+    bestAudioFormat = audio_only_streams.find((f) => f.is_original);
+  if (!bestAudioFormat)
+    bestAudioFormat = audio_only_streams.find((f) => f.itag === 140);
+  if (!bestAudioFormat) {
+    const m4a_formats = audio_only_streams
+      .filter((f) => f.mime_type.includes("mp4a"))
+      .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+    bestAudioFormat =
+      m4a_formats.length > 0
+        ? m4a_formats[0]
+        : audio_only_streams.sort(
+            (a, b) => (b.bitrate || 0) - (a.bitrate || 0),
+          )[0];
+  }
+  if (!bestAudioFormat) throw new Error("No suitable audio format found.");
+
+  const video_only_streams = adaptiveFormats.filter(
+    (f) => f.has_video && !f.has_audio,
+  );
+  const selectedQualities = new Map<string, ParsedYTFormat>();
+  ["1080p", "720p"].forEach((q) => {
+    const vp9 =
+      video_only_streams.find(
+        (f) => f.quality_label === q && f.mime_type.includes("vp9"),
+      ) ||
+      video_only_streams.find(
+        (f) => f.quality_label === q && f.mime_type.includes("avc1"),
+      );
+    if (vp9) selectedQualities.set(q, vp9);
+  });
+  ["480p", "360p", "240p", "144p"].forEach((q) => {
+    const format = video_only_streams.find(
+      (f) => f.quality_label === q && f.mime_type.includes("avc1"),
+    );
+    if (format) selectedQualities.set(q, format);
+  });
+
+  const tunnels = new Map<number, string>();
+  const TUNNEL_LINK_EXPIRATION_HOURS = 5;
+  const tunnelExpiry = Date.now() + TUNNEL_LINK_EXPIRATION_HOURS * 3600 * 1000;
+
+  for (const format of selectedQualities.values()) {
+    const tunnelId = Bun.randomUUIDv7();
+    tunnels.set(format.itag, tunnelId);
+    tunnelSessions.set(tunnelId, {
+      videoId,
+      itag: format.itag,
+      info,
+      player,
+      bestAudioFormat,
+      chosenVideoFormat: format,
+      expiryTimestamp: tunnelExpiry,
+      filename: "",
+    });
+  }
+
+  const audioTunnelId = Bun.randomUUIDv7();
+  tunnels.set(bestAudioFormat.itag, audioTunnelId);
+  const audioFilename =
+    sanitizeFilename(
+      `${info.basic_info.title || "Unknown Title"} - ${info.basic_info.author || "Unknown Channel"}`,
+    ).trim() + ".m4a";
+  tunnelSessions.set(audioTunnelId, {
+    videoId,
+    itag: bestAudioFormat.itag,
+    info,
+    player,
+    bestAudioFormat,
+    chosenVideoFormat: undefined,
+    expiryTimestamp: tunnelExpiry,
+    filename: audioFilename,
+  });
+
+  const apiCacheExpirySeconds = Math.floor(
+    (info.streaming_data.expires.getTime() - Date.now()) / 1000,
+  );
+  if (apiCacheExpirySeconds <= 60)
+    console.warn(
+      `[${videoId}] API response has a very short expiry time: ${apiCacheExpirySeconds}s.`,
+    );
+
+  const videoData: VideoCacheEntry = {
+    info,
+    player,
+    tunnels,
+    bestAudioFormat,
+    expiryTimestamp: Date.now() + (apiCacheExpirySeconds - 60) * 1000,
+  };
+  if (apiCacheExpirySeconds > 60) {
+    videoDataCache.set(videoId, videoData);
+  }
+  return { videoData, cacheHit: false, audioTunnelId };
+}
+
+async function getOrFetchSearchResults(
+  searchQuery: string,
+): Promise<{ results: VideoResult[]; fetchTime: number; cacheHit: boolean }> {
+  const lookupStartTime = performance.now();
+  const cacheKey = searchQuery.toLowerCase();
+  const cachedEntry = searchCache.get(cacheKey);
+
+  if (cachedEntry && cachedEntry.expires > Date.now()) {
+    console.log(`\n♻️  [Search Cache] HIT for "${searchQuery}".`);
+    const cacheFetchTime = performance.now() - lookupStartTime;
+    return {
+      results: cachedEntry.results,
+      fetchTime: cacheFetchTime,
+      cacheHit: true,
+    };
+  }
+
+  console.log(
+    `\n🔍 [API Search] MISS for "${searchQuery}". Fetching from YouTube.`,
+  );
+  const apiFetchStart = performance.now();
+
+  const response = await innertube.actions.execute("/search", {
+    query: searchQuery,
+    client: "TV_EMBEDDED",
+    parse: false,
+  });
+
+  const apiFetchTime = performance.now() - apiFetchStart;
+
+  console.log(`\n⏱️ [API Search] Duration: ${apiFetchTime.toFixed(2)}ms`);
+
+  const searchData: any = response.data;
+  const results: VideoResult[] = [];
+  const contents =
+    searchData?.contents?.sectionListRenderer?.contents?.[0]
+      ?.itemSectionRenderer?.contents;
+
+  if (Array.isArray(contents)) {
+    for (const item of contents) {
+      const video = item.compactVideoRenderer;
+      if (video) {
+        const title = video.title?.runs?.[0]?.text;
+        const videoId = video.videoId;
+        const author = video.shortBylineText?.runs?.[0]?.text;
+        const duration = video.lengthText?.runs?.[0]?.text;
+        let thumbnail = "";
+        const thumbnails = video.thumbnail?.thumbnails;
+
+        if (Array.isArray(thumbnails) && thumbnails.length > 0) {
+          thumbnail = thumbnails[thumbnails.length - 1].url;
+        }
+
+        if (videoId && title && author && duration) {
+          results.push({ videoId, title, author, duration, thumbnail });
+        }
+      }
+    }
+  }
+
+  if (results.length > 0) {
+    searchCache.set(cacheKey, {
+      results,
+      expires: Date.now() + SEARCH_CACHE_TTL,
+    });
+  }
+
+  return { results, fetchTime: apiFetchTime, cacheHit: false };
+}
+
+async function getOrStartDownload(
+  session: TunnelSession,
+  cacheKey: string,
+  isAudioOnly: boolean,
+): Promise<FileCacheEntry> {
+  const { player, bestAudioFormat, chosenVideoFormat, filename } = session;
+  let downloadPromise = activeDownloads.get(cacheKey);
+  let cachedFile = remuxedFileCache.get(cacheKey);
+
+  if (cachedFile) {
+    console.log(`[${cacheKey}] ♻️  Cache HIT. Scheduling cleanup.`);
+    scheduleFileCleanup(cacheKey);
+    return cachedFile;
+  }
+
+  if (downloadPromise) {
+    console.log(
+      `[${cacheKey}] ⏳ Download in progress. Awaiting completion...`,
+    );
+    return downloadPromise;
+  }
+
+  const processPromise = (async (): Promise<FileCacheEntry> => {
+    const tempDir = join(TEMP_DIR_BASE, Bun.randomUUIDv7());
+    const tempAudioFile = join(
+      tempDir,
+      `audio.${bestAudioFormat.mime_type.includes("mp4a") ? "m4a" : "webm"}`,
+    );
+    await mkdir(tempDir, { recursive: true });
+
+    try {
+      const finalFilename = filename;
+      const finalFilePath = join(DOWNLOAD_DIR, finalFilename);
+      const targetChunkSizeBytes = DOWNLOAD_CHUNK_SIZE_MB * 1024 * 1024;
+
+      if (isAudioOnly) {
+        const tempDownloadPath = join(tempDir, "raw_audio.m4a");
+        const audioContentLength = bestAudioFormat.content_length || 0;
+        const audioTasks: DownloadTask[] = [];
+        for (let i = 0, start = 0; start < audioContentLength; i++) {
+          const end = Math.min(
+            start + targetChunkSizeBytes - 1,
+            audioContentLength - 1,
+          );
+          audioTasks.push({
+            index: i,
+            format: bestAudioFormat,
+            start,
+            end,
+            retries: 2,
+            description: `Audio Chunk ${i + 1}`,
+          });
+          start = end + 1;
+        }
+        await parallelDownloadManager(
+          cacheKey,
+          audioTasks,
+          tempDownloadPath,
+          "Audio",
+          player,
+        );
+        console.log(`[${cacheKey}] 🔄 Starting Audio-Only Remux...`);
+        const ffmpegStart = performance.now();
+        const ffmpegArgs = [
+          ffmpeg!,
+          "-loglevel",
+          "error",
+          "-i",
+          tempDownloadPath,
+          "-c:a",
+          "copy",
+          "-movflags",
+          "faststart",
+          "-y",
+          finalFilePath,
+        ];
+        const ffmpegProcess = Bun.spawn(ffmpegArgs, { stderr: "pipe" });
+        if ((await ffmpegProcess.exited) !== 0)
+          throw new Error(
+            `FFmpeg failed during audio remux: ${await new Response(ffmpegProcess.stderr).text()}`,
+          );
+        console.log(
+          `[${cacheKey}]    ✅ Audio Remux successful in ${(performance.now() - ffmpegStart).toFixed(2)}ms.`,
+        );
+      } else {
+        if (!chosenVideoFormat)
+          throw new Error("Chosen video format is missing for video download.");
+
+        const audioContentLength = bestAudioFormat.content_length || 0;
+        const audioTasks: DownloadTask[] = [];
+        for (let i = 0, start = 0; start < audioContentLength; i++) {
+          const end = Math.min(
+            start + targetChunkSizeBytes - 1,
+            audioContentLength - 1,
+          );
+          audioTasks.push({
+            index: i,
+            format: bestAudioFormat,
+            start,
+            end,
+            retries: 2,
+            description: `Audio Chunk ${i + 1}`,
+          });
+          start = end + 1;
+        }
+
+        const tempVideoFile = join(tempDir, `video.mp4`);
+        const videoContentLength = chosenVideoFormat.content_length || 0;
+        const videoTasks: DownloadTask[] = [];
+        for (let i = 0, start = 0; start < videoContentLength; i++) {
+          const end = Math.min(
+            start + targetChunkSizeBytes - 1,
+            videoContentLength - 1,
+          );
+          videoTasks.push({
+            index: i,
+            format: chosenVideoFormat,
+            start,
+            end,
+            retries: 2,
+            description: `Video Chunk ${i + 1}`,
+          });
+          start = end + 1;
+        }
+
+        await Promise.all([
+          parallelDownloadManager(
+            cacheKey,
+            videoTasks,
+            tempVideoFile,
+            "Video",
+            player,
+          ),
+          parallelDownloadManager(
+            cacheKey,
+            audioTasks,
+            tempAudioFile,
+            "Audio",
+            player,
+          ),
+        ]);
+
+        console.log(`[${cacheKey}] 🔄 Starting FFmpeg process...`);
+        const ffmpegStart = performance.now();
+        const ffmpegArgs = [
+          ffmpeg!,
+          "-i",
+          tempVideoFile,
+          "-i",
+          tempAudioFile,
+          "-c",
+          "copy",
+          "-y",
+          finalFilePath,
+        ];
+        const ffmpegProcess = Bun.spawn(ffmpegArgs, { stderr: "pipe" });
+        if ((await ffmpegProcess.exited) !== 0)
+          throw new Error(
+            `FFmpeg failed during video+audio remux: ${await new Response(ffmpegProcess.stderr).text()}`,
+          );
+        console.log(
+          `[${cacheKey}]    ✅ FFmpeg successful in ${(performance.now() - ffmpegStart).toFixed(2)}ms.`,
+        );
+      }
+
+      const newCacheEntry: FileCacheEntry = {
+        filePath: finalFilePath,
+        filename: finalFilename,
+        expiryTimeoutId: null!,
+      };
+      remuxedFileCache.set(cacheKey, newCacheEntry);
+      scheduleFileCleanup(cacheKey);
+      return newCacheEntry;
+    } finally {
+      activeDownloads.delete(cacheKey);
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  })();
+
+  activeDownloads.set(cacheKey, processPromise);
+  console.log(`[${cacheKey}] ✨ New download initiated.`);
+  return processPromise;
+}
+
+async function handleVideoRequest(
+  videoId: string,
+  query: { url: string; quality?: string; format?: string },
+  request: Request,
+  set: any,
+  startTime: number,
+) {
+  const fetchedData: {
+    videoData: VideoCacheEntry;
+    cacheHit: boolean;
+    audioTunnelId: string;
+  } = (await getOrFetchVideoData(videoId)) as any;
+  const { videoData, cacheHit, audioTunnelId } = fetchedData;
+  const { info, tunnels, bestAudioFormat } = videoData;
+
+  const requestUrl = new URL(request.url);
+  const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
+  const title = info.basic_info.title || "Unknown Title";
+  const channel = info.basic_info.author || "Unknown Channel";
+  const safeTitleWithChannel = sanitizeFilename(`${title} - ${channel}`);
+  const bestThumbnail =
+    info.basic_info.thumbnail?.find((t) => t.width > 1000)?.url ||
+    info.basic_info.thumbnail?.[0]?.url ||
+    "";
+  const TUNNEL_LINK_EXPIRATION_HOURS = 5;
+
+  for (const tunnelId of tunnels.values()) {
+    const session = tunnelSessions.get(tunnelId);
+    if (session && session.chosenVideoFormat) {
+      const format = session.chosenVideoFormat;
+      const videoCodec = format.mime_type.includes("vp9") ? "vp9" : "h264";
+      session.filename = `${safeTitleWithChannel} (${format.quality_label}, ${videoCodec}).mp4`;
+    }
+  }
+
+  if (query.format?.toLowerCase() === "m4a") {
+    const audioSession = tunnelSessions.get(audioTunnelId);
+    if (!audioSession) throw new Error("Audio tunnel session not found.");
+    const responseData = {
+      status: "ok",
+      videoId,
+      cached: cacheHit,
+      title,
+      quality: `128kbps`,
+      channel,
+      thumbnail: bestThumbnail,
+      filename: audioSession.filename,
+      size: formatBytes(bestAudioFormat.content_length),
+      expires: formatDuration(TUNNEL_LINK_EXPIRATION_HOURS * 3600),
+      infoFetchTime: `${(performance.now() - startTime).toFixed(2)}ms`,
+      downloadLink: `${baseUrl}/tunnel/${audioTunnelId}`,
+    };
+    set.headers["Content-Type"] = "application/json; charset=utf-8";
+    return new Response(JSON.stringify(responseData, null, 2));
+  }
+
+  if (!info.streaming_data)
+    throw new Error("No streaming data found for this video.");
+  const video_only_streams = info.streaming_data.adaptive_formats.filter(
+    (f) => f.has_video && !f.has_audio,
+  );
+  const selectedQualities = new Map<string, ParsedYTFormat>();
+  const qualityOrder = ["1080p", "720p", "480p", "360p", "240p", "144p"];
+  ["1080p", "720p"].forEach((q) => {
+    const vp9 = video_only_streams.find(
+      (f) => f.quality_label === q && f.mime_type.includes("vp9"),
+    );
+    if (vp9) selectedQualities.set(q, vp9);
+    else {
+      const avc1 = video_only_streams.find(
+        (f) => f.quality_label === q && f.mime_type.includes("avc1"),
+      );
+      if (avc1) selectedQualities.set(q, avc1);
+    }
+  });
+  ["480p", "360p", "240p", "144p"].forEach((q) => {
+    const format = video_only_streams.find(
+      (f) => f.quality_label === q && f.mime_type.includes("avc1"),
+    );
+    if (format) selectedQualities.set(q, format);
+  });
+
+  if (query.quality) {
+    let targetFormat: ParsedYTFormat | undefined;
+    let requestedQuality = query.quality;
+    if (!requestedQuality.endsWith("p")) requestedQuality += "p";
+    const startIndex = qualityOrder.indexOf(requestedQuality);
+    if (startIndex !== -1) {
+      for (let i = startIndex; i < qualityOrder.length; i++) {
+        const format = selectedQualities.get(qualityOrder[i]);
+        if (format && tunnels.has(format.itag)) {
+          targetFormat = format;
+          break;
+        }
+      }
+    }
+    if (!targetFormat) {
+      for (const qualityLabel of qualityOrder) {
+        const format = selectedQualities.get(qualityLabel);
+        if (format && tunnels.has(format.itag)) {
+          targetFormat = format;
+          break;
+        }
+      }
+    }
+    if (!targetFormat) {
+      set.status = 404;
+      return {
+        success: false,
+        error: "The requested quality is not available for this video.",
+      };
+    }
+    const tunnelId = tunnels.get(targetFormat.itag);
+    if (!tunnelId)
+      throw new Error(
+        "Could not find a cached tunnel ID for the requested format. This should not happen.",
+      );
+    const session = tunnelSessions.get(tunnelId);
+    if (!session)
+      throw new Error(
+        "Session not found for tunnel ID. This should not happen.",
+      );
+    const qualityLabel = targetFormat.quality_label!;
+    const size = formatBytes(
+      (targetFormat.content_length || 0) +
+        (bestAudioFormat.content_length || 0),
+    );
+    const responseData = {
+      status: "ok",
+      videoId,
+      cached: cacheHit,
+      title,
+      quality: qualityLabel,
+      channel,
+      thumbnail: bestThumbnail,
+      filename: session.filename,
+      size,
+      expires: formatDuration(TUNNEL_LINK_EXPIRATION_HOURS * 3600),
+      infoFetchTime: `${(performance.now() - startTime).toFixed(2)}ms`,
+      downloadLink: `${baseUrl}/tunnel/${tunnelId}`,
+    };
+    set.headers["Content-Type"] = "application/json; charset=utf-8";
+    return new Response(JSON.stringify(responseData, null, 2));
+  } else {
+    const media: (MediaInfo & { filename: string })[] = [];
+    for (const quality of qualityOrder) {
+      const format = selectedQualities.get(quality);
+      if (format) {
+        const tunnelId = tunnels.get(format.itag);
+        const session = tunnelId ? tunnelSessions.get(tunnelId) : undefined;
+        if (session) {
+          media.push({
+            quality: format.quality_label,
+            size: formatBytes(
+              (format.content_length || 0) +
+                (bestAudioFormat.content_length || 0),
+            ),
+            codec: format.mime_type.includes("vp9") ? "vp9" : "avc1",
+            url: `${baseUrl}/tunnel/${tunnelId}`,
+            filename: session.filename,
+          });
+        }
+      }
+    }
+    const audioSession = tunnelSessions.get(audioTunnelId);
+    if (audioSession && query.format?.toLowerCase() !== "mp4") {
+      media.push({
+        quality: "128kbps",
+        size: formatBytes(bestAudioFormat.content_length),
+        codec: "mp4a",
+        url: `${baseUrl}/tunnel/${audioTunnelId}`,
+        filename: audioSession.filename,
+      });
+    }
+    const responseData = {
+      success: true,
+      videoId,
+      cached: cacheHit,
+      title,
+      channel,
+      thumbnail: bestThumbnail,
+      expires: formatDuration(TUNNEL_LINK_EXPIRATION_HOURS * 3600),
+      infofetchtime: `${(performance.now() - startTime).toFixed(2)}ms`,
+      media,
+    };
+    set.headers["Content-Type"] = "application/json; charset=utf-8";
+    return new Response(JSON.stringify(responseData, null, 2));
+  }
+}
+
+// --- App Definitions ---
+
 const app = new Elysia()
+  // Add Static Plugin (Old Feature)
   .use(
     staticPlugin({
       assets: "public",
@@ -271,51 +1002,9 @@ const app = new Elysia()
       alwaysStatic: true,
     }),
   )
-  .onStart(async () => {
-    try {
-      await mkdir(join(process.cwd(), "temp"), {
-        recursive: true,
-      });
-    } catch (err) {
-      console.error("Failed to create temp directory:", err);
-    }
-
-    const cookie = await getCookieFileContent(COOKIE_FILE_PATH);
-    yt = await Innertube.create({
-      cookie,
-      cache: new UniversalCache(false),
-    });
-    console.log("✅ Innertube ready with shared session.");
-  })
-  .onAfterHandle(({ response, set }) => {
-    if (
-      typeof response === "object" &&
-      response !== null &&
-      !(response instanceof Response)
-    ) {
-      set.headers["Content-Type"] = "application/json;charset=utf-8";
-      return JSON.stringify(response, null, 2);
-    }
-    return response;
-  })
-  .onError(({ code, error, set }) => {
-    console.error(`Error [${code}]: ${error.toString()}`);
-    set.status = code === "VALIDATION" ? 400 : 500;
-    return {
-      status: "error",
-      message: error.toString(),
-    };
-  })
-  // API Stats Endpoints
-  .get("/api/stats", () => getSystemStats())
-  .get("/api/ip", async ({ request }) => {
-    const ip = getIp(request);
-    return await getIpInfo(ip);
-  })
-  .get("/api/device", ({ request }) => getDeviceInfo(request))
-
-  // Global Protection Middleware
+  // Merged OnBeforeHandle: Stats + Protection
   .onBeforeHandle(({ request, set }) => {
+    // 1. Protection Logic (Old)
     const ip = getIp(request);
     if (!checkRateLimit(ip)) {
       set.status = 429;
@@ -326,11 +1015,72 @@ const app = new Elysia()
       // set.status = 403;
       // return { status: "error", message: "Suspicious activity detected" };
     }
-  })
 
-  .get("/", () => {
-    return new Response(Bun.file("public/home.html"));
+    // 2. Activity Logic (New)
+    activeRequests++;
+    // If a restart timer is running, any new request should postpone it.
+    if (shutdownTimer) {
+      clearTimeout(shutdownTimer);
+      shutdownTimer = null;
+      console.log("[Auto-Restart] Postponed due to new incoming request.");
+    }
   })
+  .onAfterHandle(({ response, set }) => {
+    // 1. Activity Logic (New)
+    activeRequests--;
+    // If a restart is pending and the server is now fully idle, schedule the restart.
+    if (restartScheduled && activeRequests === 0 && activeOperations === 0) {
+      scheduleIdleRestart();
+    }
+
+    // 2. JSON Formatting (Old - adapted for checking response type)
+    if (
+        typeof response === "object" &&
+        response !== null &&
+        !(response instanceof Response)
+    ) {
+        set.headers["Content-Type"] = "application/json;charset=utf-8";
+        // Elysia usually auto-stringifies, but force ensuring charset doesn't hurt
+    }
+  })
+  .onStart(async () => {
+    try {
+        await mkdir(join(process.cwd(), "temp"), { recursive: true });
+        await mkdir(DOWNLOAD_DIR, { recursive: true });
+    } catch (err) {
+        console.error("Failed to create temp directory:", err);
+    }
+    
+    let hoursRunning = 0;
+    console.log(`✅ API is running. Uptime logging has started.`);
+    setInterval(
+      () => {
+        hoursRunning++;
+        console.log(
+          `\n---\n🕒 API has been running for ${hoursRunning} hour(s).\n---`,
+        );
+      },
+      1000 * 60 * 60,
+    );
+    setInterval(
+      () => {
+        const now = Date.now();
+        for (const [id, session] of tunnelSessions.entries()) {
+          if (session.expiryTimestamp < now) tunnelSessions.delete(id);
+        }
+      },
+      60 * 60 * 1000,
+    );
+  })
+  // --- Old API Stats Endpoints ---
+  .get("/api/stats", () => getSystemStats())
+  .get("/api/ip", async ({ request }) => {
+    const ip = getIp(request);
+    return await getIpInfo(ip);
+  })
+  .get("/api/device", ({ request }) => getDeviceInfo(request))
+  
+  // --- Robots.txt (Old) ---
   .get(
     "/robots.txt",
     () =>
@@ -341,6 +1091,73 @@ const app = new Elysia()
       }),
   )
 
+  // --- Combined Root Handler (New YT Logic + Old Home.html) ---
+  .get(
+    "/",
+    async ({ query, request, set }) => {
+      // 1. If no URL param, serve Home HTML (Old Behavior)
+      const { url } = query;
+      if (!url) {
+        return new Response(Bun.file("public/home.html"));
+      }
+
+      // 2. If URL param exists, use New Code YouTube Logic
+      const startTime = performance.now();
+      let videoId: string | null = null;
+      try {
+        videoId = getVideoId(url);
+        if (!videoId) {
+          set.status = 400;
+          return {
+            success: false,
+            error: "Invalid or unsupported YouTube URL provided.",
+          };
+        }
+        return await handleVideoRequest(
+          videoId,
+          query,
+          request,
+          set,
+          startTime,
+        );
+      } catch (error: any) {
+        set.status = 500;
+
+        const errorPayload = {
+          success: false,
+          error: error?.message ?? "Unknown error",
+          code: error?.code,
+          name: error?.name,
+          stack: error?.stack,
+          playabilityStatus: error?.playabilityStatus,
+          timestamp: new Date().toISOString(),
+        };
+
+        await Bun.write(
+          "./last-error.json",
+          JSON.stringify(errorPayload, null, 2),
+        );
+
+        return new Response(JSON.stringify(errorPayload, null, 2), {
+          headers: { "Content-Type": "application/json; charset=utf-8" },
+        });
+      } finally {
+        const duration = (performance.now() - startTime).toFixed(2);
+        console.log(
+          `[${videoId || "Invalid URL"}] Request processed in ${duration}ms.`,
+        );
+      }
+    },
+    {
+      query: t.Object({
+        url: t.Optional(t.String()), // Made Optional to support serving HTML
+        quality: t.Optional(t.String()),
+        format: t.Optional(t.String()),
+      }),
+    },
+  )
+  
+  // --- Pinterest Endpoint (Old) ---
   .get(
     "/pin",
     async ({ query, request, set }) => {
@@ -383,11 +1200,9 @@ const app = new Elysia()
       }),
     },
   )
-
   .get("/pin/stats", () => {
     return getCacheStats();
   })
-
   .post("/pin/cache/clear", () => {
     clearCaches();
     return {
@@ -396,631 +1211,7 @@ const app = new Elysia()
     };
   })
 
-  .get(
-    "/yt",
-    async ({ query, request }) => {
-      const { url: videoUrl } = query;
-      const videoId = getVideoId(videoUrl);
-      if (!videoId) throw new Error("Invalid YouTube URL.");
-
-      const requestedFormat = (query.format || "mp4").toLowerCase();
-      const isAudioOnlyRequest = ["m4a", "mp3", "opus", "wav"].includes(
-        requestedFormat,
-      );
-      const cappedQuality = Math.min(parseInt(query.quality || "1080"), 1080);
-
-      const cacheKey = isAudioOnlyRequest
-        ? `${videoId}-audio-${requestedFormat}`
-        : `${videoId}-video-${cappedQuality}p`;
-
-      const cachedItem = infoCache.get(cacheKey);
-
-      if (
-        cachedItem &&
-        Date.now() - cachedItem.timestamp < CACHE_EXPIRATION_MS
-      ) {
-        console.log(`[${videoId}] Cache HIT for key: ${cacheKey}`);
-        const getInfoStart = performance.now();
-        const { sessionData, responseData } = cachedItem.data;
-
-        const newSessionId = crypto.randomUUID();
-        const tempDir = join(process.cwd(), "temp", newSessionId);
-        await mkdir(tempDir, { recursive: true });
-
-        const newSession: DownloadSession = {
-          ...sessionData,
-          status: "pending",
-          error: undefined,
-          tempDir,
-          tempVideoFile: sessionData.tempVideoFile
-            ? join(tempDir, "video.mp4")
-            : undefined,
-          tempAudioFile: join(
-            tempDir,
-            sessionData.tempAudioFile.split("/").pop()!,
-          ),
-          finalFilename: sessionData.finalFilename,
-          finalFilePath: join(tempDir, sessionData.finalFilename),
-          createdAt: Date.now(),
-          cleanupTimeoutId: null,
-        };
-
-        downloadSessions.set(newSessionId, newSession);
-        scheduleSessionCleanup(newSessionId, EXPIRATION_SECONDS * 1000);
-        const requestUrl = new URL(request.url);
-
-        return {
-          ...responseData,
-          cached: true,
-          infoFetchTime: `${(performance.now() - getInfoStart).toFixed(
-            2,
-          )}ms (cached)`,
-          downloadLink: `${requestUrl.protocol}//${requestUrl.host}/stream/${
-            isAudioOnlyRequest ? "audio" : "video"
-          }/${newSessionId}`,
-        };
-      }
-
-      console.log(`[${videoId}] Cache MISS for key: ${cacheKey}`);
-      const getInfoStart = performance.now();
-      console.log(`[${videoId}] Fetching info using shared session...`);
-
-      const info = await yt.getInfo(videoId, { client: "TV" });
-      const player = yt.session.player;
-
-      if (!player) {
-        throw new Error(
-          "Could not get player data. Deciphering is not possible.",
-        );
-      }
-
-      if (info.playability_status?.status !== "OK") {
-        throw new Error(
-          `Video not playable: ${info.playability_status?.reason}`,
-        );
-      }
-      if (!info.streaming_data) throw new Error("No streaming data found.");
-
-      const title = info.primary_info?.title?.text || "video";
-      const channel = info.secondary_info?.owner?.author?.name || "channel";
-      const safeTitle = title.replace(/[^a-zA-Z0-9 ._-]/g, "").trim();
-      const safeChannel = channel.replace(/[^a-zA-Z0-9 ._-]/g, "").trim();
-
-      const allAudio = info.streaming_data.adaptive_formats.filter(
-        (f) =>
-          f.has_audio &&
-          !f.has_video &&
-          (f.mime_type?.includes("mp4a") || f.mime_type?.includes("opus")),
-      ) as YTFormat[];
-
-      if (allAudio.length === 0)
-        throw new Error("No suitable M4A or Opus audio track found.");
-
-      const audioFormat = allAudio.sort(
-        (a, b) => (b.bitrate || 0) - (a.bitrate || 0),
-      )[0];
-
-      if (!audioFormat.content_length)
-        throw new Error("Selected audio format is missing size info.");
-
-      audioFormat.deciphered_url = await audioFormat.decipher(player);
-      if (!audioFormat.deciphered_url)
-        throw new Error("Failed to decipher audio URL.");
-
-      console.log(`[${videoId}] ✅ Audio URL deciphered.`);
-
-      const sourceAudioExtension = audioFormat.mime_type?.includes("opus")
-        ? "webm"
-        : "m4a";
-      const sourceAudioQualityLabel = `${Math.round(
-        (audioFormat.bitrate || 0) / 1000,
-      )}kbps ${audioFormat.mime_type?.includes("opus") ? "Opus" : "AAC"}`;
-
-      const sessionId = crypto.randomUUID();
-      const tempDir = join(process.cwd(), "temp", sessionId);
-      await mkdir(tempDir, { recursive: true });
-
-      const audioTasks: DownloadTask[] = [];
-      const targetChunkSizeBytes = DOWNLOAD_CHUNK_SIZE_MB * 1024 * 1024;
-      for (let i = 0, start = 0; start < audioFormat.content_length; i++) {
-        const end = Math.min(
-          start + targetChunkSizeBytes - 1,
-          audioFormat.content_length - 1,
-        );
-        audioTasks.push({
-          index: i,
-          format: audioFormat,
-          start,
-          end,
-          retries: 3,
-          description: `Audio Chunk ${i + 1}`,
-        });
-        start = end + 1;
-      }
-
-      let session: DownloadSession;
-      let responsePayload: any;
-      const requestUrl = new URL(request.url);
-
-      if (isAudioOnlyRequest) {
-        const finalFilename = `${safeTitle} - ${safeChannel}.${requestedFormat}`;
-        session = {
-          status: "pending",
-          audioFormat,
-          tempDir,
-          tempAudioFile: join(tempDir, `audio.${sourceAudioExtension}`),
-          finalFilename,
-          finalFilePath: join(tempDir, finalFilename),
-          audioTasks,
-          videoTasks: [],
-          isAudioOnly: true,
-          requestedFormat: requestedFormat,
-          createdAt: Date.now(),
-          cleanupTimeoutId: null,
-        };
-        responsePayload = {
-          status: "ok",
-          videoId,
-          title,
-          quality: `Best Audio (${requestedFormat})`,
-          channel,
-          thumbnail: info.basic_info?.thumbnail?.[0].url,
-          filename: session.finalFilename,
-          expiration: formatDuration(EXPIRATION_SECONDS),
-          infoFetchTime: `${(performance.now() - getInfoStart).toFixed(2)}ms`,
-          audio_size: formatBytes(audioFormat.content_length),
-          video_size: null,
-          duration_seconds: info.basic_info?.duration || 0,
-          source_audio_quality: sourceAudioQualityLabel,
-        };
-      } else {
-        const suitableVideos = info.streaming_data.adaptive_formats
-          .filter(
-            (f) =>
-              f.has_video &&
-              !f.has_audio &&
-              f.mime_type?.includes("avc1") &&
-              f.height &&
-              f.height <= cappedQuality,
-          )
-          .sort(
-            (a, b) =>
-              (b.height || 0) - (a.height || 0) ||
-              (b.bitrate || 0) - (a.bitrate || 0),
-          ) as YTFormat[];
-
-        if (suitableVideos.length === 0)
-          throw new Error(
-            `No suitable H.264 video stream found for ${cappedQuality}p.`,
-          );
-
-        const videoFormat = suitableVideos[0];
-        if (!videoFormat.content_length)
-          throw new Error("Selected video format is missing size info.");
-
-        videoFormat.deciphered_url = await videoFormat.decipher(player);
-        if (!videoFormat.deciphered_url)
-          throw new Error("Failed to decipher video URL.");
-
-        console.log(`[${videoId}] ✅ Video URL deciphered.`);
-
-        const videoTasks: DownloadTask[] = [];
-        for (let i = 0, start = 0; start < videoFormat.content_length; i++) {
-          const end = Math.min(
-            start + targetChunkSizeBytes - 1,
-            videoFormat.content_length - 1,
-          );
-          videoTasks.push({
-            index: i,
-            format: videoFormat,
-            start,
-            end,
-            retries: 3,
-            description: `Video Chunk ${i + 1}`,
-          });
-          start = end + 1;
-        }
-
-        const finalFilename = `${safeTitle} - ${safeChannel} (${videoFormat.quality_label}, h264).mp4`;
-        session = {
-          status: "pending",
-          videoFormat,
-          audioFormat,
-          tempDir,
-          tempVideoFile: join(tempDir, "video.mp4"),
-          tempAudioFile: join(tempDir, `audio.${sourceAudioExtension}`),
-          finalFilename,
-          finalFilePath: join(tempDir, finalFilename),
-          videoTasks,
-          audioTasks,
-          isAudioOnly: false,
-          requestedFormat: "mp4",
-          createdAt: Date.now(),
-          cleanupTimeoutId: null,
-        };
-        responsePayload = {
-          status: "ok",
-          videoId,
-          title,
-          quality: `${session.videoFormat?.quality_label}`,
-          channel,
-          thumbnail: info.basic_info?.thumbnail?.[0].url,
-          filename: session.finalFilename,
-          expiration: formatDuration(EXPIRATION_SECONDS),
-          infoFetchTime: `${(performance.now() - getInfoStart).toFixed(2)}ms`,
-          audio_size: formatBytes(audioFormat.content_length),
-          video_size: formatBytes(videoFormat.content_length),
-          duration_seconds: info.basic_info?.duration || 0,
-          source_audio_quality: sourceAudioQualityLabel,
-        };
-      }
-
-      downloadSessions.set(sessionId, session);
-      scheduleSessionCleanup(sessionId, EXPIRATION_SECONDS * 1000);
-
-      infoCache.set(cacheKey, {
-        timestamp: Date.now(),
-        data: {
-          sessionData: session,
-          responseData: responsePayload,
-        },
-      });
-
-      return {
-        ...responsePayload,
-        cached: false,
-        downloadLink: `${requestUrl.protocol}//${requestUrl.host}/stream/${
-          isAudioOnlyRequest ? "audio" : "video"
-        }/${sessionId}`,
-      };
-    },
-    {
-      query: t.Object({
-        url: t.String(),
-        quality: t.Optional(t.String()),
-        format: t.Optional(t.String()),
-      }),
-    },
-  )
-
-  .get(
-    "/stream/video/:id",
-    async ({ params, set }) => {
-      const sessionId = params.id;
-      const session = downloadSessions.get(sessionId);
-
-      if (!session) {
-        set.status = 404;
-        return {
-          status: "error",
-          message: "Download session not found or expired.",
-        };
-      }
-
-      if (session.isAudioOnly) {
-        set.status = 400;
-        return {
-          status: "error",
-          message: "This session is for audio-only. Use /stream/audio/:id.",
-        };
-      }
-
-      if (session.status === "pending") {
-        session.status = "downloading";
-        console.log(`[${sessionId}] Starting download for video + audio...`);
-
-        const videoDownloadPromise = downloadAndCombineManager(
-          sessionId,
-          session.videoTasks,
-          session.tempVideoFile!,
-        );
-        const audioDownloadPromise = downloadAndCombineManager(
-          sessionId,
-          session.audioTasks,
-          session.tempAudioFile,
-        );
-
-        Promise.all([videoDownloadPromise, audioDownloadPromise])
-          .then(() => {
-            session.status = "merging";
-            console.log(`[${sessionId}] Downloads complete. Starting merge...`);
-
-            const ffmpegArgs = [
-              "-i",
-              session.tempVideoFile!,
-              "-i",
-              session.tempAudioFile,
-              "-c:v",
-              "copy",
-              "-c:a",
-              "copy",
-              "-movflags",
-              "faststart",
-              session.finalFilePath,
-            ];
-
-            if (!ffmpeg) {
-              session.status = "error";
-              session.error = "FFmpeg static path not found.";
-              console.error(`[${sessionId}] 🔴 FFmpeg path is not available.`);
-              return;
-            }
-
-            const mergeProcess = spawn(ffmpeg, ffmpegArgs);
-
-            let stderr = "";
-            mergeProcess.stderr.on("data", (data) => {
-              stderr += data.toString();
-            });
-
-            mergeProcess.on("close", (code) => {
-              if (code === 0) {
-                session.status = "completed";
-                console.log(`[${sessionId}] ✅ Merge complete.`);
-              } else {
-                session.status = "error";
-                session.error = `FFmpeg merge failed with code ${code}: ${stderr}`;
-                console.error(
-                  `[${sessionId}] 🔴 Merge FAILED with code ${code}. Stderr: ${stderr}`,
-                );
-              }
-            });
-
-            mergeProcess.on("error", (err) => {
-              session.status = "error";
-              session.error = `FFmpeg spawn error: ${err.message}`;
-              console.error(`[${sessionId}] 🔴 FFmpeg spawn error:`, err);
-            });
-          })
-          .catch((err) => {
-            session.status = "error";
-            session.error = `Download failed: ${err.message}`;
-            console.error(`[${sessionId}] 🔴 Download failed:`, err);
-          });
-      }
-
-      let attempts = 0;
-      // Increased timeout to ~120 seconds
-      while (
-        session.status !== "completed" &&
-        session.status !== "error" &&
-        attempts < 60
-      ) {
-        await new Promise((r) => setTimeout(r, 2000));
-        attempts++;
-        scheduleSessionCleanup(sessionId, EXPIRATION_SECONDS * 1000);
-      }
-
-      if (session.status === "error") {
-        set.status = 500;
-        return {
-          status: "error",
-          message:
-            session.error || "An unexpected download/merge error occurred.",
-        };
-      }
-
-      if (session.status !== "completed") {
-        set.status = 504;
-        return {
-          status: "error",
-          message: "Download/merge timed out. Try again.",
-        };
-      }
-
-      // Small delay to ensure FS is ready
-      await new Promise((r) => setTimeout(r, 100));
-
-      const file = Bun.file(session.finalFilePath);
-      if (!(await file.exists())) {
-        set.status = 500;
-        return {
-          status: "error",
-          message: "Final file not found after completion.",
-        };
-      }
-
-      set.headers["Content-Type"] = "video/mp4";
-      set.headers["Content-Disposition"] =
-        `attachment; filename="${session.finalFilename}"`;
-      set.headers["Content-Length"] = file.size.toString();
-
-      return new Response(file, {
-        headers: set.headers as HeadersInit,
-      });
-    },
-    {
-      params: t.Object({
-        id: t.String(),
-      }),
-    },
-  )
-
-  .get(
-    "/stream/audio/:id",
-    async ({ params, set }) => {
-      const sessionId = params.id;
-      const session = downloadSessions.get(sessionId);
-
-      if (!session) {
-        set.status = 404;
-        return {
-          status: "error",
-          message: "Download session not found or expired.",
-        };
-      }
-
-      if (!session.isAudioOnly) {
-        set.status = 400;
-        return {
-          status: "error",
-          message: "This session is for video. Use /stream/video/:id.",
-        };
-      }
-
-      if (session.status === "pending") {
-        session.status = "downloading";
-        console.log(`[${sessionId}] Starting audio-only download...`);
-
-        downloadAndCombineManager(
-          sessionId,
-          session.audioTasks,
-          session.tempAudioFile,
-        )
-          .then(async () => {
-            const sourceExtension = session.tempAudioFile.endsWith("webm")
-              ? "webm"
-              : "m4a";
-
-            if (
-              (sourceExtension === "m4a" &&
-                session.requestedFormat === "m4a") ||
-              (sourceExtension === "webm" && session.requestedFormat === "opus")
-            ) {
-              console.log(
-                `[${sessionId}] ✅ Audio download complete. No conversion needed.`,
-              );
-              await rename(session.tempAudioFile, session.finalFilePath);
-              session.status = "completed";
-              return;
-            }
-
-            session.status = "merging";
-            console.log(
-              `[${sessionId}] ✅ Audio download complete. Starting conversion to ${session.requestedFormat}...`,
-            );
-
-            const ffmpegArgs = ["-i", session.tempAudioFile];
-
-            switch (session.requestedFormat) {
-              case "mp3":
-                ffmpegArgs.push("-q:a", "0");
-                break;
-              case "opus":
-                ffmpegArgs.push(
-                  "-c:a",
-                  "libopus",
-                  "-vbr",
-                  "on",
-                  "-b:a",
-                  "256k",
-                );
-                break;
-              case "wav":
-                ffmpegArgs.push("-f", "wav");
-                break;
-              case "m4a":
-                ffmpegArgs.push("-c:a", "aac", "-b:a", "256k");
-                break;
-            }
-
-            ffmpegArgs.push(session.finalFilePath);
-
-            if (!ffmpeg) {
-              session.status = "error";
-              session.error = "FFmpeg static path not found.";
-              console.error(`[${sessionId}] 🔴 FFmpeg path is not available.`);
-              return;
-            }
-
-            const convertProcess = spawn(ffmpeg, ffmpegArgs);
-            let stderr = "";
-            convertProcess.stderr.on("data", (data) => {
-              stderr += data.toString();
-            });
-
-            convertProcess.on("close", (code) => {
-              if (code === 0) {
-                session.status = "completed";
-                console.log(`[${sessionId}] ✅ Conversion complete.`);
-              } else {
-                session.status = "error";
-                session.error = `FFmpeg conversion failed with code ${code}: ${stderr}`;
-                console.error(
-                  `[${sessionId}] 🔴 Conversion FAILED with code ${code}. Stderr: ${stderr}`,
-                );
-              }
-            });
-
-            convertProcess.on("error", (err) => {
-              session.status = "error";
-              session.error = `FFmpeg spawn error: ${err.message}`;
-              console.error(`[${sessionId}] 🔴 FFmpeg spawn error:`, err);
-            });
-          })
-          .catch((err) => {
-            session.status = "error";
-            session.error = `Download failed: ${err.message}`;
-            console.error(`[${sessionId}] 🔴 Download failed:`, err);
-          });
-      }
-
-      let attempts = 0;
-      // Increased timeout to ~120 seconds for audio conversion
-      while (
-        session.status !== "completed" &&
-        session.status !== "error" &&
-        attempts < 60
-      ) {
-        await new Promise((r) => setTimeout(r, 2000));
-        attempts++;
-        scheduleSessionCleanup(sessionId, EXPIRATION_SECONDS * 1000);
-      }
-
-      if (session.status === "error") {
-        set.status = 500;
-        return {
-          status: "error",
-          message:
-            session.error ||
-            "An unexpected download/conversion error occurred.",
-        };
-      }
-
-      if (session.status !== "completed") {
-        set.status = 504;
-        return {
-          status: "error",
-          message: "Download/conversion timed out. Try again.",
-        };
-      }
-
-      // Small delay to ensure FS is ready
-      await new Promise((r) => setTimeout(r, 100));
-
-      const file = Bun.file(session.finalFilePath);
-      if (!(await file.exists())) {
-        set.status = 500;
-        return {
-          status: "error",
-          message: "Final file not found after completion.",
-        };
-      }
-
-      const mimeTypes: Record<string, string> = {
-        mp3: "audio/mpeg",
-        wav: "audio/wav",
-        opus: "audio/opus",
-        m4a: "audio/mp4",
-      };
-
-      set.headers["Content-Type"] =
-        mimeTypes[session.requestedFormat] || "application/octet-stream";
-      set.headers["Content-Disposition"] =
-        `attachment; filename="${session.finalFilename}"`;
-      set.headers["Content-Length"] = file.size.toString();
-
-      return new Response(file, {
-        headers: set.headers as HeadersInit,
-      });
-    },
-    {
-      params: t.Object({
-        id: t.String(),
-      }),
-    },
-  )
-
+  // --- Other Social Endpoints (Old) ---
   .get(
     "/insta",
     async ({ query }) => {
@@ -1085,14 +1276,304 @@ const app = new Elysia()
         url: t.String(),
       }),
     },
-  );
+  )
 
-export default app;
+  // --- New Code YT Search & Music ---
+  .get(
+    "/search",
+    async ({ query, request, set }) => {
+      const startTime = performance.now();
+      const { q: searchQuery, quality, format, num } = query;
+      if (!searchQuery) {
+        set.status = 400;
+        return { success: false, error: "Query parameter 'q' is required." };
+      }
+      try {
+        const { results, fetchTime, cacheHit } =
+          await getOrFetchSearchResults(searchQuery);
+        if (results.length === 0) {
+          console.warn(
+            `[Search: "${searchQuery}"] No parsable video results found.`,
+          );
+          set.status = 404;
+          return {
+            success: false,
+            error: `No video results found for "${searchQuery}".`,
+          };
+        }
+        if (num) {
+          let finalResults = results;
+          if (num.toLowerCase() !== "all") {
+            const desiredCount = parseInt(num, 10);
+            if (!isNaN(desiredCount) && desiredCount > 0) {
+              finalResults = results.slice(0, desiredCount);
+            }
+          }
+          const responsePayload = {
+            infofetchtime: `${fetchTime.toFixed(2)}ms`,
+            cache: cacheHit,
+            results: finalResults,
+          };
+          set.status = 200;
+          set.headers["Content-Type"] = "application/json; charset=utf-8";
+          const duration = (performance.now() - startTime).toFixed(2);
+          console.log(
+            `[List Search: "${searchQuery}"] Request processed in ${duration}ms.`,
+          );
+          return JSON.stringify(responsePayload, null, 2);
+        }
+        const videoId = results[0].videoId;
+        console.log(
+          `✅ [Download Search] Found ID: ${videoId} (from ${cacheHit ? "cache" : "API"}). Handing off...`,
+        );
+        const mappedQuery = {
+          url: `https://www.youtube.com/watch?v=${videoId}`,
+          quality,
+          format,
+        };
+        return await handleVideoRequest(
+          videoId,
+          mappedQuery,
+          request,
+          set,
+          startTime,
+        );
+      } catch (error: any) {
+        console.error(
+          `\n❌ [Search] An error occurred for "${searchQuery}":`,
+          error.message,
+        );
+        set.status = 500;
+        return {
+          success: false,
+          error: "An internal error occurred during search.",
+        };
+      }
+    },
+    {
+      query: t.Object({
+        q: t.String(),
+        quality: t.Optional(t.String()),
+        format: t.Optional(t.String()),
+        num: t.Optional(t.String()),
+      }),
+    },
+  )
+  .get(
+    "/music",
+    async ({ query, request, set }) => {
+      const startTime = performance.now();
+      const { q: songQuery, quality, format } = query;
+      try {
+        if (!songQuery) {
+          set.status = 400;
+          return { success: false, error: "Query parameter 'q' is required." };
+        }
+        console.log(`\n🎵 [Music Search] Searching for "${songQuery}"...`);
+        const search = await innertube.music.search(songQuery);
+        let song: any;
+        let shelfType = "N/A";
+        if (Array.isArray(search.contents)) {
+          for (const item of search.contents) {
+            if (
+              item.type === "MusicCardShelf" &&
+              (item as any).title?.endpoint?.payload?.videoId
+            ) {
+              song = item;
+              shelfType = "MusicCardShelf";
+              break;
+            }
+            if (item.type === "MusicShelf" && Array.isArray(item.contents)) {
+              const foundSong = item.contents.find(
+                (contentItem: any) =>
+                  contentItem.videoId ||
+                  contentItem.flex_columns?.[0]?.title?.endpoint?.payload
+                    ?.videoId,
+              );
+              if (foundSong) {
+                song = foundSong;
+                shelfType = "MusicShelf";
+                break;
+              }
+            }
+          }
+        }
+        if (!song && search.songs?.contents?.length) {
+          song = search.songs.contents.find((item: any) => item.videoId);
+          if (song) shelfType = "songs";
+        }
+        if (!song && search.videos?.contents?.length) {
+          song = search.videos.contents.find((item: any) => item.videoId);
+          if (song) shelfType = "videos";
+        }
+        if (!song) {
+          set.status = 404;
+          console.warn(
+            "No valid song item found in search results. Raw search object for debugging:",
+          );
+          console.dir(search, { depth: 2 });
+          return {
+            success: false,
+            error: `No song results found for "${songQuery}".`,
+          };
+        }
+        const title =
+          (song as any).title?.text ||
+          (song as any).title?.runs?.[0]?.text ||
+          (song as any).flex_columns?.[0]?.title?.text ||
+          (song as any).title ||
+          (song as any).name ||
+          "[No title]";
+        const videoId =
+          (song as any).videoId ||
+          (song as any).endpoint?.payload?.videoId ||
+          (song as any).title?.endpoint?.payload?.videoId ||
+          (song as any).flex_columns?.[0]?.title?.endpoint?.payload?.videoId ||
+          (song as any).id ||
+          "";
+        const fetchVidTime = performance.now() - startTime;
+        if (!videoId) {
+          set.status = 500;
+          console.error(
+            "Failed to extract ID from a confirmed song object:",
+            song,
+          );
+          return {
+            success: false,
+            error: "Could not extract video ID from the top search result.",
+          };
+        }
+        console.log(
+          `✅ [Music Search] Found ID: ${videoId} (title: ${title}) [${shelfType}] in ${fetchVidTime.toFixed(2)}ms`,
+        );
+        const mappedQuery = {
+          url: `https://www.youtube.com/watch?v=${videoId}`,
+          quality,
+          format,
+        };
+        return await handleVideoRequest(
+          videoId,
+          mappedQuery,
+          request,
+          set,
+          startTime,
+        );
+      } catch (error: any) {
+        console.error(
+          `\n❌ [Music Search] An error occurred during search for "${songQuery}":`,
+          error.message,
+        );
+        set.status = 500;
+        return { success: false, error: error.message };
+      } finally {
+        const duration = (performance.now() - startTime).toFixed(2);
+        console.log(
+          `[Music Search: "${songQuery}"] Request processed in ${duration}ms.`,
+        );
+      }
+    },
+    {
+      query: t.Object({
+        q: t.String(),
+        quality: t.Optional(t.String()),
+        format: t.Optional(t.String()),
+      }),
+    },
+  )
+  .get(
+    "/tunnel/:tunnelId",
+    async ({ params, set }) => {
+      const startTime = performance.now();
+      const { tunnelId } = params;
+      const session = tunnelSessions.get(tunnelId);
+      if (!session || session.expiryTimestamp < Date.now()) {
+        set.status = 404;
+        return {
+          success: false,
+          error:
+            "Download link not found or expired. Please generate a new one.",
+        };
+      }
+      const { chosenVideoFormat } = session;
+      const cacheKey = chosenVideoFormat
+        ? `${session.videoId}-${session.itag}`
+        : `${session.videoId}-audio-only`;
+      const isAudioOnly = !chosenVideoFormat;
+      activeOperations++;
+      try {
+        const cachedFile = await getOrStartDownload(
+          session,
+          cacheKey,
+          isAudioOnly,
+        );
+        const file = Bun.file(cachedFile.filePath);
+        if (!(await file.exists())) {
+          throw new Error("Cached file was deleted unexpectedly.");
+        }
+        const handlerTimeMs = (performance.now() - startTime).toFixed(2);
+        const contentType = isAudioOnly ? "audio/mp4" : "video/mp4";
+        if (remuxedFileCache.has(cacheKey)) {
+          console.log(
+            `[${cacheKey}] ✅ Cached HIT. Handler time: ${handlerTimeMs}ms. Preparing to stream.`,
+          );
+        } else {
+          console.log(
+            `[${cacheKey}] ⏳ Non-cached stream initiated. Handler time: ${handlerTimeMs}ms.`,
+          );
+        }
+        set.headers["Content-Disposition"] = createContentDisposition(
+          cachedFile.filename,
+        );
+        set.headers["Content-Type"] = contentType;
+        set.headers["Content-Length"] = file.size.toString();
+        return new Response(file.stream());
+      } catch (error: any) {
+        activeDownloads.delete(cacheKey);
+        console.error(`[${cacheKey}] ❌ Processing Error:`, error.message);
+        set.status = 500;
+        return {
+          success: false,
+          error: `Failed to process stream: ${error.message}`,
+        };
+      } finally {
+        activeOperations--;
+        console.log(
+          `[State] Operation finished. Active operations: ${activeOperations}, Active requests: ${activeRequests}`,
+        );
 
-if (import.meta.main) {
-  app.listen({
-    port: PORT,
-    idleTimeout: BUN_IDLE_TIMEOUT,
-  });
-  console.log(`🦊 Elysia API running at http://localhost:${PORT}`);
-}
+        if (
+          restartScheduled &&
+          activeOperations === 0 &&
+          activeRequests === 0
+        ) {
+          console.log("[Auto-Restart] Last active download finished.");
+          scheduleIdleRestart();
+        }
+
+        const totalTimeMs = (performance.now() - startTime).toFixed(2);
+        if (!remuxedFileCache.has(cacheKey)) {
+          console.log(`[${cacheKey}] Total non-cached time: ${totalTimeMs}ms.`);
+        }
+      }
+    },
+    { params: t.Object({ tunnelId: t.String() }) },
+  )
+  .listen(PORT);
+
+// --- Process Signals ---
+
+process.on("SIGINT", () => {
+  console.log("\nReceived SIGINT (Ctrl+C).");
+  restartScheduled = true;
+  gracefulShutdown("Manual interrupt (SIGINT)");
+});
+
+process.on("SIGTERM", () => {
+  console.log("\nReceived SIGTERM.");
+  restartScheduled = true;
+  gracefulShutdown("Termination signal (SIGTERM)");
+});
+
+console.log(
+  `🔥 Multi-Format Downloader API is running at http://${app.server?.hostname}:${app.server?.port}`,
+);
