@@ -1,12 +1,11 @@
 import { Elysia, t } from "elysia";
-import { staticPlugin } from "@elysiajs/static"; // Added from Old
+import { staticPlugin } from "@elysiajs/static";
 import { Innertube, UniversalCache, Platform, Types, YT } from "youtubei.js";
 import { performance } from "node:perf_hooks";
 import { join } from "node:path";
 import { mkdir, rm } from "node:fs/promises";
 import ffmpeg from "ffmpeg-static";
 
-// --- Custom Imports from Old Code ---
 import instaHandler from "./api/insta";
 import instav2Handler from "./api/instav2";
 import fbHandler from "./api/fb";
@@ -19,17 +18,15 @@ import ttHandler from "./api/tt";
 import xHandler from "./api/x";
 import { getIp, getIpInfo } from "./handler/ip";
 import { getDeviceInfo } from "./handler/device";
-import { checkRateLimit, isSpam } from "./handler/protection";
+import { checkRateLimit, isSpam, ProtectionManager } from "./handler/protection";
 import { getSystemStats } from "./handler/system";
 
-// --- State Variables (New Code) ---
 let activeOperations = 0; 
 let activeRequests = 0;
 let restartScheduled = false;
 let shutdownTimer: Timer | null = null;
 
-// --- Constants (Mixed) ---
-const PORT = 3040; // Using New Code Port
+const PORT = 3040;
 const DOWNLOAD_DIR = join(process.cwd(), "downloads");
 const TEMP_DIR_BASE = join(process.cwd(), "temp");
 
@@ -38,13 +35,13 @@ const DOWNLOAD_CHUNK_SIZE_MB = 1;
 const IDLE_RESTART_DELAY_MS = 5000;
 
 const SEARCH_CACHE_TTL = 5 * 60 * 60 * 1000;
-const COOKIE_FILE_PATH = "cookies.txt"; 
+const COOKIE_FILE_PATH = "cookies-BTU.txt";
 
-// --- Type Definitions (New Code) ---
+const ADMIN_USER = "PriyanshiKaurJi";
+const ADMIN_PASS = "787957";
+
 type YTInfo = YT.VideoInfo;
-type ParsedYTFormat = NonNullable<
-  YTInfo["streaming_data"]
->["adaptive_formats"][number];
+type ParsedYTFormat = NonNullable<YTInfo["streaming_data"]>["adaptive_formats"][number];
 
 interface MediaInfo {
   quality: string | undefined;
@@ -109,60 +106,36 @@ const remuxedFileCache = new Map<string, FileCacheEntry>();
 
 let innertube: Innertube;
 
-// --- Helper Functions (Merged) ---
-
-// From Old Code (Required for Pinterest)
 function getClientId(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
   const realIp = request.headers.get("x-real-ip");
   const cfConnecting = request.headers.get("cf-connecting-ip");
-
   return forwarded?.split(",")[0].trim() || realIp || cfConnecting || "unknown";
 }
 
-// From New Code
 function getVideoId(url: string): string | null {
   try {
     const urlObj = new URL(url);
     if (urlObj.hostname.includes("youtube.com")) {
       if (urlObj.pathname === "/watch") return urlObj.searchParams.get("v");
-      const shortsMatch = urlObj.pathname.match(
-        /^\/(shorts|live|embed)\/([a-zA-Z0-9_-]{11})/,
-      );
+      const shortsMatch = urlObj.pathname.match(/^\/(shorts|live|embed)\/([a-zA-Z0-9_-]{11})/);
       if (shortsMatch) return shortsMatch[2];
     }
-    if (urlObj.hostname.includes("youtu.be"))
-      return urlObj.pathname.split("/")[1];
-  } catch (error) {
-    console.warn(`Failed to parse video ID from URL: ${url}`, error);
-  }
+    if (urlObj.hostname.includes("youtu.be")) return urlObj.pathname.split("/")[1];
+  } catch (error) {}
   return null;
 }
 
 async function getCookieFileContent(cookieFilePath: string): Promise<string> {
   const cookieFile = Bun.file(cookieFilePath);
-  if (!(await cookieFile.exists())) {
-    console.warn(
-      `🔴 WARNING: Cookie file not found at '${cookieFilePath}'. Running unauthenticated.`,
-    );
-    return "";
-  }
+  if (!(await cookieFile.exists())) return "";
   return cookieFile.text();
 }
 
 function sanitizeFilename(name: string): string {
   let clean = name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
-
-  clean = clean
-    .replace(/[^\x20-\x7E]/g, "")
-    .replace(/[\\/:*?"<>|#!]/g, "_")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (clean.length > 200) {
-    clean = clean.substring(0, 200);
-  }
-
+  clean = clean.replace(/[^\x20-\x7E]/g, "").replace(/[\\/:*?"<>|#!]/g, "_").replace(/\s+/g, " ").trim();
+  if (clean.length > 200) clean = clean.substring(0, 200);
   return clean || `video_${Date.now()}`;
 }
 
@@ -177,7 +150,6 @@ function formatBytes(bytes: number | undefined, decimals = 2): string {
 function formatDuration(_): string {
   const TUNNEL_LINK_EXPIRATION_HOURS = 5;
   const totalSeconds = TUNNEL_LINK_EXPIRATION_HOURS * 3600;
-
   if (totalSeconds < 3600) return `In ${Math.round(totalSeconds / 60)} minutes`;
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.round((totalSeconds % 3600) / 60);
@@ -191,21 +163,13 @@ function createContentDisposition(filename: string): string {
   return `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`;
 }
 
-// --- Caching and Cleanup (New Code) ---
-
 async function cleanupCachedFile(cacheKey: string) {
   const cacheEntry = remuxedFileCache.get(cacheKey);
   if (cacheEntry) {
-    console.log(`[Cache] Cleaning up expired file: ${cacheEntry.filename}`);
     remuxedFileCache.delete(cacheKey);
     try {
       await rm(cacheEntry.filePath, { force: true });
-    } catch (err: any) {
-      console.error(
-        `[Cache] Error deleting cached file ${cacheEntry.filePath}:`,
-        err.message,
-      );
-    }
+    } catch (err) {}
   }
 }
 
@@ -214,39 +178,20 @@ function scheduleFileCleanup(cacheKey: string) {
   if (!cacheEntry) return;
   const REMUXED_FILE_CACHE_SECONDS = 300;
   if (cacheEntry.expiryTimeoutId) clearTimeout(cacheEntry.expiryTimeoutId);
-  cacheEntry.expiryTimeoutId = setTimeout(
-    () => cleanupCachedFile(cacheKey),
-    REMUXED_FILE_CACHE_SECONDS * 1000,
-  );
+  cacheEntry.expiryTimeoutId = setTimeout(() => cleanupCachedFile(cacheKey), REMUXED_FILE_CACHE_SECONDS * 1000);
 }
 
-// --- Download Manager (New Code) ---
-
-async function parallelDownloadManager(
-  sessionId: string,
-  tasks: DownloadTask[],
-  destinationFile: string,
-  mediaType: "Audio" | "Video",
-  player: any,
-) {
-  if (!player)
-    throw new Error("Player object is required for deciphering URLs.");
+async function parallelDownloadManager(sessionId: string, tasks: DownloadTask[], destinationFile: string, mediaType: "Audio" | "Video", player: any) {
+  if (!player) throw new Error("Player object is required for deciphering URLs.");
   const startTime = performance.now();
-  const totalSize = tasks.reduce(
-    (sum, task) => sum + (task.end - task.start + 1),
-    0,
-  );
+  const totalSize = tasks.reduce((sum, task) => sum + (task.end - task.start + 1), 0);
   const actualWorkers = Math.min(tasks.length, MAX_CONCURRENT_DOWNLOADS);
-  console.log(
-    `[${sessionId}] ⬇️  Starting ${mediaType} download: ${tasks.length} chunks, ${formatBytes(totalSize)}. Using ${actualWorkers} workers...`,
-  );
+  
   const downloadedChunks = new Map<number, Buffer>();
   let chunksWritten = 0;
   const writer = Bun.file(destinationFile).writer();
-  const processTask = async (
-    task: DownloadTask,
-    workerId: number,
-  ): Promise<void> => {
+  
+  const processTask = async (task: DownloadTask, workerId: number): Promise<void> => {
     let attempt = 0;
     while (attempt <= task.retries) {
       try {
@@ -254,11 +199,9 @@ async function parallelDownloadManager(
         const response = await fetch(streamUrl.toString(), {
           headers: { Range: `bytes=${task.start}-${task.end}` },
         });
-        if (!response.ok)
-          throw new Error(`Server responded with ${response.status}`);
+        if (!response.ok) throw new Error(`Server responded with ${response.status}`);
         const buffer = Buffer.from(await response.arrayBuffer());
-        if (buffer.byteLength !== task.end - task.start + 1)
-          throw new Error(`Chunk ${task.index} size mismatch.`);
+        if (buffer.byteLength !== task.end - task.start + 1) throw new Error(`Chunk ${task.index} size mismatch.`);
         downloadedChunks.set(task.index, buffer);
         while (downloadedChunks.has(chunksWritten)) {
           writer.write(downloadedChunks.get(chunksWritten)!);
@@ -266,10 +209,7 @@ async function parallelDownloadManager(
           chunksWritten++;
         }
         return;
-      } catch (error: any) {
-        console.error(
-          `\n[${sessionId}] Worker ${workerId} FAILED task ${task.description} (attempt ${attempt + 1}/${task.retries + 1}). Error: ${error.message}`,
-        );
+      } catch (error) {
         if (attempt < task.retries) {
           attempt++;
           await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
@@ -292,128 +232,60 @@ async function parallelDownloadManager(
   });
   await Promise.all(workerPromises);
   await writer.end();
-  const endTime = performance.now();
-  const durationSec = (endTime - startTime) / 1000;
-  const speed = durationSec > 0 ? totalSize / durationSec : 0;
-  console.log(
-    `[${sessionId}]    ✅ ${mediaType} Download Complete: ${formatBytes(totalSize)} in ${durationSec.toFixed(2)}s (${formatBytes(speed)}/s)`,
-  );
-  return destinationFile;
 }
 
-// --- Platform Shim (Shared) ---
-Platform.shim.eval = async (
-  data: Types.BuildScriptResult,
-  env: Record<string, Types.VMPrimative>,
-) => {
+Platform.shim.eval = async (data: Types.BuildScriptResult, env: Record<string, Types.VMPrimative>) => {
   const properties: string[] = [];
-  if (env.n) {
-    properties.push(
-      `n: exportedVars.nFunction(${JSON.stringify(String(env.n))})`,
-    );
-  }
-  if (env.sig) {
-    properties.push(
-      `sig: exportedVars.sigFunction(${JSON.stringify(String(env.sig))})`,
-    );
-  }
+  if (env.n) properties.push(`n: exportedVars.nFunction(${JSON.stringify(String(env.n))})`);
+  if (env.sig) properties.push(`sig: exportedVars.sigFunction(${JSON.stringify(String(env.sig))})`);
   const fullCode = `${data.output}\nreturn { ${properties.join(", ")} }`;
   return new Function(fullCode)();
 };
 
-// --- Setup ---
-console.log("🚀 Server starting: Performing one-time expensive setup...");
-const setupStartTime = performance.now();
 const cookie = await getCookieFileContent(COOKIE_FILE_PATH);
 innertube = await Innertube.create({
   cookie,
   cache: new UniversalCache(false),
 });
-if (!innertube.session.player) {
-  console.warn(
-    "⚠️ Innertube session is missing the Player object. Deciphering may fail.",
-  );
-}
-console.log(
-  `✅ One-time setup complete in ${(performance.now() - setupStartTime).toFixed(2)}ms.`,
-);
 
-// --- Lifecycle Management (New Code) ---
 function scheduleIdleRestart() {
   if (!restartScheduled) return;
-
-  if (shutdownTimer) {
-    clearTimeout(shutdownTimer);
-  }
-
-  console.log(
-    `[Auto-Restart] Scheduling restart in ${IDLE_RESTART_DELAY_MS / 1000} seconds if server remains idle.`,
-  );
-
+  if (shutdownTimer) clearTimeout(shutdownTimer);
   shutdownTimer = setTimeout(() => {
     if (activeOperations === 0 && activeRequests === 0) {
       gracefulShutdown("High latency detected and server is idle.");
-    } else {
-      console.log(
-        `[Auto-Restart] Restart postponed. Server is not idle (Downloads: ${activeOperations}, Requests: ${activeRequests}).`,
-      );
     }
   }, IDLE_RESTART_DELAY_MS);
 }
 
 async function gracefulShutdown(reason: string) {
   if (!restartScheduled) return;
-  console.log(`[Graceful Shutdown] Initiating shutdown. Reason: ${reason}`);
   restartScheduled = false;
-
   if (shutdownTimer) {
     clearTimeout(shutdownTimer);
     shutdownTimer = null;
   }
-
   await app.stop();
-  console.log(
-    "[Graceful Shutdown] Server has stopped accepting new connections.",
-  );
-
   const waitForIdle = async () => {
     if (activeOperations === 0 && activeRequests === 0) {
-      console.log("[Graceful Shutdown] All operations finished. Exiting now.");
       process.exit(0);
     } else {
-      console.log(
-        `[Graceful Shutdown] Waiting for operations to complete. Downloads: ${activeOperations}, Requests: ${activeRequests}`,
-      );
       setTimeout(waitForIdle, 1000);
     }
   };
-
   await waitForIdle();
 }
 
-// --- Data Fetching Logic (New Code) ---
-
-async function getOrFetchVideoData(videoId: string): Promise<{
-  videoData: VideoCacheEntry;
-  cacheHit: boolean;
-  audioTunnelId: string;
-}> {
+async function getOrFetchVideoData(videoId: string): Promise<{ videoData: VideoCacheEntry; cacheHit: boolean; audioTunnelId: string; }> {
   const cachedData = videoDataCache.get(videoId);
   if (cachedData && cachedData.expiryTimestamp > Date.now()) {
-    console.log(`\n♻️  [${videoId}] Full Cache HIT.`);
-    const audioFormat = cachedData.info.streaming_data?.adaptive_formats.find(
-      (f) => f.itag === cachedData.bestAudioFormat.itag,
-    );
-    const audioTunnelId = audioFormat
-      ? cachedData.tunnels.get(audioFormat.itag)
-      : undefined;
+    const audioFormat = cachedData.info.streaming_data?.adaptive_formats.find((f) => f.itag === cachedData.bestAudioFormat.itag);
+    const audioTunnelId = audioFormat ? cachedData.tunnels.get(audioFormat.itag) : undefined;
     if (!audioTunnelId) throw new Error("Cached audio tunnel ID is missing.");
     return { videoData: cachedData, cacheHit: true, audioTunnelId };
   }
 
-  console.log(`\n📥 [${videoId}] API Cache MISS. Fetching from YouTube.`);
   const infoFetchStart = performance.now();
-
   const playerResponse = await innertube.actions.execute("/player", {
     videoId,
     client: "WEB_EMBEDDED",
@@ -427,66 +299,34 @@ async function getOrFetchVideoData(videoId: string): Promise<{
   const info = new YT.VideoInfo([playerResponse], innertube.actions, videoId);
   const player = innertube.session.player!;
   const fetchDuration = performance.now() - infoFetchStart;
-  console.log(`[${videoId}] Info fetched in ${fetchDuration.toFixed(2)}ms.`);
 
   if (fetchDuration > 20000 && !restartScheduled) {
-    console.warn(`
-    ####################################################################
-    ## ⚠️  High Latency Detected: ${fetchDuration.toFixed(2)}ms.
-    ## A safe restart will be triggered when the server is idle.
-    ####################################################################
-    `);
     restartScheduled = true;
     scheduleIdleRestart(); 
   }
 
-  if (info.playability_status?.status !== "OK")
-    throw new Error(`Video not playable: ${info.playability_status?.reason}`);
+  if (info.playability_status?.status !== "OK") throw new Error(`Video not playable: ${info.playability_status?.reason}`);
   if (!info.streaming_data) throw new Error("No streaming data found.");
 
-  console.log(`\n✨ [${videoId}] Generating and caching all static URLs.`);
   const adaptiveFormats = info.streaming_data.adaptive_formats;
-  const audio_only_streams = adaptiveFormats.filter(
-    (f) => f.has_audio && !f.has_video,
-  );
-  let bestAudioFormat: ParsedYTFormat | undefined = audio_only_streams.find(
-    (f) => f.audio_track?.audio_is_default,
-  );
-  if (!bestAudioFormat)
-    bestAudioFormat = audio_only_streams.find((f) => f.is_original);
-  if (!bestAudioFormat)
-    bestAudioFormat = audio_only_streams.find((f) => f.itag === 140);
+  const audio_only_streams = adaptiveFormats.filter((f) => f.has_audio && !f.has_video);
+  let bestAudioFormat: ParsedYTFormat | undefined = audio_only_streams.find((f) => f.audio_track?.audio_is_default);
+  if (!bestAudioFormat) bestAudioFormat = audio_only_streams.find((f) => f.is_original);
+  if (!bestAudioFormat) bestAudioFormat = audio_only_streams.find((f) => f.itag === 140);
   if (!bestAudioFormat) {
-    const m4a_formats = audio_only_streams
-      .filter((f) => f.mime_type.includes("mp4a"))
-      .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-    bestAudioFormat =
-      m4a_formats.length > 0
-        ? m4a_formats[0]
-        : audio_only_streams.sort(
-            (a, b) => (b.bitrate || 0) - (a.bitrate || 0),
-          )[0];
+    const m4a_formats = audio_only_streams.filter((f) => f.mime_type.includes("mp4a")).sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+    bestAudioFormat = m4a_formats.length > 0 ? m4a_formats[0] : audio_only_streams.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
   }
   if (!bestAudioFormat) throw new Error("No suitable audio format found.");
 
-  const video_only_streams = adaptiveFormats.filter(
-    (f) => f.has_video && !f.has_audio,
-  );
+  const video_only_streams = adaptiveFormats.filter((f) => f.has_video && !f.has_audio);
   const selectedQualities = new Map<string, ParsedYTFormat>();
   ["1080p", "720p"].forEach((q) => {
-    const vp9 =
-      video_only_streams.find(
-        (f) => f.quality_label === q && f.mime_type.includes("vp9"),
-      ) ||
-      video_only_streams.find(
-        (f) => f.quality_label === q && f.mime_type.includes("avc1"),
-      );
+    const vp9 = video_only_streams.find((f) => f.quality_label === q && f.mime_type.includes("vp9")) || video_only_streams.find((f) => f.quality_label === q && f.mime_type.includes("avc1"));
     if (vp9) selectedQualities.set(q, vp9);
   });
   ["480p", "360p", "240p", "144p"].forEach((q) => {
-    const format = video_only_streams.find(
-      (f) => f.quality_label === q && f.mime_type.includes("avc1"),
-    );
+    const format = video_only_streams.find((f) => f.quality_label === q && f.mime_type.includes("avc1"));
     if (format) selectedQualities.set(q, format);
   });
 
@@ -511,10 +351,7 @@ async function getOrFetchVideoData(videoId: string): Promise<{
 
   const audioTunnelId = Bun.randomUUIDv7();
   tunnels.set(bestAudioFormat.itag, audioTunnelId);
-  const audioFilename =
-    sanitizeFilename(
-      `${info.basic_info.title || "Unknown Title"} - ${info.basic_info.author || "Unknown Channel"}`,
-    ).trim() + ".m4a";
+  const audioFilename = sanitizeFilename(`${info.basic_info.title || "Unknown Title"} - ${info.basic_info.author || "Unknown Channel"}`).trim() + ".m4a";
   tunnelSessions.set(audioTunnelId, {
     videoId,
     itag: bestAudioFormat.itag,
@@ -526,14 +363,7 @@ async function getOrFetchVideoData(videoId: string): Promise<{
     filename: audioFilename,
   });
 
-  const apiCacheExpirySeconds = Math.floor(
-    (info.streaming_data.expires.getTime() - Date.now()) / 1000,
-  );
-  if (apiCacheExpirySeconds <= 60)
-    console.warn(
-      `[${videoId}] API response has a very short expiry time: ${apiCacheExpirySeconds}s.`,
-    );
-
+  const apiCacheExpirySeconds = Math.floor((info.streaming_data.expires.getTime() - Date.now()) / 1000);
   const videoData: VideoCacheEntry = {
     info,
     player,
@@ -547,43 +377,25 @@ async function getOrFetchVideoData(videoId: string): Promise<{
   return { videoData, cacheHit: false, audioTunnelId };
 }
 
-async function getOrFetchSearchResults(
-  searchQuery: string,
-): Promise<{ results: VideoResult[]; fetchTime: number; cacheHit: boolean }> {
+async function getOrFetchSearchResults(searchQuery: string): Promise<{ results: VideoResult[]; fetchTime: number; cacheHit: boolean }> {
   const lookupStartTime = performance.now();
   const cacheKey = searchQuery.toLowerCase();
   const cachedEntry = searchCache.get(cacheKey);
 
   if (cachedEntry && cachedEntry.expires > Date.now()) {
-    console.log(`\n♻️  [Search Cache] HIT for "${searchQuery}".`);
-    const cacheFetchTime = performance.now() - lookupStartTime;
-    return {
-      results: cachedEntry.results,
-      fetchTime: cacheFetchTime,
-      cacheHit: true,
-    };
+    return { results: cachedEntry.results, fetchTime: performance.now() - lookupStartTime, cacheHit: true };
   }
 
-  console.log(
-    `\n🔍 [API Search] MISS for "${searchQuery}". Fetching from YouTube.`,
-  );
   const apiFetchStart = performance.now();
-
   const response = await innertube.actions.execute("/search", {
     query: searchQuery,
     client: "TV_EMBEDDED",
     parse: false,
   });
 
-  const apiFetchTime = performance.now() - apiFetchStart;
-
-  console.log(`\n⏱️ [API Search] Duration: ${apiFetchTime.toFixed(2)}ms`);
-
   const searchData: any = response.data;
   const results: VideoResult[] = [];
-  const contents =
-    searchData?.contents?.sectionListRenderer?.contents?.[0]
-      ?.itemSectionRenderer?.contents;
+  const contents = searchData?.contents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents;
 
   if (Array.isArray(contents)) {
     for (const item of contents) {
@@ -595,56 +407,33 @@ async function getOrFetchSearchResults(
         const duration = video.lengthText?.runs?.[0]?.text;
         let thumbnail = "";
         const thumbnails = video.thumbnail?.thumbnails;
-
-        if (Array.isArray(thumbnails) && thumbnails.length > 0) {
-          thumbnail = thumbnails[thumbnails.length - 1].url;
-        }
-
-        if (videoId && title && author && duration) {
-          results.push({ videoId, title, author, duration, thumbnail });
-        }
+        if (Array.isArray(thumbnails) && thumbnails.length > 0) thumbnail = thumbnails[thumbnails.length - 1].url;
+        if (videoId && title && author && duration) results.push({ videoId, title, author, duration, thumbnail });
       }
     }
   }
 
   if (results.length > 0) {
-    searchCache.set(cacheKey, {
-      results,
-      expires: Date.now() + SEARCH_CACHE_TTL,
-    });
+    searchCache.set(cacheKey, { results, expires: Date.now() + SEARCH_CACHE_TTL });
   }
 
-  return { results, fetchTime: apiFetchTime, cacheHit: false };
+  return { results, fetchTime: performance.now() - apiFetchStart, cacheHit: false };
 }
 
-async function getOrStartDownload(
-  session: TunnelSession,
-  cacheKey: string,
-  isAudioOnly: boolean,
-): Promise<FileCacheEntry> {
+async function getOrStartDownload(session: TunnelSession, cacheKey: string, isAudioOnly: boolean): Promise<FileCacheEntry> {
   const { player, bestAudioFormat, chosenVideoFormat, filename } = session;
   let downloadPromise = activeDownloads.get(cacheKey);
   let cachedFile = remuxedFileCache.get(cacheKey);
 
   if (cachedFile) {
-    console.log(`[${cacheKey}] ♻️  Cache HIT. Scheduling cleanup.`);
     scheduleFileCleanup(cacheKey);
     return cachedFile;
   }
-
-  if (downloadPromise) {
-    console.log(
-      `[${cacheKey}] ⏳ Download in progress. Awaiting completion...`,
-    );
-    return downloadPromise;
-  }
+  if (downloadPromise) return downloadPromise;
 
   const processPromise = (async (): Promise<FileCacheEntry> => {
     const tempDir = join(TEMP_DIR_BASE, Bun.randomUUIDv7());
-    const tempAudioFile = join(
-      tempDir,
-      `audio.${bestAudioFormat.mime_type.includes("mp4a") ? "m4a" : "webm"}`,
-    );
+    const tempAudioFile = join(tempDir, `audio.${bestAudioFormat.mime_type.includes("mp4a") ? "m4a" : "webm"}`);
     await mkdir(tempDir, { recursive: true });
 
     try {
@@ -657,136 +446,45 @@ async function getOrStartDownload(
         const audioContentLength = bestAudioFormat.content_length || 0;
         const audioTasks: DownloadTask[] = [];
         for (let i = 0, start = 0; start < audioContentLength; i++) {
-          const end = Math.min(
-            start + targetChunkSizeBytes - 1,
-            audioContentLength - 1,
-          );
-          audioTasks.push({
-            index: i,
-            format: bestAudioFormat,
-            start,
-            end,
-            retries: 2,
-            description: `Audio Chunk ${i + 1}`,
-          });
+          const end = Math.min(start + targetChunkSizeBytes - 1, audioContentLength - 1);
+          audioTasks.push({ index: i, format: bestAudioFormat, start, end, retries: 2, description: `Audio Chunk ${i + 1}` });
           start = end + 1;
         }
-        await parallelDownloadManager(
-          cacheKey,
-          audioTasks,
-          tempDownloadPath,
-          "Audio",
-          player,
-        );
-        console.log(`[${cacheKey}] 🔄 Starting Audio-Only Remux...`);
-        const ffmpegStart = performance.now();
-        const ffmpegArgs = [
-          ffmpeg!,
-          "-loglevel",
-          "error",
-          "-i",
-          tempDownloadPath,
-          "-c:a",
-          "copy",
-          "-movflags",
-          "faststart",
-          "-y",
-          finalFilePath,
-        ];
+        await parallelDownloadManager(cacheKey, audioTasks, tempDownloadPath, "Audio", player);
+        
+        const ffmpegArgs = [ffmpeg!, "-loglevel", "error", "-i", tempDownloadPath, "-c:a", "copy", "-movflags", "faststart", "-y", finalFilePath];
         const ffmpegProcess = Bun.spawn(ffmpegArgs, { stderr: "pipe" });
-        if ((await ffmpegProcess.exited) !== 0)
-          throw new Error(
-            `FFmpeg failed during audio remux: ${await new Response(ffmpegProcess.stderr).text()}`,
-          );
-        console.log(
-          `[${cacheKey}]    ✅ Audio Remux successful in ${(performance.now() - ffmpegStart).toFixed(2)}ms.`,
-        );
+        if ((await ffmpegProcess.exited) !== 0) throw new Error(`FFmpeg failed`);
       } else {
-        if (!chosenVideoFormat)
-          throw new Error("Chosen video format is missing for video download.");
-
-        const audioContentLength = bestAudioFormat.content_length || 0;
-        const audioTasks: DownloadTask[] = [];
-        for (let i = 0, start = 0; start < audioContentLength; i++) {
-          const end = Math.min(
-            start + targetChunkSizeBytes - 1,
-            audioContentLength - 1,
-          );
-          audioTasks.push({
-            index: i,
-            format: bestAudioFormat,
-            start,
-            end,
-            retries: 2,
-            description: `Audio Chunk ${i + 1}`,
-          });
-          start = end + 1;
-        }
-
+        if (!chosenVideoFormat) throw new Error("Chosen video format is missing.");
         const tempVideoFile = join(tempDir, `video.mp4`);
         const videoContentLength = chosenVideoFormat.content_length || 0;
         const videoTasks: DownloadTask[] = [];
         for (let i = 0, start = 0; start < videoContentLength; i++) {
-          const end = Math.min(
-            start + targetChunkSizeBytes - 1,
-            videoContentLength - 1,
-          );
-          videoTasks.push({
-            index: i,
-            format: chosenVideoFormat,
-            start,
-            end,
-            retries: 2,
-            description: `Video Chunk ${i + 1}`,
-          });
+          const end = Math.min(start + targetChunkSizeBytes - 1, videoContentLength - 1);
+          videoTasks.push({ index: i, format: chosenVideoFormat, start, end, retries: 2, description: `Video Chunk ${i + 1}` });
+          start = end + 1;
+        }
+        
+        const audioContentLength = bestAudioFormat.content_length || 0;
+        const audioTasks: DownloadTask[] = [];
+        for (let i = 0, start = 0; start < audioContentLength; i++) {
+          const end = Math.min(start + targetChunkSizeBytes - 1, audioContentLength - 1);
+          audioTasks.push({ index: i, format: bestAudioFormat, start, end, retries: 2, description: `Audio Chunk ${i + 1}` });
           start = end + 1;
         }
 
         await Promise.all([
-          parallelDownloadManager(
-            cacheKey,
-            videoTasks,
-            tempVideoFile,
-            "Video",
-            player,
-          ),
-          parallelDownloadManager(
-            cacheKey,
-            audioTasks,
-            tempAudioFile,
-            "Audio",
-            player,
-          ),
+          parallelDownloadManager(cacheKey, videoTasks, tempVideoFile, "Video", player),
+          parallelDownloadManager(cacheKey, audioTasks, tempAudioFile, "Audio", player),
         ]);
 
-        console.log(`[${cacheKey}] 🔄 Starting FFmpeg process...`);
-        const ffmpegStart = performance.now();
-        const ffmpegArgs = [
-          ffmpeg!,
-          "-i",
-          tempVideoFile,
-          "-i",
-          tempAudioFile,
-          "-c",
-          "copy",
-          "-y",
-          finalFilePath,
-        ];
+        const ffmpegArgs = [ffmpeg!, "-i", tempVideoFile, "-i", tempAudioFile, "-c", "copy", "-y", finalFilePath];
         const ffmpegProcess = Bun.spawn(ffmpegArgs, { stderr: "pipe" });
-        if ((await ffmpegProcess.exited) !== 0)
-          throw new Error(
-            `FFmpeg failed during video+audio remux: ${await new Response(ffmpegProcess.stderr).text()}`,
-          );
-        console.log(
-          `[${cacheKey}]    ✅ FFmpeg successful in ${(performance.now() - ffmpegStart).toFixed(2)}ms.`,
-        );
+        if ((await ffmpegProcess.exited) !== 0) throw new Error(`FFmpeg failed`);
       }
 
-      const newCacheEntry: FileCacheEntry = {
-        filePath: finalFilePath,
-        filename: finalFilename,
-        expiryTimeoutId: null!,
-      };
+      const newCacheEntry: FileCacheEntry = { filePath: finalFilePath, filename: finalFilename, expiryTimeoutId: null! };
       remuxedFileCache.set(cacheKey, newCacheEntry);
       scheduleFileCleanup(cacheKey);
       return newCacheEntry;
@@ -797,22 +495,11 @@ async function getOrStartDownload(
   })();
 
   activeDownloads.set(cacheKey, processPromise);
-  console.log(`[${cacheKey}] ✨ New download initiated.`);
   return processPromise;
 }
 
-async function handleVideoRequest(
-  videoId: string,
-  query: { url: string; quality?: string; format?: string },
-  request: Request,
-  set: any,
-  startTime: number,
-) {
-  const fetchedData: {
-    videoData: VideoCacheEntry;
-    cacheHit: boolean;
-    audioTunnelId: string;
-  } = (await getOrFetchVideoData(videoId)) as any;
+async function handleVideoRequest(videoId: string, query: { url: string; quality?: string; format?: string }, request: Request, set: any, startTime: number) {
+  const fetchedData: { videoData: VideoCacheEntry; cacheHit: boolean; audioTunnelId: string; } = (await getOrFetchVideoData(videoId)) as any;
   const { videoData, cacheHit, audioTunnelId } = fetchedData;
   const { info, tunnels, bestAudioFormat } = videoData;
 
@@ -821,10 +508,7 @@ async function handleVideoRequest(
   const title = info.basic_info.title || "Unknown Title";
   const channel = info.basic_info.author || "Unknown Channel";
   const safeTitleWithChannel = sanitizeFilename(`${title} - ${channel}`);
-  const bestThumbnail =
-    info.basic_info.thumbnail?.find((t) => t.width > 1000)?.url ||
-    info.basic_info.thumbnail?.[0]?.url ||
-    "";
+  const bestThumbnail = info.basic_info.thumbnail?.find((t) => t.width > 1000)?.url || info.basic_info.thumbnail?.[0]?.url || "";
   const TUNNEL_LINK_EXPIRATION_HOURS = 5;
 
   for (const tunnelId of tunnels.values()) {
@@ -857,29 +541,16 @@ async function handleVideoRequest(
     return new Response(JSON.stringify(responseData, null, 2));
   }
 
-  if (!info.streaming_data)
-    throw new Error("No streaming data found for this video.");
-  const video_only_streams = info.streaming_data.adaptive_formats.filter(
-    (f) => f.has_video && !f.has_audio,
-  );
+  const video_only_streams = info.streaming_data?.adaptive_formats.filter((f) => f.has_video && !f.has_audio) || [];
   const selectedQualities = new Map<string, ParsedYTFormat>();
   const qualityOrder = ["1080p", "720p", "480p", "360p", "240p", "144p"];
+  
   ["1080p", "720p"].forEach((q) => {
-    const vp9 = video_only_streams.find(
-      (f) => f.quality_label === q && f.mime_type.includes("vp9"),
-    );
+    const vp9 = video_only_streams.find((f) => f.quality_label === q && f.mime_type.includes("vp9")) || video_only_streams.find((f) => f.quality_label === q && f.mime_type.includes("avc1"));
     if (vp9) selectedQualities.set(q, vp9);
-    else {
-      const avc1 = video_only_streams.find(
-        (f) => f.quality_label === q && f.mime_type.includes("avc1"),
-      );
-      if (avc1) selectedQualities.set(q, avc1);
-    }
   });
   ["480p", "360p", "240p", "144p"].forEach((q) => {
-    const format = video_only_streams.find(
-      (f) => f.quality_label === q && f.mime_type.includes("avc1"),
-    );
+    const format = video_only_streams.find((f) => f.quality_label === q && f.mime_type.includes("avc1"));
     if (format) selectedQualities.set(q, format);
   });
 
@@ -888,6 +559,7 @@ async function handleVideoRequest(
     let requestedQuality = query.quality;
     if (!requestedQuality.endsWith("p")) requestedQuality += "p";
     const startIndex = qualityOrder.indexOf(requestedQuality);
+    
     if (startIndex !== -1) {
       for (let i = startIndex; i < qualityOrder.length; i++) {
         const format = selectedQualities.get(qualityOrder[i]);
@@ -908,26 +580,14 @@ async function handleVideoRequest(
     }
     if (!targetFormat) {
       set.status = 404;
-      return {
-        success: false,
-        error: "The requested quality is not available for this video.",
-      };
+      return { success: false, error: "The requested quality is not available." };
     }
+    
     const tunnelId = tunnels.get(targetFormat.itag);
-    if (!tunnelId)
-      throw new Error(
-        "Could not find a cached tunnel ID for the requested format. This should not happen.",
-      );
-    const session = tunnelSessions.get(tunnelId);
-    if (!session)
-      throw new Error(
-        "Session not found for tunnel ID. This should not happen.",
-      );
+    const session = tunnelSessions.get(tunnelId!);
     const qualityLabel = targetFormat.quality_label!;
-    const size = formatBytes(
-      (targetFormat.content_length || 0) +
-        (bestAudioFormat.content_length || 0),
-    );
+    const size = formatBytes((targetFormat.content_length || 0) + (bestAudioFormat.content_length || 0));
+    
     const responseData = {
       status: "ok",
       videoId,
@@ -936,7 +596,7 @@ async function handleVideoRequest(
       quality: qualityLabel,
       channel,
       thumbnail: bestThumbnail,
-      filename: session.filename,
+      filename: session!.filename,
       size,
       expires: formatDuration(TUNNEL_LINK_EXPIRATION_HOURS * 3600),
       infoFetchTime: `${(performance.now() - startTime).toFixed(2)}ms`,
@@ -954,10 +614,7 @@ async function handleVideoRequest(
         if (session) {
           media.push({
             quality: format.quality_label,
-            size: formatBytes(
-              (format.content_length || 0) +
-                (bestAudioFormat.content_length || 0),
-            ),
+            size: formatBytes((format.content_length || 0) + (bestAudioFormat.content_length || 0)),
             codec: format.mime_type.includes("vp9") ? "vp9" : "avc1",
             url: `${baseUrl}/tunnel/${tunnelId}`,
             filename: session.filename,
@@ -991,589 +648,300 @@ async function handleVideoRequest(
   }
 }
 
-// --- App Definitions ---
-
 const app = new Elysia()
-  // Add Static Plugin (Old Feature)
-  .use(
-    staticPlugin({
-      assets: "public",
-      prefix: "",
-      alwaysStatic: true,
-    }),
-  )
-  // Merged OnBeforeHandle: Stats + Protection
+  .use(staticPlugin({ assets: "public", prefix: "", alwaysStatic: true }))
   .onBeforeHandle(({ request, set }) => {
-    // 1. Protection Logic (Old)
     const ip = getIp(request);
     if (!checkRateLimit(ip)) {
       set.status = 429;
       return { status: "error", message: "Rate limit exceeded" };
     }
-    if (isSpam(request)) {
-      // Optional: block spam bots
-      // set.status = 403;
-      // return { status: "error", message: "Suspicious activity detected" };
-    }
+    if (isSpam(request)) {} 
 
-    // 2. Activity Logic (New)
     activeRequests++;
-    // If a restart timer is running, any new request should postpone it.
     if (shutdownTimer) {
       clearTimeout(shutdownTimer);
       shutdownTimer = null;
-      console.log("[Auto-Restart] Postponed due to new incoming request.");
     }
   })
   .onAfterHandle(({ response, set }) => {
-    // 1. Activity Logic (New)
     activeRequests--;
-    // If a restart is pending and the server is now fully idle, schedule the restart.
     if (restartScheduled && activeRequests === 0 && activeOperations === 0) {
       scheduleIdleRestart();
     }
-
-    // 2. JSON Formatting (Old - adapted for checking response type)
-    if (
-        typeof response === "object" &&
-        response !== null &&
-        !(response instanceof Response)
-    ) {
+    if (typeof response === "object" && response !== null && !(response instanceof Response)) {
         set.headers["Content-Type"] = "application/json;charset=utf-8";
-        // Elysia usually auto-stringifies, but force ensuring charset doesn't hurt
     }
   })
   .onStart(async () => {
     try {
         await mkdir(join(process.cwd(), "temp"), { recursive: true });
         await mkdir(DOWNLOAD_DIR, { recursive: true });
-    } catch (err) {
-        console.error("Failed to create temp directory:", err);
-    }
+    } catch (err) {}
     
     let hoursRunning = 0;
-    console.log(`✅ API is running. Uptime logging has started.`);
-    setInterval(
-      () => {
-        hoursRunning++;
-        console.log(
-          `\n---\n🕒 API has been running for ${hoursRunning} hour(s).\n---`,
-        );
-      },
-      1000 * 60 * 60,
-    );
-    setInterval(
-      () => {
+    console.log(`✅ API is running.`);
+    setInterval(() => { hoursRunning++; }, 1000 * 60 * 60);
+    setInterval(() => {
         const now = Date.now();
         for (const [id, session] of tunnelSessions.entries()) {
           if (session.expiryTimestamp < now) tunnelSessions.delete(id);
         }
-      },
-      60 * 60 * 1000,
-    );
+      }, 60 * 60 * 1000);
   })
-  // --- Old API Stats Endpoints ---
+  .group("/admin", (app) =>
+    app
+      .onBeforeHandle(({ request, set }) => {
+        const auth = request.headers.get("Authorization");
+        const encoded = "Basic " + btoa(`${ADMIN_USER}:${ADMIN_PASS}`);
+        if (auth !== encoded) {
+          set.status = 401;
+          return { success: false, error: "Unauthorized" };
+        }
+      })
+      .get("/stats", () => {
+        const mem = process.memoryUsage();
+        const protStats = ProtectionManager.getStats();
+        const uptimeSeconds = process.uptime(); 
+        const h = Math.floor(uptimeSeconds / 3600);
+        
+        return {
+          activeOperations,
+          activeRequests,
+          memoryUsage: formatBytes(mem.heapUsed),
+          blockedCount: protStats.blockedCount,
+          activeRateLimitedIps: protStats.activeRateLimitedIps,
+          uptime: `${h}h`
+        };
+      })
+      .post("/block", async ({ body }: any) => {
+        if (!body.ip) return { success: false, error: "No IP provided" };
+        ProtectionManager.blockIp(body.ip);
+        return { success: true, message: "IP Blocked" };
+      })
+      .post("/unblock", async ({ body }: any) => {
+        if (!body.ip) return { success: false, error: "No IP provided" };
+        ProtectionManager.unblockIp(body.ip);
+        return { success: true, message: "IP Unblocked" };
+      })
+      .post("/clear-cache", () => {
+        const files = remuxedFileCache.size;
+        const searches = searchCache.size;
+        remuxedFileCache.clear();
+        searchCache.clear();
+        return { success: true, message: `Cleared ${files} files and ${searches} search entries.` };
+      })
+      .post("/restart-timer", () => {
+        scheduleIdleRestart();
+        return { success: true, message: "Idle restart timer reset." };
+      })
+  )
   .get("/api/stats", () => getSystemStats())
   .get("/api/ip", async ({ request }) => {
     const ip = getIp(request);
     return await getIpInfo(ip);
   })
   .get("/api/device", ({ request }) => getDeviceInfo(request))
-  
-  // --- Robots.txt (Old) ---
-  .get(
-    "/robots.txt",
-    () =>
-      new Response(["User-agent: *", "Disallow: /"].join("\n"), {
-        headers: {
-          "Content-Type": "text/plain",
-        },
-      }),
-  )
-
-  // --- Combined Root Handler (New YT Logic + Old Home.html) ---
-  .get(
-    "/",
-    async ({ query, request, set }) => {
-      // 1. If no URL param, serve Home HTML (Old Behavior)
+  .get("/robots.txt", () => new Response(["User-agent: *", "Disallow: /"].join("\n"), { headers: { "Content-Type": "text/plain" } }))
+  .get("/", async ({ query, request, set }) => {
       const { url } = query;
-      if (!url) {
-        return new Response(Bun.file("public/home.html"));
-      }
+      if (!url) return new Response(Bun.file("public/home.html"));
 
-      // 2. If URL param exists, use New Code YouTube Logic
       const startTime = performance.now();
       let videoId: string | null = null;
       try {
         videoId = getVideoId(url);
         if (!videoId) {
           set.status = 400;
-          return {
-            success: false,
-            error: "Invalid or unsupported YouTube URL provided.",
-          };
+          return { success: false, error: "Invalid YouTube URL." };
         }
-        return await handleVideoRequest(
-          videoId,
-          query,
-          request,
-          set,
-          startTime,
-        );
+        return await handleVideoRequest(videoId, query, request, set, startTime);
       } catch (error: any) {
         set.status = 500;
-
-        const errorPayload = {
-          success: false,
-          error: error?.message ?? "Unknown error",
-          code: error?.code,
-          name: error?.name,
-          stack: error?.stack,
-          playabilityStatus: error?.playabilityStatus,
-          timestamp: new Date().toISOString(),
-        };
-
-        await Bun.write(
-          "./last-error.json",
-          JSON.stringify(errorPayload, null, 2),
-        );
-
-        return new Response(JSON.stringify(errorPayload, null, 2), {
-          headers: { "Content-Type": "application/json; charset=utf-8" },
-        });
-      } finally {
-        const duration = (performance.now() - startTime).toFixed(2);
-        console.log(
-          `[${videoId || "Invalid URL"}] Request processed in ${duration}ms.`,
-        );
-      }
-    },
-    {
-      query: t.Object({
-        url: t.Optional(t.String()), // Made Optional to support serving HTML
-        quality: t.Optional(t.String()),
-        format: t.Optional(t.String()),
-      }),
-    },
-  )
-  
-  // --- Pinterest Endpoint (Old) ---
-  .get(
-    "/pin",
-    async ({ query, request, set }) => {
-      const { url, search, limit } = query;
-      const clientId = getClientId(request);
-
-      if (search) {
-        const searchLimit = limit ? Math.min(parseInt(limit), 50) : 20;
-        const result = await searchPinterest(
-          search as string,
-          clientId,
-          searchLimit,
-        );
-        if (result.status === "rate_limited") {
-          set.status = 429;
-          set.headers["Retry-After"] = "60";
-        }
-        return result;
-      } else if (url) {
-        const result = await pinHandler(url as string, clientId);
-        if (result.status === "rate_limited") {
-          set.status = 429;
-          set.headers["Retry-After"] = "60";
-        }
-        return result;
-      } else {
-        set.status = 400;
-        return {
-          status: "error",
-          error:
-            'Missing required parameter: "url" for extraction or "search" for search.',
-        };
+        return { success: false, error: error?.message ?? "Unknown error" };
       }
     },
     {
       query: t.Object({
         url: t.Optional(t.String()),
-        search: t.Optional(t.String()),
-        limit: t.Optional(t.String()),
+        quality: t.Optional(t.String()),
+        format: t.Optional(t.String()),
       }),
-    },
+    }
   )
-  .get("/pin/stats", () => {
-    return getCacheStats();
-  })
-  .post("/pin/cache/clear", () => {
-    clearCaches();
-    return {
-      status: "success",
-      message: "All Pinterest caches cleared",
-    };
-  })
-
-  // --- Other Social Endpoints (Old) ---
-  .get(
-    "/insta",
-    async ({ query }) => {
+  .get("/yt", async ({ query, request, set }) => {
+      const { url } = query;
+      if (!url) { set.status=400; return { success: false, error: "URL missing"}; }
+      
+      const startTime = performance.now();
+      try {
+        const videoId = getVideoId(url);
+        if (!videoId) {
+          set.status = 400;
+          return { success: false, error: "Invalid YouTube URL." };
+        }
+        return await handleVideoRequest(videoId, query, request, set, startTime);
+      } catch (error: any) {
+        set.status = 500;
+        return { success: false, error: error?.message ?? "Unknown error" };
+      }
+    },
+    {
+      query: t.Object({
+        url: t.String(),
+        quality: t.Optional(t.String()),
+        format: t.Optional(t.String()),
+      }),
+    }
+  )
+  .get("/pin", async ({ query, request, set }) => {
+      const { url, search, limit } = query;
+      const clientId = getClientId(request);
+      if (search) {
+        const searchLimit = limit ? Math.min(parseInt(limit), 50) : 20;
+        const result = await searchPinterest(search as string, clientId, searchLimit);
+        if (result.status === "rate_limited") { set.status = 429; set.headers["Retry-After"] = "60"; }
+        return result;
+      } else if (url) {
+        const result = await pinHandler(url as string, clientId);
+        if (result.status === "rate_limited") { set.status = 429; set.headers["Retry-After"] = "60"; }
+        return result;
+      } else {
+        set.status = 400;
+        return { status: "error", error: "Missing required parameter." };
+      }
+    },
+    { query: t.Object({ url: t.Optional(t.String()), search: t.Optional(t.String()), limit: t.Optional(t.String()) }) }
+  )
+  .get("/pin/stats", () => getCacheStats())
+  .post("/pin/cache/clear", () => { clearCaches(); return { status: "success", message: "Pinterest cache cleared" }; })
+  .get("/insta", async ({ query }) => {
       const { url } = query;
       if (!url) throw new Error("Missing URL");
       return await instaHandler(url);
-    },
-    {
-      query: t.Object({
-        url: t.String(),
-      }),
-    },
+    }, { query: t.Object({ url: t.String() }) }
   )
-  .get(
-    "/instav2",
-    async ({ query }) => {
+  .get("/instav2", async ({ query }) => {
       const { url } = query;
       if (!url) throw new Error("Missing URL");
       return await instav2Handler(url);
-    },
-    {
-      query: t.Object({
-        url: t.String(),
-      }),
-    },
+    }, { query: t.Object({ url: t.String() }) }
   )
-  .get(
-    "/fb",
-    async ({ query }) => {
+  .get("/fb", async ({ query }) => {
       const { url } = query;
       if (!url) throw new Error("Missing URL");
       return await fbHandler(url);
-    },
-    {
-      query: t.Object({
-        url: t.String(),
-      }),
-    },
+    }, { query: t.Object({ url: t.String() }) }
   )
-  .get(
-    "/tt",
-    async ({ query }) => {
+  .get("/tt", async ({ query }) => {
       const { url } = query;
       if (!url) throw new Error("Missing URL");
       return await ttHandler(url);
-    },
-    {
-      query: t.Object({
-        url: t.String(),
-      }),
-    },
+    }, { query: t.Object({ url: t.String() }) }
   )
-  .get(
-    "/x",
-    async ({ query }) => {
+  .get("/x", async ({ query }) => {
       const { url } = query;
       if (!url) throw new Error("Missing URL");
       return await xHandler(url);
-    },
-    {
-      query: t.Object({
-        url: t.String(),
-      }),
-    },
+    }, { query: t.Object({ url: t.String() }) }
   )
-
-  // --- New Code YT Search & Music ---
-  .get(
-    "/search",
-    async ({ query, request, set }) => {
+  .get("/search", async ({ query, request, set }) => {
       const startTime = performance.now();
       const { q: searchQuery, quality, format, num } = query;
-      if (!searchQuery) {
-        set.status = 400;
-        return { success: false, error: "Query parameter 'q' is required." };
-      }
+      if (!searchQuery) { set.status = 400; return { success: false, error: "Query parameter 'q' is required." }; }
       try {
-        const { results, fetchTime, cacheHit } =
-          await getOrFetchSearchResults(searchQuery);
-        if (results.length === 0) {
-          console.warn(
-            `[Search: "${searchQuery}"] No parsable video results found.`,
-          );
-          set.status = 404;
-          return {
-            success: false,
-            error: `No video results found for "${searchQuery}".`,
-          };
-        }
+        const { results, fetchTime, cacheHit } = await getOrFetchSearchResults(searchQuery);
+        if (results.length === 0) { set.status = 404; return { success: false, error: "No results." }; }
         if (num) {
           let finalResults = results;
           if (num.toLowerCase() !== "all") {
             const desiredCount = parseInt(num, 10);
-            if (!isNaN(desiredCount) && desiredCount > 0) {
-              finalResults = results.slice(0, desiredCount);
-            }
+            if (!isNaN(desiredCount) && desiredCount > 0) finalResults = results.slice(0, desiredCount);
           }
-          const responsePayload = {
-            infofetchtime: `${fetchTime.toFixed(2)}ms`,
-            cache: cacheHit,
-            results: finalResults,
-          };
-          set.status = 200;
-          set.headers["Content-Type"] = "application/json; charset=utf-8";
-          const duration = (performance.now() - startTime).toFixed(2);
-          console.log(
-            `[List Search: "${searchQuery}"] Request processed in ${duration}ms.`,
-          );
-          return JSON.stringify(responsePayload, null, 2);
+          return JSON.stringify({ infofetchtime: `${fetchTime.toFixed(2)}ms`, cache: cacheHit, results: finalResults }, null, 2);
         }
         const videoId = results[0].videoId;
-        console.log(
-          `✅ [Download Search] Found ID: ${videoId} (from ${cacheHit ? "cache" : "API"}). Handing off...`,
-        );
-        const mappedQuery = {
-          url: `https://www.youtube.com/watch?v=${videoId}`,
-          quality,
-          format,
-        };
-        return await handleVideoRequest(
-          videoId,
-          mappedQuery,
-          request,
-          set,
-          startTime,
-        );
+        const mappedQuery = { url: `https://www.youtube.com/watch?v=${videoId}`, quality, format };
+        return await handleVideoRequest(videoId, mappedQuery, request, set, startTime);
       } catch (error: any) {
-        console.error(
-          `\n❌ [Search] An error occurred for "${searchQuery}":`,
-          error.message,
-        );
         set.status = 500;
-        return {
-          success: false,
-          error: "An internal error occurred during search.",
-        };
+        return { success: false, error: "Search error." };
       }
     },
-    {
-      query: t.Object({
-        q: t.String(),
-        quality: t.Optional(t.String()),
-        format: t.Optional(t.String()),
-        num: t.Optional(t.String()),
-      }),
-    },
+    { query: t.Object({ q: t.String(), quality: t.Optional(t.String()), format: t.Optional(t.String()), num: t.Optional(t.String()) }) }
   )
-  .get(
-    "/music",
-    async ({ query, request, set }) => {
+  .get("/music", async ({ query, request, set }) => {
       const startTime = performance.now();
       const { q: songQuery, quality, format } = query;
       try {
-        if (!songQuery) {
-          set.status = 400;
-          return { success: false, error: "Query parameter 'q' is required." };
-        }
-        console.log(`\n🎵 [Music Search] Searching for "${songQuery}"...`);
+        if (!songQuery) { set.status = 400; return { success: false, error: "Query parameter 'q' is required." }; }
         const search = await innertube.music.search(songQuery);
         let song: any;
-        let shelfType = "N/A";
         if (Array.isArray(search.contents)) {
           for (const item of search.contents) {
-            if (
-              item.type === "MusicCardShelf" &&
-              (item as any).title?.endpoint?.payload?.videoId
-            ) {
-              song = item;
-              shelfType = "MusicCardShelf";
-              break;
-            }
+            if (item.type === "MusicCardShelf" && (item as any).title?.endpoint?.payload?.videoId) { song = item; break; }
             if (item.type === "MusicShelf" && Array.isArray(item.contents)) {
-              const foundSong = item.contents.find(
-                (contentItem: any) =>
-                  contentItem.videoId ||
-                  contentItem.flex_columns?.[0]?.title?.endpoint?.payload
-                    ?.videoId,
-              );
-              if (foundSong) {
-                song = foundSong;
-                shelfType = "MusicShelf";
-                break;
-              }
+              const foundSong = item.contents.find((contentItem: any) => contentItem.videoId || contentItem.flex_columns?.[0]?.title?.endpoint?.payload?.videoId);
+              if (foundSong) { song = foundSong; break; }
             }
           }
         }
-        if (!song && search.songs?.contents?.length) {
-          song = search.songs.contents.find((item: any) => item.videoId);
-          if (song) shelfType = "songs";
-        }
-        if (!song && search.videos?.contents?.length) {
-          song = search.videos.contents.find((item: any) => item.videoId);
-          if (song) shelfType = "videos";
-        }
-        if (!song) {
-          set.status = 404;
-          console.warn(
-            "No valid song item found in search results. Raw search object for debugging:",
-          );
-          console.dir(search, { depth: 2 });
-          return {
-            success: false,
-            error: `No song results found for "${songQuery}".`,
-          };
-        }
-        const title =
-          (song as any).title?.text ||
-          (song as any).title?.runs?.[0]?.text ||
-          (song as any).flex_columns?.[0]?.title?.text ||
-          (song as any).title ||
-          (song as any).name ||
-          "[No title]";
-        const videoId =
-          (song as any).videoId ||
-          (song as any).endpoint?.payload?.videoId ||
-          (song as any).title?.endpoint?.payload?.videoId ||
-          (song as any).flex_columns?.[0]?.title?.endpoint?.payload?.videoId ||
-          (song as any).id ||
-          "";
-        const fetchVidTime = performance.now() - startTime;
-        if (!videoId) {
-          set.status = 500;
-          console.error(
-            "Failed to extract ID from a confirmed song object:",
-            song,
-          );
-          return {
-            success: false,
-            error: "Could not extract video ID from the top search result.",
-          };
-        }
-        console.log(
-          `✅ [Music Search] Found ID: ${videoId} (title: ${title}) [${shelfType}] in ${fetchVidTime.toFixed(2)}ms`,
-        );
-        const mappedQuery = {
-          url: `https://www.youtube.com/watch?v=${videoId}`,
-          quality,
-          format,
-        };
-        return await handleVideoRequest(
-          videoId,
-          mappedQuery,
-          request,
-          set,
-          startTime,
-        );
+        if (!song && search.songs?.contents?.length) song = search.songs.contents.find((item: any) => item.videoId);
+        if (!song && search.videos?.contents?.length) song = search.videos.contents.find((item: any) => item.videoId);
+        if (!song) { set.status = 404; return { success: false, error: "No song found." }; }
+        const videoId = (song as any).videoId || (song as any).endpoint?.payload?.videoId || (song as any).title?.endpoint?.payload?.videoId || (song as any).flex_columns?.[0]?.title?.endpoint?.payload?.videoId || (song as any).id || "";
+        if (!videoId) { set.status = 500; return { success: false, error: "ID extraction failed." }; }
+        const mappedQuery = { url: `https://www.youtube.com/watch?v=${videoId}`, quality, format };
+        return await handleVideoRequest(videoId, mappedQuery, request, set, startTime);
       } catch (error: any) {
-        console.error(
-          `\n❌ [Music Search] An error occurred during search for "${songQuery}":`,
-          error.message,
-        );
         set.status = 500;
         return { success: false, error: error.message };
-      } finally {
-        const duration = (performance.now() - startTime).toFixed(2);
-        console.log(
-          `[Music Search: "${songQuery}"] Request processed in ${duration}ms.`,
-        );
       }
     },
-    {
-      query: t.Object({
-        q: t.String(),
-        quality: t.Optional(t.String()),
-        format: t.Optional(t.String()),
-      }),
-    },
+    { query: t.Object({ q: t.String(), quality: t.Optional(t.String()), format: t.Optional(t.String()) }) }
   )
-  .get(
-    "/tunnel/:tunnelId",
-    async ({ params, set }) => {
+  .get("/tunnel/:tunnelId", async ({ params, set }) => {
       const startTime = performance.now();
       const { tunnelId } = params;
       const session = tunnelSessions.get(tunnelId);
       if (!session || session.expiryTimestamp < Date.now()) {
         set.status = 404;
-        return {
-          success: false,
-          error:
-            "Download link not found or expired. Please generate a new one.",
-        };
+        return { success: false, error: "Link expired." };
       }
       const { chosenVideoFormat } = session;
-      const cacheKey = chosenVideoFormat
-        ? `${session.videoId}-${session.itag}`
-        : `${session.videoId}-audio-only`;
+      const cacheKey = chosenVideoFormat ? `${session.videoId}-${session.itag}` : `${session.videoId}-audio-only`;
       const isAudioOnly = !chosenVideoFormat;
       activeOperations++;
       try {
-        const cachedFile = await getOrStartDownload(
-          session,
-          cacheKey,
-          isAudioOnly,
-        );
+        const cachedFile = await getOrStartDownload(session, cacheKey, isAudioOnly);
         const file = Bun.file(cachedFile.filePath);
-        if (!(await file.exists())) {
-          throw new Error("Cached file was deleted unexpectedly.");
-        }
-        const handlerTimeMs = (performance.now() - startTime).toFixed(2);
+        if (!(await file.exists())) throw new Error("File deleted unexpectedly.");
         const contentType = isAudioOnly ? "audio/mp4" : "video/mp4";
-        if (remuxedFileCache.has(cacheKey)) {
-          console.log(
-            `[${cacheKey}] ✅ Cached HIT. Handler time: ${handlerTimeMs}ms. Preparing to stream.`,
-          );
-        } else {
-          console.log(
-            `[${cacheKey}] ⏳ Non-cached stream initiated. Handler time: ${handlerTimeMs}ms.`,
-          );
-        }
-        set.headers["Content-Disposition"] = createContentDisposition(
-          cachedFile.filename,
-        );
+        set.headers["Content-Disposition"] = createContentDisposition(cachedFile.filename);
         set.headers["Content-Type"] = contentType;
         set.headers["Content-Length"] = file.size.toString();
         return new Response(file.stream());
       } catch (error: any) {
         activeDownloads.delete(cacheKey);
-        console.error(`[${cacheKey}] ❌ Processing Error:`, error.message);
         set.status = 500;
-        return {
-          success: false,
-          error: `Failed to process stream: ${error.message}`,
-        };
+        return { success: false, error: `Stream error: ${error.message}` };
       } finally {
         activeOperations--;
-        console.log(
-          `[State] Operation finished. Active operations: ${activeOperations}, Active requests: ${activeRequests}`,
-        );
-
-        if (
-          restartScheduled &&
-          activeOperations === 0 &&
-          activeRequests === 0
-        ) {
-          console.log("[Auto-Restart] Last active download finished.");
+        if (restartScheduled && activeOperations === 0 && activeRequests === 0) {
           scheduleIdleRestart();
         }
-
-        const totalTimeMs = (performance.now() - startTime).toFixed(2);
-        if (!remuxedFileCache.has(cacheKey)) {
-          console.log(`[${cacheKey}] Total non-cached time: ${totalTimeMs}ms.`);
-        }
       }
-    },
-    { params: t.Object({ tunnelId: t.String() }) },
+    }, { params: t.Object({ tunnelId: t.String() }) }
   )
   .listen(PORT);
 
-// --- Process Signals ---
-
 process.on("SIGINT", () => {
-  console.log("\nReceived SIGINT (Ctrl+C).");
   restartScheduled = true;
-  gracefulShutdown("Manual interrupt (SIGINT)");
+  gracefulShutdown("SIGINT");
 });
-
 process.on("SIGTERM", () => {
-  console.log("\nReceived SIGTERM.");
   restartScheduled = true;
-  gracefulShutdown("Termination signal (SIGTERM)");
+  gracefulShutdown("SIGTERM");
 });
 
-console.log(
-  `🔥 Multi-Format Downloader API is running at http://${app.server?.hostname}:${app.server?.port}`,
-);
+console.log(`🔥 API running at http://${app.server?.hostname}:${app.server?.port}`);
