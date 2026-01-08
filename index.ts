@@ -35,7 +35,7 @@ const DOWNLOAD_CHUNK_SIZE_MB = 1;
 const IDLE_RESTART_DELAY_MS = 5000;
 
 const SEARCH_CACHE_TTL = 5 * 60 * 60 * 1000;
-const COOKIE_FILE_PATH = "cookies-BTU.txt";
+const COOKIE_FILE_PATH = "cookies.txt";
 
 const ADMIN_USER = "PriyanshiKaurJi";
 const ADMIN_PASS = "787957";
