@@ -6,14 +6,11 @@ import { join } from "node:path";
 import { mkdir, rm } from "node:fs/promises";
 import ffmpeg from "ffmpeg-static";
 
+// --- Custom Handlers ---
 import instaHandler from "./api/insta";
 import instav2Handler from "./api/instav2";
 import fbHandler from "./api/fb";
-import pinHandler, {
-  searchPinterest,
-  getCacheStats,
-  clearCaches,
-} from "./api/pin";
+import pinHandler, { searchPinterest, getCacheStats, clearCaches } from "./api/pin";
 import ttHandler from "./api/tt";
 import xHandler from "./api/x";
 import { getIp, getIpInfo } from "./handler/ip";
@@ -21,6 +18,7 @@ import { getDeviceInfo } from "./handler/device";
 import { checkRateLimit, isSpam, ProtectionManager } from "./handler/protection";
 import { getSystemStats } from "./handler/system";
 
+// --- State & Config ---
 let activeOperations = 0; 
 let activeRequests = 0;
 let restartScheduled = false;
@@ -29,17 +27,15 @@ let shutdownTimer: Timer | null = null;
 const PORT = 3040;
 const DOWNLOAD_DIR = join(process.cwd(), "downloads");
 const TEMP_DIR_BASE = join(process.cwd(), "temp");
-
 const MAX_CONCURRENT_DOWNLOADS = 16;
 const DOWNLOAD_CHUNK_SIZE_MB = 1;
 const IDLE_RESTART_DELAY_MS = 5000;
-
 const SEARCH_CACHE_TTL = 5 * 60 * 60 * 1000;
 const COOKIE_FILE_PATH = "cookies.txt";
-
 const ADMIN_USER = "PriyanshiKaurJi";
 const ADMIN_PASS = "787957";
 
+// --- Types ---
 type YTInfo = YT.VideoInfo;
 type ParsedYTFormat = NonNullable<YTInfo["streaming_data"]>["adaptive_formats"][number];
 
@@ -54,8 +50,6 @@ interface SearchCacheEntry {
   results: VideoResult[];
   expires: number;
 }
-
-const searchCache = new Map<string, SearchCacheEntry>();
 
 interface VideoResult {
   videoId: string;
@@ -99,6 +93,8 @@ interface VideoCacheEntry {
   bestAudioFormat: ParsedYTFormat;
 }
 
+// --- Caches ---
+const searchCache = new Map<string, SearchCacheEntry>();
 const videoDataCache = new Map<string, VideoCacheEntry>();
 const tunnelSessions = new Map<string, TunnelSession>();
 const activeDownloads = new Map<string, Promise<FileCacheEntry>>();
@@ -106,6 +102,7 @@ const remuxedFileCache = new Map<string, FileCacheEntry>();
 
 let innertube: Innertube;
 
+// --- Helper Functions ---
 function getClientId(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
   const realIp = request.headers.get("x-real-ip");
@@ -181,9 +178,9 @@ function scheduleFileCleanup(cacheKey: string) {
   cacheEntry.expiryTimeoutId = setTimeout(() => cleanupCachedFile(cacheKey), REMUXED_FILE_CACHE_SECONDS * 1000);
 }
 
+// --- Download Logic ---
 async function parallelDownloadManager(sessionId: string, tasks: DownloadTask[], destinationFile: string, mediaType: "Audio" | "Video", player: any) {
   if (!player) throw new Error("Player object is required for deciphering URLs.");
-  const startTime = performance.now();
   const totalSize = tasks.reduce((sum, task) => sum + (task.end - task.start + 1), 0);
   const actualWorkers = Math.min(tasks.length, MAX_CONCURRENT_DOWNLOADS);
   
@@ -234,6 +231,7 @@ async function parallelDownloadManager(sessionId: string, tasks: DownloadTask[],
   await writer.end();
 }
 
+// --- Innertube Shim ---
 Platform.shim.eval = async (data: Types.BuildScriptResult, env: Record<string, Types.VMPrimative>) => {
   const properties: string[] = [];
   if (env.n) properties.push(`n: exportedVars.nFunction(${JSON.stringify(String(env.n))})`);
@@ -248,6 +246,7 @@ innertube = await Innertube.create({
   cache: new UniversalCache(false),
 });
 
+// --- Lifecycle Logic ---
 function scheduleIdleRestart() {
   if (!restartScheduled) return;
   if (shutdownTimer) clearTimeout(shutdownTimer);
@@ -276,6 +275,7 @@ async function gracefulShutdown(reason: string) {
   await waitForIdle();
 }
 
+// --- Core Data Fetching ---
 async function getOrFetchVideoData(videoId: string): Promise<{ videoData: VideoCacheEntry; cacheHit: boolean; audioTunnelId: string; }> {
   const cachedData = videoDataCache.get(videoId);
   if (cachedData && cachedData.expiryTimestamp > Date.now()) {
@@ -648,6 +648,7 @@ async function handleVideoRequest(videoId: string, query: { url: string; quality
   }
 }
 
+// --- App Definition ---
 const app = new Elysia()
   .use(staticPlugin({ assets: "public", prefix: "", alwaysStatic: true }))
   .onBeforeHandle(({ request, set }) => {
@@ -689,6 +690,7 @@ const app = new Elysia()
         }
       }, 60 * 60 * 1000);
   })
+  // --- Admin Group ---
   .group("/admin", (app) =>
     app
       .onBeforeHandle(({ request, set }) => {
@@ -699,20 +701,13 @@ const app = new Elysia()
           return { success: false, error: "Unauthorized" };
         }
       })
+      .get("/", () => new Response(Bun.file("public/admin.html"))) 
       .get("/stats", () => {
         const mem = process.memoryUsage();
         const protStats = ProtectionManager.getStats();
         const uptimeSeconds = process.uptime(); 
         const h = Math.floor(uptimeSeconds / 3600);
-        
-        return {
-          activeOperations,
-          activeRequests,
-          memoryUsage: formatBytes(mem.heapUsed),
-          blockedCount: protStats.blockedCount,
-          activeRateLimitedIps: protStats.activeRateLimitedIps,
-          uptime: `${h}h`
-        };
+        return { activeOperations, activeRequests, memoryUsage: formatBytes(mem.heapUsed), blockedCount: protStats.blockedCount, activeRateLimitedIps: protStats.activeRateLimitedIps, uptime: `${h}h` };
       })
       .post("/block", async ({ body }: any) => {
         if (!body.ip) return { success: false, error: "No IP provided" };
@@ -736,6 +731,7 @@ const app = new Elysia()
         return { success: true, message: "Idle restart timer reset." };
       })
   )
+  // --- Standard API Endpoints ---
   .get("/api/stats", () => getSystemStats())
   .get("/api/ip", async ({ request }) => {
     const ip = getIp(request);
@@ -743,57 +739,37 @@ const app = new Elysia()
   })
   .get("/api/device", ({ request }) => getDeviceInfo(request))
   .get("/robots.txt", () => new Response(["User-agent: *", "Disallow: /"].join("\n"), { headers: { "Content-Type": "text/plain" } }))
+  
+  // --- Main Handlers ---
   .get("/", async ({ query, request, set }) => {
       const { url } = query;
       if (!url) return new Response(Bun.file("public/home.html"));
-
       const startTime = performance.now();
-      let videoId: string | null = null;
       try {
-        videoId = getVideoId(url);
-        if (!videoId) {
-          set.status = 400;
-          return { success: false, error: "Invalid YouTube URL." };
-        }
+        const videoId = getVideoId(url);
+        if (!videoId) { set.status = 400; return { success: false, error: "Invalid YouTube URL." }; }
         return await handleVideoRequest(videoId, query, request, set, startTime);
       } catch (error: any) {
         set.status = 500;
         return { success: false, error: error?.message ?? "Unknown error" };
       }
-    },
-    {
-      query: t.Object({
-        url: t.Optional(t.String()),
-        quality: t.Optional(t.String()),
-        format: t.Optional(t.String()),
-      }),
-    }
+    }, { query: t.Object({ url: t.Optional(t.String()), quality: t.Optional(t.String()), format: t.Optional(t.String()) }) }
   )
   .get("/yt", async ({ query, request, set }) => {
       const { url } = query;
       if (!url) { set.status=400; return { success: false, error: "URL missing"}; }
-      
       const startTime = performance.now();
       try {
         const videoId = getVideoId(url);
-        if (!videoId) {
-          set.status = 400;
-          return { success: false, error: "Invalid YouTube URL." };
-        }
+        if (!videoId) { set.status = 400; return { success: false, error: "Invalid YouTube URL." }; }
         return await handleVideoRequest(videoId, query, request, set, startTime);
       } catch (error: any) {
         set.status = 500;
         return { success: false, error: error?.message ?? "Unknown error" };
       }
-    },
-    {
-      query: t.Object({
-        url: t.String(),
-        quality: t.Optional(t.String()),
-        format: t.Optional(t.String()),
-      }),
-    }
+    }, { query: t.Object({ url: t.String(), quality: t.Optional(t.String()), format: t.Optional(t.String()) }) }
   )
+  // --- Social Handlers ---
   .get("/pin", async ({ query, request, set }) => {
       const { url, search, limit } = query;
       const clientId = getClientId(request);
@@ -810,17 +786,19 @@ const app = new Elysia()
         set.status = 400;
         return { status: "error", error: "Missing required parameter." };
       }
-    },
-    { query: t.Object({ url: t.Optional(t.String()), search: t.Optional(t.String()), limit: t.Optional(t.String()) }) }
+    }, { query: t.Object({ url: t.Optional(t.String()), search: t.Optional(t.String()), limit: t.Optional(t.String()) }) }
   )
   .get("/pin/stats", () => getCacheStats())
   .post("/pin/cache/clear", () => { clearCaches(); return { status: "success", message: "Pinterest cache cleared" }; })
+  
+  // Instagram V1
   .get("/insta", async ({ query }) => {
       const { url } = query;
       if (!url) throw new Error("Missing URL");
       return await instaHandler(url);
     }, { query: t.Object({ url: t.String() }) }
   )
+  // Instagram V2
   .get("/instav2", async ({ query }) => {
       const { url } = query;
       if (!url) throw new Error("Missing URL");
@@ -845,6 +823,8 @@ const app = new Elysia()
       return await xHandler(url);
     }, { query: t.Object({ url: t.String() }) }
   )
+  
+  // --- YouTube Search & Music ---
   .get("/search", async ({ query, request, set }) => {
       const startTime = performance.now();
       const { q: searchQuery, quality, format, num } = query;
@@ -867,8 +847,7 @@ const app = new Elysia()
         set.status = 500;
         return { success: false, error: "Search error." };
       }
-    },
-    { query: t.Object({ q: t.String(), quality: t.Optional(t.String()), format: t.Optional(t.String()), num: t.Optional(t.String()) }) }
+    }, { query: t.Object({ q: t.String(), quality: t.Optional(t.String()), format: t.Optional(t.String()), num: t.Optional(t.String()) }) }
   )
   .get("/music", async ({ query, request, set }) => {
       const startTime = performance.now();
@@ -897,8 +876,7 @@ const app = new Elysia()
         set.status = 500;
         return { success: false, error: error.message };
       }
-    },
-    { query: t.Object({ q: t.String(), quality: t.Optional(t.String()), format: t.Optional(t.String()) }) }
+    }, { query: t.Object({ q: t.String(), quality: t.Optional(t.String()), format: t.Optional(t.String()) }) }
   )
   .get("/tunnel/:tunnelId", async ({ params, set }) => {
       const startTime = performance.now();
@@ -935,13 +913,7 @@ const app = new Elysia()
   )
   .listen(PORT);
 
-process.on("SIGINT", () => {
-  restartScheduled = true;
-  gracefulShutdown("SIGINT");
-});
-process.on("SIGTERM", () => {
-  restartScheduled = true;
-  gracefulShutdown("SIGTERM");
-});
+process.on("SIGINT", () => { restartScheduled = true; gracefulShutdown("SIGINT"); });
+process.on("SIGTERM", () => { restartScheduled = true; gracefulShutdown("SIGTERM"); });
 
 console.log(`🔥 API running at http://${app.server?.hostname}:${app.server?.port}`);
