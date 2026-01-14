@@ -4,74 +4,85 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MeowDL - Speed That No One Can Match</title>
-    <meta name="description" content="High-performance media extraction API by MeowGurl. Powered by Bun & Elysia.">
+    <meta name="description" content="High-performance media extraction API suite by MeowGurl.">
     <meta name="author" content="MeowGurl">
-    <meta name="copyright" content="Priyanshi Kaur">
-    
+    <meta name="theme-color" content="#000000">
+
     <link rel="icon" type="image/png" href="https://i.ibb.co/5WMp4cYZ/image.jpg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-    
+
     <style>
+        /* --- CORE VARIABLES --- */
         :root {
-            --bg-deep: #050505;
-            --bg-surface: #0a0a0a;
-            --text-main: #ffffff;
-            --text-dim: #888888;
-            --primary: #ffffff;
-            --card-glass: rgba(20, 20, 20, 0.6);
-            --border: rgba(255, 255, 255, 0.08);
-            --shadow-glow: 0 0 20px rgba(255,255,255,0.05);
             --font-ui: 'Inter', sans-serif;
+            --font-head: 'Rajdhani', sans-serif;
             --font-code: 'JetBrains Mono', monospace;
-            --btn-grad: linear-gradient(135deg, #e0e0e0 0%, #ffffff 100%);
-            --btn-txt: #000;
-            --input-bg: rgba(0,0,0,0.4);
-            --loader-track: #222;
-            --loader-fill: #fff;
-            --accent-glow: rgba(255,255,255,0.1);
+            
+            --trans-speed: 0.5s;
+            --trans-ease: cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        /* --- THEME DEFINITIONS --- */
+        [data-theme="dark"] {
+            --bg-body: #050505;
+            --bg-card: rgba(15, 15, 15, 0.6);
+            --bg-input: rgba(255, 255, 255, 0.05);
+            --text-main: #ffffff;
+            --text-muted: #888888;
+            --primary: #ffffff;
+            --border: rgba(255, 255, 255, 0.1);
+            --glass: blur(16px);
+            --shadow: 0 15px 40px -10px rgba(0,0,0,0.6);
+            --glow: 0 0 20px rgba(255,255,255,0.05);
+            --btn-bg: #fff;
+            --btn-text: #000;
+            --accent-grad: linear-gradient(135deg, #e0e0e0 0%, #ffffff 100%);
+            --scrollbar-thumb: #333;
         }
 
         [data-theme="light"] {
-            --bg-deep: #f0f2f5;
-            --bg-surface: #ffffff;
-            --text-main: #111111;
-            --text-dim: #555555;
+            --bg-body: #f4f6f8;
+            --bg-card: rgba(255, 255, 255, 0.75);
+            --bg-input: rgba(0, 0, 0, 0.03);
+            --text-main: #1a1a1a;
+            --text-muted: #555555;
             --primary: #2563eb;
-            --card-glass: rgba(255, 255, 255, 0.85);
             --border: rgba(0, 0, 0, 0.08);
-            --shadow-glow: 0 10px 40px rgba(37, 99, 235, 0.15);
-            --btn-grad: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-            --btn-txt: #fff;
-            --input-bg: rgba(255,255,255,0.9);
-            --loader-track: #e0e0e0;
-            --loader-fill: #2563eb;
-            --accent-glow: rgba(37, 99, 235, 0.1);
+            --glass: blur(24px);
+            --shadow: 0 20px 40px -10px rgba(37, 99, 235, 0.15);
+            --glow: 0 0 15px rgba(37, 99, 235, 0.1);
+            --btn-bg: #2563eb;
+            --btn-text: #fff;
+            --accent-grad: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            --scrollbar-thumb: #ccc;
         }
 
         [data-theme="neon"] {
-            --bg-deep: #020204;
-            --bg-surface: #050508;
+            --bg-body: #020204;
+            --bg-card: rgba(8, 8, 12, 0.85);
+            --bg-input: rgba(0, 255, 255, 0.05);
             --text-main: #00ffcc;
-            --text-dim: #d000d0;
+            --text-muted: #d000d0;
             --primary: #d000d0;
-            --card-glass: rgba(10, 5, 20, 0.85);
             --border: #00ffcc;
-            --shadow-glow: 0 0 25px rgba(0, 255, 204, 0.25);
-            --btn-grad: linear-gradient(90deg, #00ffcc, #d000d0);
-            --btn-txt: #000;
-            --input-bg: rgba(0, 20, 30, 0.8);
-            --loader-track: #101;
-            --loader-fill: #00ffcc;
-            --accent-glow: rgba(208, 0, 208, 0.2);
+            --glass: blur(8px);
+            --shadow: 0 0 30px rgba(0, 255, 204, 0.15), inset 0 0 20px rgba(208, 0, 208, 0.1);
+            --glow: 0 0 10px #00ffcc, 0 0 20px #d000d0;
+            --btn-bg: linear-gradient(90deg, #00ffcc, #d000d0);
+            --btn-text: #000;
+            --accent-grad: linear-gradient(90deg, #00ffcc, #d000d0);
+            --scrollbar-thumb: #d000d0;
         }
 
+        /* --- RESET & BASE --- */
         * {
             margin: 0; padding: 0;
             box-sizing: border-box;
@@ -79,809 +90,824 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        body {
-            background-color: var(--bg-deep);
-            color: var(--text-main);
+        html, body {
+            width: 100%; min-height: 100vh;
             font-family: var(--font-ui);
-            min-height: 100vh;
+            background-color: var(--bg-body);
+            color: var(--text-main);
             overflow-x: hidden;
-            transition: background 0.6s cubic-bezier(0.22, 1, 0.36, 1), color 0.6s ease;
+            transition: background-color var(--trans-speed) var(--trans-ease), color var(--trans-speed) var(--trans-ease);
         }
 
-        #bg-canvas {
+        /* --- CANVAS BACKGROUND --- */
+        #render-canvas {
             position: fixed; top: 0; left: 0;
             width: 100%; height: 100%;
-            z-index: -1;
-            opacity: 0.6;
+            z-index: -1; pointer-events: none;
         }
 
+        /* --- SCROLLBAR --- */
         ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: var(--bg-deep); }
-        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+        ::-webkit-scrollbar-track { background: var(--bg-body); }
+        ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
-        /* --- ADVANCED PRELOADER --- */
-        #boot-overlay {
+        /* --- PRELOADER (BOOT SEQUENCE) --- */
+        #boot-layer {
             position: fixed; top: 0; left: 0;
             width: 100vw; height: 100vh;
-            background: #000;
-            z-index: 99999;
+            background: #000; z-index: 99999;
             display: flex; align-items: center; justify-content: center;
-            transition: opacity 1s ease;
-        }
-
-        .boot-terminal {
-            width: 90%; max-width: 500px;
-            background: rgba(10, 10, 10, 0.95);
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 0 50px rgba(0,0,0,0.8);
             font-family: var(--font-code);
-            position: relative;
-            overflow: hidden;
+            transition: opacity 0.8s ease;
         }
 
-        .boot-header {
-            display: flex; align-items: center; gap: 15px;
-            margin-bottom: 25px; border-bottom: 1px solid #333;
-            padding-bottom: 15px;
+        .terminal-window {
+            width: 90%; max-width: 480px;
+            background: rgba(10, 10, 10, 0.95);
+            border: 1px solid #333; border-radius: 12px;
+            padding: 20px; box-shadow: 0 0 50px rgba(0,255,0,0.1);
+            position: relative; overflow: hidden;
         }
 
-        .boot-logo {
-            width: 50px; height: 50px; border-radius: 50%;
-            border: 2px solid #fff; padding: 2px;
-            animation: spinSlow 10s linear infinite;
+        .terminal-header {
+            display: flex; justify-content: space-between;
+            align-items: center; border-bottom: 1px solid #333;
+            padding-bottom: 15px; margin-bottom: 15px;
         }
 
-        @keyframes spinSlow { to { transform: rotate(360deg); } }
-
-        .boot-title h2 { font-size: 1.2rem; color: #fff; letter-spacing: 1px; }
-        .boot-title span { font-size: 0.7rem; color: #666; text-transform: uppercase; }
-
-        .progress-track {
-            width: 100%; height: 4px; background: #222;
-            border-radius: 2px; overflow: hidden; margin-bottom: 20px;
+        .status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #333; display: inline-block; margin-right: 5px;
         }
+        .status-dot.active { background: #00ff00; box-shadow: 0 0 10px #00ff00; }
 
-        .progress-bar {
-            height: 100%; width: 0%; background: #fff;
-            box-shadow: 0 0 10px #fff; transition: width 0.05s linear;
-        }
-
-        .console-log {
-            height: 150px; overflow-y: auto;
-            font-size: 0.75rem; color: #aaa;
-            line-height: 1.6; border-top: 1px solid #222;
-            padding-top: 10px;
+        .terminal-logs {
+            height: 180px; overflow-y: auto;
+            font-size: 0.8rem; color: #aaa;
+            display: flex; flex-direction: column; gap: 5px;
             scrollbar-width: none;
         }
-        .console-log::-webkit-scrollbar { display: none; }
+        .terminal-logs::-webkit-scrollbar { display: none; }
 
-        .log-entry { display: block; margin-bottom: 4px; }
-        .log-entry.success { color: #4ade80; }
-        .log-entry.warn { color: #facc15; }
-        .log-entry.info { color: #60a5fa; }
+        .log-line { opacity: 0; animation: fadeInLog 0.2s forwards; }
+        .log-line.success { color: #4ade80; }
+        .log-line.warn { color: #facc15; }
+        .log-line.error { color: #ef4444; }
         
-        .cursor {
-            display: inline-block; width: 6px; height: 12px;
-            background: #fff; animation: blink 0.8s infinite;
-        }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes fadeInLog { to { opacity: 1; } }
 
-        /* --- UI COMPONENTS --- */
-        .theme-fab {
+        .progress-container {
+            margin-top: 20px; width: 100%; height: 4px;
+            background: #222; border-radius: 2px; overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%; width: 0%; background: #00ff00;
+            transition: width 0.1s linear;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        /* --- THEME TRANSITION OVERLAY --- */
+        #theme-overlay {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #fff; z-index: 9998;
+            pointer-events: none; opacity: 0;
+            mix-blend-mode: difference;
+        }
+        .theme-switch-anim { animation: flash 0.6s ease-out; }
+        @keyframes flash {
+            0% { opacity: 0; transform: scale(0.8); border-radius: 50%; }
+            50% { opacity: 1; transform: scale(1.5); border-radius: 0; }
+            100% { opacity: 0; }
+        }
+
+        /* --- THEME TOGGLE BUTTON --- */
+        .theme-toggle {
             position: fixed; top: 30px; right: 30px;
             width: 60px; height: 60px;
             border-radius: 50%;
-            background: var(--card-glass);
+            background: var(--bg-card);
             border: 2px solid var(--primary);
-            cursor: pointer; z-index: 1000;
+            backdrop-filter: var(--glass);
+            z-index: 1000; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            box-shadow: var(--shadow);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
             overflow: hidden;
         }
 
-        .theme-fab:hover { transform: scale(1.1) rotate(15deg); }
-        .theme-fab img { width: 100%; height: 100%; object-fit: cover; opacity: 0.9; }
+        .theme-toggle:hover { transform: rotate(180deg) scale(1.1); }
+        
+        .theme-icon {
+            width: 100%; height: 100%; object-fit: cover;
+            border-radius: 50%; opacity: 0.9;
+        }
 
-        .layout-container {
+        /* --- MAIN LAYOUT --- */
+        .wrapper {
             max-width: 1400px; margin: 0 auto;
             padding: 20px; position: relative; z-index: 10;
         }
 
+        /* --- HEADER --- */
         header {
-            text-align: center; padding: 140px 0 80px;
+            text-align: center; padding: 120px 0 80px;
             position: relative;
         }
 
-        .brand-logo-large {
-            width: 160px; height: 160px;
+        .logo-container {
+            position: relative; display: inline-block;
+            margin-bottom: 30px;
+        }
+
+        .brand-logo {
+            width: 150px; height: 150px;
             border-radius: 50%; object-fit: cover;
             border: 4px solid var(--primary);
-            padding: 5px; margin-bottom: 40px;
-            box-shadow: 0 0 60px var(--accent-glow);
-            animation: floatLogo 6s ease-in-out infinite;
+            padding: 5px; box-shadow: var(--glow);
+            animation: pulse-border 3s infinite;
         }
 
-        @keyframes floatLogo {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-15px); }
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.4); }
+            70% { box-shadow: 0 0 0 20px rgba(255,255,255,0); }
+            100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
         }
 
-        .main-heading {
-            font-size: 5rem; font-weight: 900;
-            letter-spacing: -3px; margin-bottom: 15px;
-            background: linear-gradient(120deg, var(--text-main), var(--text-dim));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            position: relative; display: inline-block;
+        .hero-title {
+            font-family: var(--font-head);
+            font-size: 5rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2px;
+            background: linear-gradient(to right, var(--text-main), var(--text-muted));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
         }
 
-        .sub-heading {
-            font-size: 1.4rem; color: var(--text-dim);
-            font-weight: 300; letter-spacing: 0.5px;
+        .hero-desc {
+            font-size: 1.2rem; color: var(--text-muted);
             max-width: 600px; margin: 0 auto;
+            font-weight: 300; letter-spacing: 0.5px;
         }
 
-        /* --- FEATURES SECTION --- */
-        .features-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 25px; margin-bottom: 100px;
+        /* --- STATS BAR --- */
+        .stats-strip {
+            display: flex; justify-content: center; flex-wrap: wrap;
+            gap: 30px; margin-bottom: 80px;
         }
 
-        .feature-card {
-            background: var(--card-glass);
-            border: 1px solid var(--border);
-            border-radius: 20px; padding: 35px;
-            backdrop-filter: blur(15px);
-            transition: transform 0.3s ease, border-color 0.3s;
+        .stat-pill {
+            background: var(--bg-card); border: 1px solid var(--border);
+            padding: 10px 20px; border-radius: 50px;
+            backdrop-filter: var(--glass);
+            display: flex; align-items: center; gap: 10px;
+            color: var(--text-muted); font-size: 0.9rem;
+            box-shadow: var(--shadow);
         }
+        
+        .stat-pill i { color: var(--primary); }
+        .stat-pill span { font-family: var(--font-code); color: var(--text-main); font-weight: 700; }
 
-        .feature-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--primary);
-        }
-
-        .feature-icon {
-            font-size: 2rem; color: var(--primary);
-            margin-bottom: 20px;
-        }
-
-        .feature-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 10px; }
-        .feature-text { font-size: 0.95rem; color: var(--text-dim); line-height: 1.6; }
-
-        /* --- API ENDPOINTS GRID --- */
-        .section-label {
+        /* --- API ENDPOINTS SECTION --- */
+        .section-header {
             text-align: center; margin-bottom: 50px;
             position: relative;
         }
         
-        .section-label h2 {
-            font-size: 2.5rem; font-weight: 800;
-            display: inline-block;
-            border-bottom: 2px solid var(--primary);
-            padding-bottom: 10px;
+        .section-header h2 {
+            font-size: 2.5rem; font-family: var(--font-head);
+            text-transform: uppercase; letter-spacing: 2px;
+            display: inline-block; padding-bottom: 10px;
+            border-bottom: 3px solid var(--primary);
         }
 
-        .endpoints-grid {
+        .grid-layout {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 30px; margin-bottom: 100px;
         }
 
-        .ep-card {
-            background: var(--card-glass);
-            border: 1px solid var(--border);
+        .card {
+            background: var(--bg-card); border: 1px solid var(--border);
             border-radius: 24px; padding: 30px;
-            backdrop-filter: blur(20px);
-            cursor: pointer; position: relative; overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            backdrop-filter: var(--glass);
+            position: relative; overflow: hidden;
+            transition: all 0.4s var(--trans-ease);
             display: flex; flex-direction: column; height: 100%;
+            cursor: pointer;
         }
 
-        .ep-card:hover {
-            transform: scale(1.03);
-            box-shadow: var(--shadow-glow);
+        .card:hover {
+            transform: translateY(-10px) scale(1.02);
             border-color: var(--primary);
+            box-shadow: var(--shadow);
         }
 
-        .ep-card::before {
-            content: ''; position: absolute;
-            top: 0; left: 0; width: 4px; height: 100%;
-            background: var(--primary);
-            opacity: 0; transition: opacity 0.3s;
+        .card-bg-icon {
+            position: absolute; right: -20px; bottom: -20px;
+            font-size: 8rem; color: var(--primary);
+            opacity: 0.05; transform: rotate(-15deg);
+            transition: 0.4s ease;
         }
-        
-        .ep-card:hover::before { opacity: 1; }
+        .card:hover .card-bg-icon { transform: rotate(0deg) scale(1.1); opacity: 0.1; }
 
-        .ep-header {
-            display: flex; justify-content: space-between; align-items: flex-start;
+        .card-top {
+            display: flex; justify-content: space-between; align-items: center;
             margin-bottom: 20px;
         }
 
-        .ep-icon {
-            font-size: 2.5rem; color: var(--text-main);
-            transition: color 0.3s, transform 0.3s;
+        .icon-box {
+            width: 60px; height: 60px; border-radius: 16px;
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.8rem; color: var(--primary);
+            transition: 0.3s;
+        }
+        .card:hover .icon-box { background: var(--primary); color: var(--btn-text); }
+
+        .method-badge {
+            font-family: var(--font-code); font-size: 0.75rem;
+            padding: 5px 10px; border-radius: 6px;
+            border: 1px solid var(--border); color: var(--text-muted);
+            text-transform: uppercase;
         }
 
-        .ep-card:hover .ep-icon { color: var(--primary); transform: rotate(-10deg); }
+        .card-title {
+            font-size: 1.6rem; font-weight: 800;
+            margin-bottom: 10px; font-family: var(--font-head);
+        }
 
-        .ep-badge {
-            font-family: var(--font-code); font-size: 0.7rem;
-            padding: 4px 8px; border-radius: 6px;
+        .card-desc {
+            font-size: 0.95rem; color: var(--text-muted);
+            line-height: 1.6; margin-bottom: 25px; flex-grow: 1;
+        }
+
+        .card-footer {
+            background: var(--bg-input);
+            padding: 12px 15px; border-radius: 12px;
             border: 1px solid var(--border);
-            color: var(--text-dim); text-transform: uppercase;
+            display: flex; justify-content: space-between; align-items: center;
+            font-family: var(--font-code); font-size: 0.8rem;
+            color: var(--primary);
         }
 
-        .ep-title { font-size: 1.6rem; font-weight: 800; margin-bottom: 10px; }
-        .ep-desc { font-size: 0.95rem; color: var(--text-dim); line-height: 1.5; flex-grow: 1; margin-bottom: 25px; }
-
-        .ep-route {
-            background: rgba(0,0,0,0.2);
-            padding: 10px 15px; border-radius: 10px;
-            font-family: var(--font-code); font-size: 0.85rem;
-            color: var(--primary); display: flex;
-            justify-content: space-between; align-items: center;
-        }
-        
-        [data-theme="light"] .ep-route { background: rgba(0,0,0,0.05); }
-
-        /* --- HOW TO USE / FAQ --- */
-        .faq-section { max-width: 900px; margin: 0 auto 100px; }
-        
-        .faq-item {
-            background: var(--card-glass); border: 1px solid var(--border);
-            margin-bottom: 15px; border-radius: 12px; overflow: hidden;
+        /* --- DOCUMENTATION & FAQ --- */
+        .doc-wrapper {
+            max-width: 900px; margin: 0 auto 100px;
         }
 
-        .faq-question {
-            padding: 20px; cursor: pointer; display: flex;
-            justify-content: space-between; align-items: center;
+        .faq-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            margin-bottom: 15px; border-radius: 16px; overflow: hidden;
+            transition: 0.3s;
+        }
+
+        .faq-head {
+            padding: 25px; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center;
             font-weight: 600; font-size: 1.1rem;
         }
 
-        .faq-answer {
-            padding: 0 20px; max-height: 0; overflow: hidden;
-            transition: max-height 0.4s ease, padding 0.4s ease;
-            color: var(--text-dim); line-height: 1.6; font-size: 0.95rem;
+        .faq-body {
+            padding: 0 25px; max-height: 0; overflow: hidden;
+            transition: all 0.4s var(--trans-ease);
+            color: var(--text-muted); line-height: 1.7; font-size: 0.95rem;
         }
 
-        .faq-item.active .faq-answer {
-            padding: 0 20px 20px; max-height: 200px;
-        }
-        
+        .faq-card.open .faq-body { padding: 0 25px 25px; max-height: 300px; }
         .faq-icon { transition: transform 0.3s; }
-        .faq-item.active .faq-icon { transform: rotate(180deg); }
+        .faq-card.open .faq-icon { transform: rotate(180deg); }
 
-        /* --- CONTACT GRID --- */
-        .contact-box {
-            background: var(--card-glass); border: 1px solid var(--border);
-            border-radius: 30px; padding: 60px 40px;
+        /* --- CONTACT SECTION --- */
+        .contact-panel {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 30px; padding: 60px 20px;
             text-align: center; margin-bottom: 80px;
             position: relative; overflow: hidden;
+            backdrop-filter: var(--glass);
         }
 
         .contact-grid {
             display: flex; flex-wrap: wrap; justify-content: center;
-            gap: 30px; margin-top: 40px;
+            gap: 20px; margin-top: 40px;
         }
 
-        .contact-card {
-            background: rgba(255,255,255,0.02);
-            border: 1px solid var(--border);
-            padding: 20px 30px; border-radius: 16px;
-            display: flex; flex-direction: column; align-items: center;
-            gap: 10px; min-width: 200px; transition: 0.3s;
+        .contact-chip {
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+            padding: 15px 25px; border-radius: 12px;
+            display: flex; align-items: center; gap: 12px;
+            transition: 0.3s; cursor: default;
         }
 
-        .contact-card:hover { background: rgba(255,255,255,0.05); transform: translateY(-5px); }
-        
-        .c-icon { font-size: 1.8rem; color: var(--primary); }
-        .c-label { font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; }
-        .c-value { font-family: var(--font-code); font-size: 0.9rem; font-weight: 600; }
+        .contact-chip:hover {
+            background: rgba(255,255,255,0.08);
+            transform: translateY(-5px); border-color: var(--primary);
+        }
 
-        /* --- MODAL --- */
-        .modal-wrapper {
+        .chip-icon { font-size: 1.5rem; color: var(--primary); }
+        .chip-info { text-align: left; }
+        .chip-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; display: block; }
+        .chip-val { font-family: var(--font-code); font-size: 0.9rem; font-weight: 700; }
+
+        /* --- MODAL (API TESTER) --- */
+        .modal-overlay {
             position: fixed; top: 0; left: 0;
             width: 100%; height: 100%;
             background: rgba(0,0,0,0.85);
             backdrop-filter: blur(20px);
-            z-index: 9999;
+            z-index: 5000; opacity: 0; pointer-events: none;
             display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.4s ease;
         }
+        .modal-overlay.active { opacity: 1; pointer-events: all; }
 
-        .modal-wrapper.open { opacity: 1; pointer-events: all; }
-
-        .api-modal {
-            width: 95%; max-width: 650px;
-            background: var(--bg-deep);
-            border: 1px solid var(--border);
+        .modal-window {
+            width: 95%; max-width: 600px;
+            background: var(--bg-body); border: 1px solid var(--border);
             border-radius: 24px; padding: 40px;
-            transform: scale(0.95) translateY(30px);
-            transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            transform: translateY(50px) scale(0.9);
+            transition: 0.5s var(--trans-ease);
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
             max-height: 90vh; overflow-y: auto;
-            box-shadow: var(--shadow-glow);
+        }
+        .modal-overlay.active .modal-window { transform: translateY(0) scale(1); }
+
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 30px; padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
         }
 
-        .modal-wrapper.open .api-modal { transform: scale(1) translateY(0); }
+        .modal-title h3 { font-family: var(--font-head); font-size: 2rem; font-weight: 800; }
+        .modal-title span { color: var(--text-muted); font-family: var(--font-code); }
 
-        .modal-head {
-            display: flex; justify-content: space-between;
-            align-items: center; margin-bottom: 30px;
-            border-bottom: 1px solid var(--border); padding-bottom: 20px;
+        .close-modal {
+            background: none; border: none;
+            color: var(--text-muted); font-size: 1.5rem;
+            cursor: pointer; transition: 0.3s;
         }
+        .close-modal:hover { color: var(--primary); transform: rotate(90deg); }
 
-        .modal-title h3 { font-size: 1.8rem; font-weight: 800; }
-        .modal-title span { font-family: var(--font-code); color: var(--text-dim); font-size: 0.9rem; }
+        .form-group { margin-bottom: 25px; }
+        .form-label { display: block; margin-bottom: 10px; font-family: var(--font-code); font-size: 0.85rem; color: var(--text-muted); }
         
-        .modal-close {
-            background: none; border: none; font-size: 2rem;
-            color: var(--text-dim); cursor: pointer; transition: 0.2s;
-        }
-        .modal-close:hover { color: var(--primary); transform: rotate(90deg); }
-
-        .param-group { margin-bottom: 25px; }
-        .param-label { display: block; margin-bottom: 10px; font-family: var(--font-code); font-size: 0.85rem; color: var(--text-dim); }
-        
-        .stylized-input {
-            width: 100%; padding: 16px; border-radius: 12px;
-            background: var(--input-bg); border: 1px solid var(--border);
-            color: var(--text-main); font-family: var(--font-code); font-size: 1rem;
+        .form-input {
+            width: 100%; padding: 15px; border-radius: 12px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            color: var(--text-main); font-family: var(--font-code);
             transition: 0.3s;
         }
-        .stylized-input:focus { border-color: var(--primary); box-shadow: 0 0 15px rgba(255,255,255,0.05); }
+        .form-input:focus { border-color: var(--primary); box-shadow: 0 0 15px rgba(255,255,255,0.05); }
 
-        .exec-btn {
+        .run-btn {
             width: 100%; padding: 18px; border: none; border-radius: 12px;
-            background: var(--btn-grad); color: var(--btn-txt);
+            background: var(--accent-grad); color: var(--btn-text);
             font-weight: 800; font-size: 1.1rem; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 12px;
-            transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: 0.3s; box-shadow: 0 5px 20px rgba(0,0,0,0.2);
         }
-        .exec-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .run-btn:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(0,0,0,0.3); }
 
-        .code-viewer {
-            margin-top: 30px; background: rgba(0,0,0,0.4);
+        .response-view {
+            margin-top: 30px; background: rgba(0,0,0,0.2);
             border: 1px solid var(--border); border-radius: 12px;
-            padding: 20px; font-family: var(--font-code); font-size: 0.9rem;
+            padding: 20px; font-family: var(--font-code); font-size: 0.85rem;
             color: #4ade80; white-space: pre-wrap; word-break: break-all;
-            display: none; max-height: 400px; overflow-y: auto;
+            display: none; max-height: 350px; overflow-y: auto;
         }
-        [data-theme="light"] .code-viewer { background: #f1f1f1; color: #0056b3; }
+        [data-theme="light"] .response-view { background: #f0f0f0; color: #0066cc; }
 
+        /* --- FOOTER --- */
         footer {
             border-top: 1px solid var(--border);
             padding: 60px 20px; text-align: center;
-            color: var(--text-dim); font-size: 0.9rem;
+            color: var(--text-muted); font-size: 0.9rem;
+            background: rgba(0,0,0,0.2); backdrop-filter: blur(10px);
         }
 
+        /* --- RESPONSIVE --- */
         @media(max-width: 768px) {
-            .main-heading { font-size: 3.5rem; }
-            .boot-terminal { width: 95%; }
-            .contact-card { width: 100%; }
+            .hero-title { font-size: 3.5rem; }
+            .terminal-window { width: 95%; padding: 15px; }
+            .modal-window { padding: 25px; width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
+            .contact-chip { width: 100%; justify-content: center; }
         }
     </style>
 </head>
 <body>
 
-    <div id="boot-overlay">
-        <div class="boot-terminal">
-            <div class="boot-header">
-                <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" class="boot-logo" alt="Boot">
-                <div class="boot-title">
-                    <h2>MEOWDL KERNEL</h2>
-                    <span>v3.6.0-stable</span>
+    <div id="boot-layer">
+        <div class="terminal-window">
+            <div class="terminal-header">
+                <span style="font-weight:700;">MEOWDL_BOOT_SEQ</span>
+                <div>
+                    <span class="status-dot active"></span>
+                    <span style="font-size:0.7rem; color:#aaa;">ONLINE</span>
                 </div>
             </div>
-            <div class="progress-track">
-                <div class="progress-bar" id="sys-progress"></div>
+            <div class="terminal-logs" id="boot-logs">
+                </div>
+            <div class="progress-container">
+                <div class="progress-bar" id="boot-bar"></div>
             </div>
-            <div class="console-log" id="sys-console">
-                <span class="log-entry info">[INIT] Kernel initializing...</span>
-            </div>
-            <div style="margin-top: 10px; font-size:0.8rem; color:#aaa;">root@meowdl:~# <span class="cursor"></span></div>
         </div>
     </div>
 
-    <canvas id="bg-canvas"></canvas>
+    <canvas id="render-canvas"></canvas>
 
-    <div class="theme-fab" id="theme-trigger" title="Change Theme">
-        <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" alt="Theme">
+    <div id="theme-overlay"></div>
+
+    <div class="theme-toggle" id="theme-btn">
+        <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" class="theme-icon" alt="Theme">
     </div>
 
-    <div class="layout-container">
+    <div class="wrapper">
         <header>
-            <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" class="brand-logo-large" alt="MeowDL">
-            <h1 class="main-heading">MeowDL</h1>
-            <p class="sub-heading">Speed That No One Can Match. The ultimate media extraction API suite powered by advanced serverless architecture.</p>
+            <div class="logo-container">
+                <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" class="brand-logo" alt="MeowDL">
+            </div>
+            <h1 class="hero-title">MeowDL</h1>
+            <p class="hero-desc">Speed That No One Can Match. The next-generation, serverless media extraction architecture engineered for high throughput and zero latency.</p>
         </header>
 
-        <section class="features-grid">
-            <div class="feature-card">
-                <i class="fa-solid fa-bolt feature-icon"></i>
-                <h3 class="feature-title">Instant Response</h3>
-                <p class="feature-text">Optimized with ElysiaJS for microsecond latency. No waiting queues or ads.</p>
-            </div>
-            <div class="feature-card">
-                <i class="fa-solid fa-server feature-icon"></i>
-                <h3 class="feature-title">Serverless Tunneling</h3>
-                <p class="feature-text">Advanced proxy rotation and tunneling to bypass geo-restrictions and throttling.</p>
-            </div>
-            <div class="feature-card">
-                <i class="fa-solid fa-video feature-icon"></i>
-                <h3 class="feature-title">Highest Quality</h3>
-                <p class="feature-text">Force extraction of 4K/60fps and 320kbps audio where available via FFmpeg.</p>
-            </div>
-            <div class="feature-card">
-                <i class="fa-solid fa-shield-halved feature-icon"></i>
-                <h3 class="feature-title">Privacy Focused</h3>
-                <p class="feature-text">We do not log user IP addresses or download history. Ephemeral caching only.</p>
-            </div>
-        </section>
+        <div class="stats-strip">
+            <div class="stat-pill"><i class="fa-solid fa-server"></i> <span>Bun.js Runtime</span></div>
+            <div class="stat-pill"><i class="fa-solid fa-bolt"></i> <span>Elysia Framework</span></div>
+            <div class="stat-pill"><i class="fa-solid fa-film"></i> <span>FFmpeg Remuxing</span></div>
+            <div class="stat-pill"><i class="fa-solid fa-globe"></i> <span>Global CDN</span></div>
+        </div>
 
-        <div class="section-label"><h2>Valid Endpoints</h2></div>
-        <div class="endpoints-grid" id="ep-grid">
+        <div class="section-header"><h2>Valid Endpoints</h2></div>
+        
+        <div class="grid-layout" id="api-cards">
             </div>
 
-        <div class="section-label"><h2>Documentation</h2></div>
-        <div class="faq-section">
-            <div class="faq-item">
-                <div class="faq-question">How do I integrate this into my bot? <i class="fa-solid fa-chevron-down faq-icon"></i></div>
-                <div class="faq-answer"><p>Simply make a standard HTTP GET request to the endpoints listed above. All endpoints return a JSON object containing the direct download URL (`download_link`) and metadata (`title`, `author`, `filename`).</p></div>
+        <div class="section-header"><h2>Documentation</h2></div>
+        <div class="doc-wrapper">
+            <div class="faq-card">
+                <div class="faq-head">Integration Guide <i class="fa-solid fa-chevron-down faq-icon"></i></div>
+                <div class="faq-body">
+                    Send a <code>GET</code> request to the endpoint URL with the required query parameters (usually <code>?url=</code> or <code>?q=</code>). The API returns a JSON response containing metadata and a direct <code>download_link</code>. No headers required.
+                </div>
             </div>
-            <div class="faq-item">
-                <div class="faq-question">Is there a rate limit? <i class="fa-solid fa-chevron-down faq-icon"></i></div>
-                <div class="faq-answer"><p>Yes, to prevent abuse, we limit requests to 60 per minute per IP address. If you hit the limit, you will receive a 429 status code.</p></div>
+            <div class="faq-card">
+                <div class="faq-head">Instagram V1 vs V2 <i class="fa-solid fa-chevron-down faq-icon"></i></div>
+                <div class="faq-body">
+                    <strong>V1 (/insta)</strong>: High-speed scraper for public posts. Fast response time.<br>
+                    <strong>V2 (/instav2)</strong>: Uses session cookies to fetch age-gated or potentially restricted content. Use this if V1 fails.
+                </div>
             </div>
-            <div class="faq-item">
-                <div class="faq-question">What is the difference between Insta V1 and V2? <i class="fa-solid fa-chevron-down faq-icon"></i></div>
-                <div class="faq-answer"><p>V1 uses standard scraping which is faster but may fail on restricted posts. V2 uses a more robust (but slightly slower) authenticated session method to fetch private or age-gated content.</p></div>
+            <div class="faq-card">
+                <div class="faq-head">Rate Limiting <i class="fa-solid fa-chevron-down faq-icon"></i></div>
+                <div class="faq-body">
+                    To ensure stability, we enforce a strict rate limit of 60 requests per minute per IP. Exceeding this will result in a 429 HTTP status code.
+                </div>
             </div>
         </div>
 
-        <section class="contact-box">
-            <h2 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 10px;">Get In Touch</h2>
-            <p style="color: var(--text-dim);">For API keys, enterprise support, or bug reports.</p>
+        <div class="contact-panel">
+            <h2 style="font-family:var(--font-head); font-size:2.5rem; margin-bottom:10px;">Developer Contact</h2>
+            <p style="color:var(--text-muted);">Maintained by MeowGurl • Enterprise Support Available</p>
             
             <div class="contact-grid">
-                <div class="contact-card">
-                    <i class="fab fa-facebook c-icon"></i>
-                    <span class="c-label">Facebook</span>
-                    <span class="c-value">OGPriyanshiKaurJi</span>
+                <div class="contact-chip">
+                    <i class="fab fa-facebook chip-icon"></i>
+                    <div class="chip-info">
+                        <span class="chip-label">Facebook</span>
+                        <span class="chip-val">OGPriyanshiKaurJi</span>
+                    </div>
                 </div>
-                <div class="contact-card">
-                    <i class="fab fa-github c-icon"></i>
-                    <span class="c-label">GitHub</span>
-                    <span class="c-value">github.com/MeowGurl</span>
+                <div class="contact-chip">
+                    <i class="fab fa-github chip-icon"></i>
+                    <div class="chip-info">
+                        <span class="chip-label">GitHub</span>
+                        <span class="chip-val">github.com/MeowGurl</span>
+                    </div>
                 </div>
-                <div class="contact-card">
-                    <i class="fas fa-envelope c-icon"></i>
-                    <span class="c-label">Email</span>
-                    <span class="c-value">its.meowgurl@gmail.com</span>
+                <div class="contact-chip">
+                    <i class="fas fa-envelope chip-icon"></i>
+                    <div class="chip-info">
+                        <span class="chip-label">Email</span>
+                        <span class="chip-val">its.meowgurl@gmail.com</span>
+                    </div>
                 </div>
-                <div class="contact-card">
-                    <i class="fas fa-copyright c-icon"></i>
-                    <span class="c-label">Copyright</span>
-                    <span class="c-value">priyanshikaurji@gmail.com</span>
+                <div class="contact-chip">
+                    <i class="fas fa-copyright chip-icon"></i>
+                    <div class="chip-info">
+                        <span class="chip-label">Copyright</span>
+                        <span class="chip-val">priyanshikaurji@gmail.com</span>
+                    </div>
                 </div>
-                <div class="contact-card">
-                    <i class="fas fa-code-branch c-icon"></i>
-                    <span class="c-label">Contributor</span>
-                    <span class="c-value">og.ajay.ofcl@gmail.com</span>
+                <div class="contact-chip">
+                    <i class="fas fa-code-branch chip-icon"></i>
+                    <div class="chip-info">
+                        <span class="chip-label">Contributor</span>
+                        <span class="chip-val">og.ajay.ofcl@gmail.com</span>
+                    </div>
                 </div>
             </div>
-        </section>
+        </div>
     </div>
 
-    <div class="modal-wrapper" id="modal-wrap">
-        <div class="api-modal">
-            <div class="modal-head">
+    <div class="modal-overlay" id="modal-wrapper">
+        <div class="modal-window">
+            <div class="modal-header">
                 <div class="modal-title">
-                    <h3 id="m-title">YouTube</h3>
-                    <span id="m-subtitle">/yt</span>
+                    <h3 id="mod-title">YouTube</h3>
+                    <span id="mod-path">/yt</span>
                 </div>
-                <button class="modal-close" id="m-close">&times;</button>
+                <button class="close-modal" id="mod-close">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="param-group">
-                    <label class="param-label" id="m-label">Target URL</label>
-                    <input type="text" class="stylized-input" id="m-input" placeholder="https://...">
+                <div class="form-group">
+                    <label class="form-label" id="mod-input-label">Media URL</label>
+                    <input type="text" class="form-input" id="mod-input" placeholder="https://...">
                 </div>
-                <div id="m-dynamic"></div>
-                <button class="exec-btn" id="m-run">
-                    <i class="fa-solid fa-bolt"></i> EXECUTE REQUEST
+                <div id="mod-dynamic"></div>
+                <button class="run-btn" id="mod-exec">
+                    <i class="fa-solid fa-bolt"></i> INITIATE REQUEST
                 </button>
-                <div class="code-viewer" id="m-output"></div>
+                <div class="response-view" id="mod-result"></div>
             </div>
         </div>
     </div>
 
     <footer>
-        <p>&copy; 2026 MeowDL. Maintained by <strong style="color:var(--primary)">MeowGurl</strong>.</p>
-        <p style="margin-top:10px; opacity:0.6;">Node.js • Bun • Elysia • FFmpeg</p>
+        <p>&copy; 2026 MeowDL. All Rights Reserved.</p>
+        <p style="margin-top:10px; opacity:0.6; font-size:0.8rem;">Powered by <span style="color:var(--primary)">Bun</span> & <span style="color:var(--primary)">Elysia</span></p>
     </footer>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            /* --- CONFIGURATION --- */
+            feather.replace();
+
+            /* --- SYSTEM CONFIG --- */
             const themes = ['dark', 'light', 'neon'];
-            let currentTheme = localStorage.getItem('meowdl_theme_v2') || 'dark';
+            let currentTheme = localStorage.getItem('meowdl_final_theme') || 'dark';
             document.documentElement.setAttribute('data-theme', currentTheme);
 
-            /* --- ENDPOINT DEFINITION (Based on index.ts) --- */
-            const endpoints = [
-                { 
-                    id: 'yt', name: 'YouTube', icon: 'youtube', 
-                    desc: 'Extract Video (MP4) and Audio (M4A) with resolution control.', 
-                    path: '/yt', type: 'url', 
-                    params: [{n:'quality', o:['1080','720','480','360']}, {n:'format', o:['mp4','m4a']}] 
-                },
-                { 
-                    id: 'search', name: 'YouTube Search', icon: 'magnifying-glass', 
-                    desc: 'Search YouTube and retrieve video metadata, IDs, and thumbnails.', 
-                    path: '/search', type: 'text', placeholder: 'Enter Search Query' 
-                },
-                { 
-                    id: 'music', name: 'YouTube Music', icon: 'music', 
-                    desc: 'Specialized scraper for YouTube Music tracks and albums.', 
-                    path: '/music', type: 'text', placeholder: 'Song or Artist Name' 
-                },
-                { 
-                    id: 'insta', name: 'Instagram V1', icon: 'instagram', 
-                    desc: 'Standard fast downloader for public Reels and Posts.', 
-                    path: '/insta', type: 'url' 
-                },
-                { 
-                    id: 'instav2', name: 'Instagram V2', icon: 'instagram', 
-                    desc: 'Authenticated endpoint for restricted or age-gated content.', 
-                    path: '/instav2', type: 'url' 
-                },
-                { 
-                    id: 'pin', name: 'Pinterest', icon: 'pinterest', 
-                    desc: 'Download media from Pins or search Pinterest images.', 
-                    path: '/pin', type: 'smart', placeholder: 'Pin URL or Search Query' 
-                },
-                { 
-                    id: 'tt', name: 'TikTok', icon: 'tiktok', 
-                    desc: 'Download videos without watermarks. Supports slides.', 
-                    path: '/tt', type: 'url' 
-                },
-                { 
-                    id: 'fb', name: 'Facebook', icon: 'facebook', 
-                    desc: 'Extract HD and SD download links from Facebook videos.', 
-                    path: '/fb', type: 'url' 
-                },
-                { 
-                    id: 'x', name: 'X / Twitter', icon: 'x-twitter', 
-                    desc: 'High-quality media extraction from X posts.', 
-                    path: '/x', type: 'url' 
-                }
+            /* --- ENDPOINT DATA (From index.ts) --- */
+            const apiEndpoints = [
+                { id: 'yt', name: 'YouTube Video', icon: 'youtube', desc: 'Download 4K/1080p MP4 & Audio M4A. Supports chunked download.', path: '/yt', type: 'url', params: [{n:'quality', o:['1080','720','480','360']}, {n:'format', o:['mp4','m4a']}] },
+                { id: 'search', name: 'YouTube Search', icon: 'magnifying-glass', desc: 'Retrieve video metadata, IDs, and thumbnail URLs.', path: '/search', type: 'text', placeholder: 'Search Query...' },
+                { id: 'music', name: 'YouTube Music', icon: 'music', desc: 'Search and extract audio tracks directly from YT Music.', path: '/music', type: 'text', placeholder: 'Song Name' },
+                { id: 'insta', name: 'Instagram V1', icon: 'instagram', desc: 'Standard scraper for Posts and Reels. Fast response.', path: '/insta', type: 'url' },
+                { id: 'instav2', name: 'Instagram V2', icon: 'instagram', desc: 'Authenticated scraper for restricted/private content.', path: '/instav2', type: 'url' },
+                { id: 'pin', name: 'Pinterest', icon: 'pinterest', desc: 'Extract media from Pins or perform image search.', path: '/pin', type: 'smart', placeholder: 'URL or Search...' },
+                { id: 'tt', name: 'TikTok', icon: 'tiktok', desc: 'Download no-watermark videos and slide images.', path: '/tt', type: 'url' },
+                { id: 'fb', name: 'Facebook', icon: 'facebook', desc: 'Get HD & SD video links from Facebook posts.', path: '/fb', type: 'url' },
+                { id: 'x', name: 'X / Twitter', icon: 'x-twitter', desc: 'High-quality video/image extraction from tweets.', path: '/x', type: 'url' }
             ];
 
-            /* --- RENDER GRID --- */
-            const grid = document.getElementById('ep-grid');
-            endpoints.forEach(ep => {
+            /* --- RENDER CARDS --- */
+            const grid = document.getElementById('api-cards');
+            apiEndpoints.forEach(ep => {
                 const card = document.createElement('div');
-                card.className = 'ep-card';
+                card.className = 'card';
                 card.innerHTML = `
-                    <div class="ep-header">
-                        <i class="fa-brands fa-${ep.icon} ep-icon" ${ep.icon==='magnifying-glass' || ep.icon==='music' ? 'class="fa-solid fa-'+ep.icon+' ep-icon"':''}></i>
-                        <span class="ep-badge">GET</span>
+                    <i class="fa-brands fa-${ep.icon} card-bg-icon"></i>
+                    <div class="card-top">
+                        <div class="icon-box">
+                            <i class="fa-brands fa-${ep.icon}" ${ep.icon==='magnifying-glass'||ep.icon==='music'?'class="fa-solid fa-'+ep.icon+'"':''}></i>
+                        </div>
+                        <span class="method-badge">GET</span>
                     </div>
-                    <div class="ep-title">${ep.name}</div>
-                    <div class="ep-desc">${ep.desc}</div>
-                    <div class="ep-route">
+                    <div class="card-title">${ep.name}</div>
+                    <div class="card-desc">${ep.desc}</div>
+                    <div class="card-footer">
                         <span>${ep.path}</span>
                         <i class="fa-solid fa-arrow-right"></i>
                     </div>
                 `;
-                /* Fix for font awesome solid icons vs brands */
+                /* Fix solid icons */
                 if(ep.icon === 'magnifying-glass' || ep.icon === 'music') {
-                    card.querySelector('i').className = `fa-solid fa-${ep.icon} ep-icon`;
+                    card.querySelector('.icon-box i').className = `fa-solid fa-${ep.icon}`;
+                    card.querySelector('.card-bg-icon').className = `fa-solid fa-${ep.icon} card-bg-icon`;
                 }
                 card.onclick = () => openModal(ep);
                 grid.appendChild(card);
             });
 
-            /* --- BOOT SEQUENCE PRELOADER --- */
-            const bootOverlay = document.getElementById('boot-overlay');
-            const pBar = document.getElementById('sys-progress');
-            const consoleLog = document.getElementById('sys-console');
-            
+            /* --- BOOT SEQUENCE --- */
+            const logsContainer = document.getElementById('boot-logs');
+            const bootBar = document.getElementById('boot-bar');
+            const bootOverlay = document.getElementById('boot-layer');
             const logs = [
-                { t: "Loading index.ts modules...", type: "info" },
-                { t: "Importing ElysiaJS Framework...", type: "info" },
-                { t: "Mounting /api/insta handler...", type: "info" },
-                { t: "Mounting /api/instav2 handler...", type: "info" },
-                { t: "Initializing ffmpeg-static binaries...", type: "warn" },
-                { t: "Connecting to Pinterest API Gateway...", type: "info" },
-                { t: "Verifying Innertube Session...", type: "success" },
-                { t: "Checking ProtectionManager policies...", type: "success" },
-                { t: "Starting Server on Port 3040...", type: "success" },
-                { t: "MeowDL System Ready.", type: "success" }
+                { t: "Initializing MeowDL Core...", type: "log-line" },
+                { t: "Mounting /api/instav2 handler...", type: "log-line success" },
+                { t: "Connecting to Pinterest Gateway...", type: "log-line success" },
+                { t: "Loading ffmpeg-static binaries...", type: "log-line warn" },
+                { t: "Verifying Innertube session...", type: "log-line success" },
+                { t: "Checking ProtectionManager...", type: "log-line success" },
+                { t: "Starting Elysia Server on :3040...", type: "log-line success" },
+                { t: "System Ready.", type: "log-line success" }
             ];
 
-            let progress = 0;
-            let logIndex = 0;
+            let p = 0;
+            let lIdx = 0;
             
-            /* Start canvas animation hidden */
-            initCanvas();
+            initCanvas(); // Start background
 
-            const bootInterval = setInterval(() => {
-                progress += Math.random() * 3;
-                if (progress > 100) progress = 100;
-                pBar.style.width = `${progress}%`;
+            const bootInt = setInterval(() => {
+                p += Math.random() * 4;
+                if(p > 100) p = 100;
+                bootBar.style.width = p + '%';
 
-                if (progress > (logIndex * 10) && logIndex < logs.length) {
-                    const entry = document.createElement('span');
-                    entry.className = `log-entry ${logs[logIndex].type}`;
-                    entry.innerText = `[${new Date().toLocaleTimeString().split(' ')[0]}] ${logs[logIndex].t}`;
-                    consoleLog.appendChild(entry);
-                    consoleLog.scrollTop = consoleLog.scrollHeight;
-                    logIndex++;
+                if(p > (lIdx * 12) && lIdx < logs.length) {
+                    const d = document.createElement('div');
+                    d.className = logs[lIdx].type;
+                    d.innerText = `> ${logs[lIdx].t}`;
+                    logsContainer.appendChild(d);
+                    logsContainer.scrollTop = logsContainer.scrollHeight;
+                    lIdx++;
                 }
 
-                if (progress === 100) {
-                    clearInterval(bootInterval);
+                if(p === 100) {
+                    clearInterval(bootInt);
                     setTimeout(() => {
                         bootOverlay.style.opacity = '0';
-                        setTimeout(() => bootOverlay.remove(), 1000);
-                    }, 800);
+                        setTimeout(() => bootOverlay.remove(), 800);
+                    }, 500);
                 }
             }, 60);
 
-            /* --- CANVAS BACKGROUND --- */
-            function initCanvas() {
-                const canvas = document.getElementById('bg-canvas');
-                const ctx = canvas.getContext('2d');
-                let frameId;
+            /* --- CANVAS ENGINE --- */
+            const canvas = document.getElementById('render-canvas');
+            const ctx = canvas.getContext('2d');
+            let frameId;
 
-                function resize() {
-                    canvas.width = window.innerWidth;
-                    canvas.height = window.innerHeight;
-                }
-                window.addEventListener('resize', resize);
-                resize();
-
-                function animate() {
-                    const theme = document.documentElement.getAttribute('data-theme');
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                    if (theme === 'light') {
-                        if (!window.orbs) window.orbs = Array.from({length: 12}, () => ({
-                            x: Math.random()*canvas.width, y: Math.random()*canvas.height,
-                            r: Math.random()*50+20, dx: (Math.random()-0.5)*0.5, dy: (Math.random()-0.5)*0.5
-                        }));
-                        window.orbs.forEach(o => {
-                            o.x += o.dx; o.y += o.dy;
-                            if(o.x < 0 || o.x > canvas.width) o.dx *= -1;
-                            if(o.y < 0 || o.y > canvas.height) o.dy *= -1;
-                            ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI*2);
-                            ctx.fillStyle = `rgba(37, 99, 235, 0.1)`; ctx.fill();
-                        });
-                    } else if (theme === 'neon') {
-                        ctx.strokeStyle = 'rgba(0, 255, 204, 0.15)'; ctx.lineWidth = 1;
-                        const time = Date.now() * 0.0005;
-                        for(let i=0; i<canvas.width; i+=50) {
-                            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
-                        }
-                        for(let i=0; i<canvas.height; i+=50) {
-                            const y = (i + time * 50) % canvas.height;
-                            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-                        }
-                    } else {
-                        /* Dark Mode */
-                        const time = Date.now() * 0.0002;
-                        ctx.fillStyle = 'rgba(255,255,255,0.05)';
-                        for(let i=0; i<40; i++) {
-                            const x = (Math.sin(time + i) * 0.5 + 0.5) * canvas.width;
-                            const y = (Math.cos(time + i * 0.5) * 0.5 + 0.5) * canvas.height;
-                            ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI*2); ctx.fill();
-                        }
-                    }
-                    frameId = requestAnimationFrame(animate);
-                }
-                animate();
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
             }
+            window.addEventListener('resize', resize);
+            resize();
+
+            function render() {
+                if(frameId) cancelAnimationFrame(frameId);
+                const theme = document.documentElement.getAttribute('data-theme');
+                const time = Date.now();
+
+                /* Clear */
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+
+                if (theme === 'light') {
+                    /* --- LIGHT: BOKEH ORBS --- */
+                    if(!window.orbs) window.orbs = Array.from({length:10}, ()=>({
+                        x:Math.random()*canvas.width, y:Math.random()*canvas.height,
+                        r:Math.random()*80+40, dx:(Math.random()-.5)*0.5, dy:(Math.random()-.5)*0.5
+                    }));
+                    window.orbs.forEach(o => {
+                        o.x+=o.dx; o.y+=o.dy;
+                        if(o.x<0||o.x>canvas.width)o.dx*=-1; if(o.y<0||o.y>canvas.height)o.dy*=-1;
+                        ctx.beginPath(); ctx.arc(o.x,o.y,o.r,0,Math.PI*2);
+                        ctx.fillStyle = `rgba(37, 99, 235, 0.08)`; ctx.fill();
+                    });
+                } else if (theme === 'neon') {
+                    /* --- NEON: SYNTHWAVE GRID --- */
+                    ctx.fillStyle = '#020204'; ctx.fillRect(0,0,canvas.width,canvas.height);
+                    ctx.strokeStyle = 'rgba(0, 255, 204, 0.15)'; ctx.lineWidth = 1;
+                    const speed = (time * 0.05) % 50;
+                    
+                    /* Vertical Perspective */
+                    const cx = canvas.width/2; const h = canvas.height*0.5;
+                    for(let i=-20; i<=20; i++) {
+                        ctx.beginPath(); ctx.moveTo(cx+i*50, h); ctx.lineTo(cx+i*300, canvas.height); ctx.stroke();
+                    }
+                    /* Horizontal Moving */
+                    for(let y=h; y<canvas.height; y+=40) {
+                        let dy = y + speed;
+                        if(dy > canvas.height) dy -= (canvas.height-h);
+                        ctx.beginPath(); ctx.moveTo(0, dy); ctx.lineTo(canvas.width, dy); ctx.stroke();
+                    }
+                } else {
+                    /* --- DARK: DIGITAL RAIN --- */
+                    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+                    if(!window.drops) window.drops = Array(Math.floor(canvas.width/20)).fill(1);
+                    window.drops.forEach((y, i) => {
+                        const char = String.fromCharCode(0x30A0 + Math.random() * 96);
+                        ctx.fillText(char, i*20, y*20);
+                        if(y*20 > canvas.height && Math.random() > 0.975) window.drops[i] = 0;
+                        window.drops[i]++;
+                    });
+                }
+                frameId = requestAnimationFrame(render);
+            }
+            render();
 
             /* --- THEME SWITCHER --- */
-            document.getElementById('theme-trigger').addEventListener('click', () => {
-                let idx = themes.indexOf(currentTheme);
-                currentTheme = themes[(idx+1)%themes.length];
-                document.documentElement.setAttribute('data-theme', currentTheme);
-                localStorage.setItem('meowdl_theme_v2', currentTheme);
+            document.getElementById('theme-btn').addEventListener('click', () => {
+                /* Flash Effect */
+                const overlay = document.getElementById('theme-overlay');
+                overlay.classList.remove('theme-switch-anim');
+                void overlay.offsetWidth; /* trigger reflow */
+                overlay.classList.add('theme-switch-anim');
+
+                setTimeout(() => {
+                    let idx = themes.indexOf(currentTheme);
+                    currentTheme = themes[(idx+1)%themes.length];
+                    document.documentElement.setAttribute('data-theme', currentTheme);
+                    localStorage.setItem('meowdl_final_theme', currentTheme);
+                    
+                    /* Re-init canvas logic */
+                    window.orbs = null; window.drops = null;
+                    render();
+                }, 300);
             });
 
-            /* --- FAQ TOGGLE --- */
-            document.querySelectorAll('.faq-question').forEach(item => {
-                item.addEventListener('click', () => {
-                    item.parentElement.classList.toggle('active');
+            /* --- FAQ LOGIC --- */
+            document.querySelectorAll('.faq-head').forEach(head => {
+                head.addEventListener('click', () => {
+                    head.parentElement.classList.toggle('open');
                 });
             });
 
             /* --- MODAL LOGIC --- */
-            const modal = document.getElementById('modal-wrap');
-            const mTitle = document.getElementById('m-title');
-            const mSub = document.getElementById('m-subtitle');
-            const mInput = document.getElementById('m-input');
-            const mLabel = document.getElementById('m-label');
-            const mDyn = document.getElementById('m-dynamic');
-            const mOut = document.getElementById('m-output');
-            const mBtn = document.getElementById('m-run');
-            let activeEndpoint = null;
+            const modal = document.getElementById('modal-wrapper');
+            const mTitle = document.getElementById('mod-title');
+            const mPath = document.getElementById('mod-path');
+            const mLabel = document.getElementById('mod-input-label');
+            const mInput = document.getElementById('mod-input');
+            const mDyn = document.getElementById('mod-dynamic');
+            const mRes = document.getElementById('mod-result');
+            const mBtn = document.getElementById('mod-exec');
+            let activeEp = null;
 
             function openModal(ep) {
-                activeEndpoint = ep;
+                activeEp = ep;
                 mTitle.innerText = ep.name;
-                mSub.innerText = ep.path;
+                mPath.innerText = ep.path;
                 mInput.value = '';
-                mOut.style.display = 'none';
-                mLabel.innerText = ep.type === 'text' ? 'Search Query' : 'Media URL';
-                mInput.placeholder = ep.placeholder || (ep.type === 'url' ? 'https://...' : 'Enter search term...');
+                mRes.style.display = 'none';
+                mLabel.innerText = ep.type === 'text' ? 'Search Query' : 'Paste Link';
+                mInput.placeholder = ep.placeholder || 'https://...';
                 
                 mDyn.innerHTML = '';
                 if(ep.params) {
                     ep.params.forEach(p => {
                         const div = document.createElement('div');
-                        div.className = 'param-group';
-                        let html = `<label class="param-label">${p.n}</label><select class="stylized-input" id="p-${p.n}">`;
+                        div.className = 'form-group';
+                        let html = `<label class="form-label">${p.n}</label><select class="form-input" id="p-${p.n}">`;
                         p.o.forEach(opt => html += `<option value="${opt}">${opt}</option>`);
                         html += '</select>';
                         div.innerHTML = html;
                         mDyn.appendChild(div);
                     });
                 }
-                modal.classList.add('open');
+                modal.classList.add('active');
             }
 
-            document.getElementById('m-close').onclick = () => modal.classList.remove('open');
-            modal.onclick = (e) => { if(e.target === modal) modal.classList.remove('open'); };
+            document.getElementById('mod-close').onclick = () => modal.classList.remove('active');
+            modal.onclick = (e) => { if(e.target === modal) modal.classList.remove('active'); }
 
             mBtn.onclick = async () => {
                 if(!mInput.value) return;
-                const originalHTML = mBtn.innerHTML;
+                const old = mBtn.innerHTML;
                 mBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> PROCESSING...`;
                 mBtn.disabled = true;
 
-                /* Logic strictly following index.ts */
-                let url = `${activeEndpoint.path}?`;
+                /* Construct URL based on index.ts logic */
+                let url = `${activeEp.path}?`;
                 const val = encodeURIComponent(mInput.value);
                 
-                if (activeEndpoint.type === 'text') url += `q=${val}`;
-                else if (activeEndpoint.id === 'pin' && !mInput.value.includes('http')) url += `search=${val}`;
+                if(activeEp.type === 'text') url += `q=${val}`;
+                else if(activeEp.id === 'pin' && !mInput.value.includes('http')) url += `search=${val}`;
                 else url += `url=${val}`;
 
-                if (activeEndpoint.params) {
-                    activeEndpoint.params.forEach(p => {
-                        const selVal = document.getElementById(`p-${p.n}`).value;
-                        url += `&${p.n}=${selVal}`;
+                if(activeEp.params) {
+                    activeEp.params.forEach(p => {
+                        const v = document.getElementById(`p-${p.n}`).value;
+                        url += `&${p.n}=${v}`;
                     });
                 }
 
-                // Simulate fetch for demo purposes as backend isn't real here
-                await new Promise(r => setTimeout(r, 1200));
+                try {
+                    /* Mock Fetch for UI Demo (Backend logic in index.ts) */
+                    await new Promise(r => setTimeout(r, 1500));
+                    
+                    const mockData = {
+                        status: "success",
+                        code: 200,
+                        engine: "MeowDL-Core",
+                        timestamp: new Date().toISOString(),
+                        request_url: url,
+                        data: {
+                            title: "Extracted Media Title",
+                            author: "Content Creator",
+                            duration: "3:45",
+                            download_url: `https://api.meowdl.com/tunnel/${Math.random().toString(36).substring(7)}`,
+                            expires: "5 hours"
+                        }
+                    };
+                    
+                    mRes.style.display = 'block';
+                    mRes.innerText = JSON.stringify(mockData, null, 2);
+                } catch(e) {
+                    mRes.style.display = 'block';
+                    mRes.style.color = '#ef4444';
+                    mRes.innerText = "Error: Backend not reachable in this demo environment.";
+                }
 
-                /* Demo Response based on expected backend structure */
-                const demoResponse = {
-                    status: "success",
-                    generator: "MeowDL-Core-v3",
-                    endpoint: activeEndpoint.path,
-                    query_time: "0.04s",
-                    data: {
-                        title: "Sample Media Extraction",
-                        author: "Unknown Creator",
-                        filename: `meowdl_${Date.now()}.mp4`,
-                        download_link: `https://api.meowdl.com/tunnel/${Math.random().toString(36).substring(7)}`
-                    }
-                };
-
-                mOut.style.display = 'block';
-                mOut.innerText = JSON.stringify(demoResponse, null, 2);
-                mBtn.innerHTML = originalHTML;
+                mBtn.innerHTML = old;
                 mBtn.disabled = false;
             };
         });
