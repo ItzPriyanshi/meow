@@ -1,785 +1,951 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XUI - By MeowGurl</title>
-    <meta name="description" content="Blazing Fast Endpoints By Priyanshi Kaur.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MEOWDL 3.6 - High Performance API</title>
+    <meta name="description" content="MeowDL High Speed Apis By Priyanshi Kaur.">
     <link rel="icon" type="image/png" href="https://i.ibb.co/5WMp4cYZ/image.jpg">
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
-
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-
     <style>
-        /* --- KEEPING ALL YOUR ORIGINAL CSS --- */
         :root {
-            --xui-bg: #000000;
-            --xui-card-bg: rgba(25, 25, 25, 0.5);
-            --xui-glass-blur: 10px;
-            --xui-border: rgba(192, 192, 192, 0.2);
-            --xui-text-primary: #E0E0E0;
-            --xui-text-secondary: #888888;
-            --xui-silver-gradient: linear-gradient(135deg, #EAEAEA, #C0C0C0, #B0B0B0, #C0C0C0, #EAEAEA);
-            --xui-silver-static: #C0C0C0;
-            --xui-accent: #A0A0A0;
-            --xui-success: #4CAF50;
-            --xui-error: #f44336;
-            --shadow-color: rgba(192, 192, 192, 0.1);
-            --shine-color: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
-            --particle-bg: #EAEAEA;
-            --anime-bg: #EAEAEA;
+            --bg-color: #0a0a0a;
+            --text-main: #ffffff;
+            --text-sec: #a0a0a0;
+            --card-bg: rgba(20, 20, 20, 0.6);
+            --border: rgba(255, 255, 255, 0.1);
+            --accent: #ffffff;
+            --glass: blur(20px);
+            --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            --font-main: 'Inter', sans-serif;
+            --font-code: 'JetBrains Mono', monospace;
+            --btn-grad: linear-gradient(135deg, #e0e0e0 0%, #ffffff 100%);
+            --btn-text: #000;
+            --input-bg: rgba(0,0,0,0.3);
+            --loader-track: #333;
+            --loader-bar: #fff;
         }
 
-        :root.light-mode {
-            --xui-bg: #F0F2F5;
-            --xui-card-bg: #FFFFFF;
-            --xui-glass-blur: 15px;
-            --xui-border: rgba(0, 0, 0, 0.1);
-            --xui-text-primary: #1a1a1a;
-            --xui-text-secondary: #555555;
-            --xui-silver-gradient: linear-gradient(135deg, #555, #333, #111, #333, #555);
-            --xui-silver-static: #333;
-            --xui-accent: #444;
-            --shadow-color: rgba(0, 0, 0, 0.1);
-            --particle-bg: #222222;
-            --anime-bg: #222222;
+        [data-theme="light"] {
+            --bg-color: #f0f2f5;
+            --text-main: #111111;
+            --text-sec: #555555;
+            --card-bg: rgba(255, 255, 255, 0.75);
+            --border: rgba(0, 0, 0, 0.08);
+            --accent: #2563eb;
+            --glass: blur(25px);
+            --shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+            --btn-grad: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            --btn-text: #fff;
+            --input-bg: rgba(255,255,255,0.8);
+            --loader-track: #e0e0e0;
+            --loader-bar: #2563eb;
         }
 
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        [data-theme="neon"] {
+            --bg-color: #050505;
+            --text-main: #00ffcc;
+            --text-sec: #ff00ff;
+            --card-bg: rgba(10, 10, 10, 0.85);
+            --border: #00ffcc;
+            --accent: #ff00ff;
+            --glass: blur(5px);
+            --shadow: 0 0 20px rgba(0, 255, 204, 0.2), inset 0 0 10px rgba(255, 0, 255, 0.1);
+            --btn-grad: linear-gradient(90deg, #00ffcc, #ff00ff);
+            --btn-text: #000;
+            --input-bg: rgba(0, 20, 20, 0.9);
+            --loader-track: #111;
+            --loader-bar: #00ffcc;
+        }
 
-        @keyframes xui-bg-light-anim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-        body { font-family: 'Inter', sans-serif; background-color: var(--xui-bg); color: var(--xui-text-primary); min-height: 100vh; overflow-x: hidden; max-width: 100vw; position: relative; scroll-behavior: smooth; transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
-        body.light-mode { background: var(--xui-bg); }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
 
-        #anime-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; overflow: hidden; }
-        .anime-shape { position: absolute; background: var(--anime-bg); opacity: 0; }
-        #particle-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; transition: opacity 0.5s ease; }
-        .light-mode #particle-bg { opacity: 0; }
-        .particle { position: absolute; border-radius: 50%; background: var(--particle-bg); opacity: 0; pointer-events: none; box-shadow: 0 0 8px var(--particle-bg); animation: float-particle 20s infinite linear; }
-        @keyframes float-particle { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 10%, 90% { opacity: 0.8; } 100% { transform: translateY(-100vh) scale(1); opacity: 0; } }
+        #canvas-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
 
-        #xui-preloader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out 0.5s, visibility 0.8s ease-out 0.5s; visibility: visible; opacity: 1; font-family: 'Fira Code', monospace; }
-        #xui-preloader.hidden { opacity: 0; visibility: hidden; }
-        .preloader-logo { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--xui-silver-static); animation: pulse-glow 2s infinite ease-in-out; margin-bottom: 25px; }
-        .preloader-title { font-size: 2.5rem; font-weight: 700; background: var(--xui-silver-gradient); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; animation: shine 3s linear infinite; }
-        .loader-info { margin-top: 25px; text-align: center; color: var(--xui-text-secondary); font-size: 0.9rem; }
-        .loader-info p { margin: 4px 0; }
-        .security-check { margin-top: 20px; list-style: none; padding: 0; width: 280px; font-size: 0.95rem; }
-        .security-check li { margin: 8px 0; opacity: 0; animation: fade-in-item 0.5s ease forwards; display: flex; align-items: center; justify-content: space-between; color: var(--xui-text-secondary); }
-        .security-check li .status { color: var(--xui-accent); animation: status-anim 1s forwards; }
-        .security-check li.done .status { color: var(--xui-success); }
-        .security-check li.fail .status { color: var(--xui-error); }
-        @keyframes fade-in-item { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes status-anim { 0% { content: "."; } 33% { content: ".."; } 66% { content: "..."; } 100% { content: "✓"; } }
-        @keyframes pulse-glow { 0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(192, 192, 192, 0.4); } 50% { transform: scale(1.05); box-shadow: 0 0 35px rgba(192, 192, 192, 0.7); } }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-color);
+        }
 
-        .theme-toggle { position: fixed; top: 25px; right: 25px; z-index: 100; cursor: pointer; width: 60px; height: 30px; background: var(--xui-card-bg); border: 1px solid var(--xui-border); border-radius: 15px; padding: 4px; transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); backdrop-filter: blur(5px); }
-        .light-mode .theme-toggle { box-shadow: 0 2px 8px var(--shadow-color); }
-        .toggle-knob { width: 22px; height: 22px; background: var(--xui-silver-gradient); border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; transform: translateX(0); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
-        .toggle-knob i { width: 14px; height: 14px; color: #000; position: absolute; transition: opacity 0.3s ease, transform 0.3s ease; }
-        i.feather-sun { opacity: 0; transform: scale(0); }
-        i.feather-moon { opacity: 1; transform: scale(1) rotate(0deg); }
-        .light-mode .toggle-knob { transform: translateX(30px); background: var(--xui-silver-gradient); }
-        .light-mode i.feather-sun { opacity: 1; transform: scale(1) rotate(360deg); color: var(--xui-text-primary); }
-        .light-mode .toggle-knob i { color: var(--xui-text-primary); }
-        .light-mode i.feather-moon { opacity: 0; transform: scale(0) rotate(0deg); }
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 3px;
+        }
 
-        .shining-text { background: var(--xui-silver-gradient); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; animation: shine 3s linear infinite; }
-        @keyframes shine { to { background-position: 200% center; } }
+        #preloader-system {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(5, 5, 5, 0.8);
+            backdrop-filter: blur(30px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            transition: opacity 0.8s cubic-bezier(0.7, 0, 0.3, 1);
+        }
 
-        .container { width: 90%; max-width: 1200px; margin: 0 auto; padding: 20px 0; position: relative; z-index: 1; }
-        header { width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 100px 20px 60px; position: relative; z-index: 10; }
-        .logo-container { position: relative; width: 120px; height: 120px; margin-bottom: 30px; transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform; }
-        .logo-container:hover { transform: scale(1.1) rotate(5deg); }
-        .logo-image { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid var(--xui-silver-static); box-shadow: 0 0 30px var(--shadow-color); }
-        .light-mode .logo-image { border: 3px solid #DDD; box-shadow: 0 4px 20px var(--shadow-color); }
-        .logo-glow { position: absolute; top: -5px; left: -5px; width: calc(100% + 10px); height: calc(100% + 10px); border-radius: 50%; background: var(--xui-silver-gradient); animation: rotate-glow 4s linear infinite; z-index: -1; filter: blur(8px); opacity: 0.8; }
-        .light-mode .logo-glow { opacity: 0.5; }
-        @keyframes rotate-glow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .main-title { font-size: 4rem; font-weight: 900; letter-spacing: 3px; margin: 10px 0 5px; will-change: transform; transition: transform 0.1s ease-out; }
-        .tagline { font-size: 1.4rem; font-weight: 300; color: var(--xui-text-secondary); margin-bottom: 20px; }
+        .glass-panel {
+            width: 90%;
+            max-width: 400px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
 
-        .card-slider-container { max-width: 600px; margin: 0 auto; position: relative; overflow: hidden; border-radius: 20px; border: 1px solid var(--xui-border); background: var(--xui-card-bg); backdrop-filter: blur(var(--xui-glass-blur)); box-shadow: 0 8px 32px 0 var(--shadow-color); cursor: grab; }
-        .light-mode .card-slider-container { box-shadow: 0 8px 32px 0 var(--shadow-color); }
-        .card-slider-container:active { cursor: grabbing; }
-        .card-slider { display: flex; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
-        .card { flex: 0 0 100%; background: transparent; padding: 40px; transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s ease, border-color 0.4s ease, opacity 0.5s ease; position: relative; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; opacity: 0.8; transform: scale(0.98); }
-        .card.active { opacity: 1; transform: scale(1); }
-        .card::before { content: ''; position: absolute; top: 0; left: -100%; width: 75%; height: 100%; background: var(--shine-color); transform: skewX(-25deg); transition: left 0.8s ease-in-out; }
-        .card:hover::before { left: 120%; }
-        .card-icon { font-size: 40px; margin-bottom: 15px; color: var(--xui-silver-static); transition: transform 0.3s ease; display: inline-block; width: auto; height: auto; }
-        .card:hover .card-icon { transform: scale(1.1); }
-        .card h3 { font-size: 1.5rem; margin-bottom: 15px; color: var(--xui-text-primary); display: flex; flex-direction: column; gap: 10px; flex-grow: 1; }
-        .endpoint-name { font-size: 1.75rem; font-weight: 700; color: var(--xui-silver-static); }
-        .card .usage-label { font-size: 0.85rem; color: var(--xui-text-secondary); font-weight: 400; margin-top: 5px; opacity: 0; transform: translateY(10px); transition: opacity 0.4s ease 0.1s, transform 0.4s ease 0.1s; }
-        .card:hover .usage-label { opacity: 1; transform: translateY(0); }
-        .card p { color: var(--xui-text-secondary); margin-bottom: 20px; line-height: 1.6; flex-grow: 1; }
-        .endpoint-info { background-color: rgba(0, 0, 0, 0.4); border-radius: 10px; padding: 15px; font-family: 'Fira Code', monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; line-height: 1.5; color: var(--xui-success); border: 1px solid rgba(76, 175, 80, 0.3); overflow-x: auto; }
-        .light-mode .endpoint-info { background-color: rgba(0, 0, 0, 0.05); border-color: rgba(76, 175, 80, 0.2); color: #2a882d; }
-        .slider-nav { display: none; }
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+            animation: scan 2s linear infinite;
+        }
 
-        #live-info-container, #usage-guide, #api-stats { padding: 40px 0; margin-top: 40px; }
-        .section-title { font-size: 2.2rem; font-weight: 700; text-align: center; margin-bottom: 30px; color: var(--xui-silver-static); }
-        .light-mode .section-title { color: var(--xui-text-primary); }
-        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; }
-        .info-card { background: var(--xui-card-bg); border: 1px solid var(--xui-border); border-radius: 15px; padding: 25px; backdrop-filter: blur(var(--xui-glass-blur)); box-shadow: 0 4px 20px var(--shadow-color); transition: all 0.3s ease; opacity: 0; transform: translateY(20px); }
-        .info-card.is-visible { opacity: 1; transform: translateY(0); }
-        .light-mode .info-card { box-shadow: 0 5px 15px var(--shadow-color); }
-        .info-card:hover { transform: translateY(-5px); box-shadow: 0 8px 30px var(--shadow-color); }
-        .light-mode .info-card:hover { box-shadow: 0 8px 30px var(--shadow-color); }
-        .info-card h3 { font-size: 1.1rem; color: var(--xui-text-secondary); font-weight: 500; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
-        .info-card h3 i { width: 18px; height: 18px; }
-        .info-card p { font-size: 1.25rem; font-weight: 600; color: var(--xui-text-primary); font-family: 'Fira Code', monospace; word-wrap: break-word; }
-        .info-card .step-number { font-size: 1rem; font-weight: 900; color: var(--xui-silver-static); margin-bottom: 10px; }
-        .info-card .step-title { font-size: 1.3rem; font-weight: 700; color: var(--xui-text-primary); margin-bottom: 10px; }
-        .info-card .step-description { font-family: 'Inter', sans-serif; font-size: 0.95rem; color: var(--xui-text-secondary); font-weight: 400; line-height: 1.6; }
-        .info-card pre { background-color: rgba(0, 0, 0, 0.4); border-radius: 8px; padding: 15px; font-family: 'Fira Code', monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; line-height: 1.5; color: #a5d6ff; border: 1px solid var(--xui-border); margin-top: 15px; }
-        .light-mode .info-card pre { background-color: #F8F8F8; border-color: #EEE; color: #0d47a1; }
-        .info-card p#info-ping, .info-card p#stats-total-requests, .info-card p#stats-active-users { font-size: 1.75rem; }
-        .info-card p#info-ping .unit { font-size: 1rem; color: var(--xui-text-secondary); margin-left: 5px; }
-        #info-datetime { font-size: 1rem !important; }
+        @keyframes scan {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
 
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); display: none; justify-content: center; align-items: center; z-index: 1000; opacity: 0; transition: opacity 0.3s ease; }
-        .modal-overlay.active { display: flex; opacity: 1; }
-        .modal { background: var(--xui-card-bg); backdrop-filter: blur(20px); border-radius: 25px; border: 2px solid var(--xui-border); padding: 40px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px var(--shadow-color); transform: scale(0.8) translateY(-50px); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); position: relative; display: flex; flex-direction: column; }
-        .modal-overlay.active .modal { transform: scale(1) translateY(0); }
-        .light-mode .modal { background: var(--xui-bg); border-color: var(--xui-border); box-shadow: 0 20px 60px var(--shadow-color); }
-        .modal-close { position: absolute; top: 15px; right: 15px; background: rgba(255, 255, 255, 0.1); border: none; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; color: var(--xui-text-primary); font-size: 20px; line-height: 1; }
-        .light-mode .modal-close { background: rgba(0, 0, 0, 0.1); }
-        .modal-close:hover { background: rgba(255, 0, 0, 0.6); transform: rotate(90deg); }
-        .modal h2 { color: var(--xui-silver-static); margin-bottom: 20px; font-size: 2rem; }
-        .light-mode .modal h2 { color: var(--xui-text-primary); }
-        .modal-content { display: flex; flex-direction: column; gap: 20px; }
-        .modal-section { background: rgba(0, 0, 0, 0.3); padding: 20px; border-radius: 15px; border: 1px solid var(--xui-border); }
-        .light-mode .modal-section { background: rgba(0, 0, 0, 0.03); border-color: rgba(0, 0, 0, 0.1); }
-        .modal-section h3 { color: var(--xui-accent); margin-bottom: 15px; font-size: 1.2rem; }
-        .modal-section label { display: block; color: var(--xui-text-secondary); margin-bottom: 8px; font-size: 0.9rem; }
-        .modal-section input, .modal-section select { width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.5); border: 1px solid var(--xui-border); border-radius: 8px; color: var(--xui-text-primary); font-family: 'Fira Code', monospace; font-size: 0.9rem; transition: all 0.3s ease; }
-        .light-mode .modal-section input, .light-mode .modal-section select { background: #FFFFFF; border-color: rgba(0, 0, 0, 0.2); color: var(--xui-text-primary); }
-        .modal-section input:focus, .modal-section select:focus { outline: none; border-color: var(--xui-silver-static); box-shadow: 0 0 15px var(--shadow-color); }
-        .light-mode .modal-section input:focus, .light-mode .modal-section select:focus { box-shadow: 0 0 10px var(--shadow-color); }
-        .button-group { display: flex; gap: 15px; margin-top: 20px; }
-        .btn { flex: 1; padding: 12px 24px; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn-primary { background: var(--xui-silver-gradient); color: #000; background-size: 200% auto; animation: shine 3s linear infinite reverse; }
-        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 8px 25px var(--shadow-color); }
-        .btn-secondary { background: rgba(255, 255, 255, 0.1); color: var(--xui-text-primary); border: 1px solid var(--xui-border); }
-        .btn-secondary:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
-        .light-mode .btn-secondary { background: rgba(0, 0, 0, 0.05); border-color: rgba(0, 0, 0, 0.2); }
-        .light-mode .btn-secondary:hover { background: rgba(0, 0, 0, 0.1); }
-        .btn:disabled { opacity: 0.7; cursor: not-allowed; }
-        .response-box { max-height: 0; overflow: hidden; transition: max-height 0.5s ease, opacity 0.5s ease, padding 0.5s ease, margin 0.5s ease; background: rgba(0, 0, 0, 0.6); border-radius: 10px; margin-top: 0; padding: 0 20px; opacity: 0; }
-        .light-mode .response-box { background: rgba(0, 0, 0, 0.03); border: 1px solid rgba(0,0,0,0.1); }
-        .response-box.active { max-height: 400px; padding: 20px; margin-top: 20px; border: 1px solid var(--xui-accent); opacity: 1; overflow-y: auto; }
-        .response-box pre { color: var(--xui-success); font-family: 'Fira Code', monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; margin: 0; }
-        .light-mode .response-box pre { color: #2a882d; }
-        .response-box.error pre { color: var(--xui-error); }
-        .light-mode .response-box.error pre { color: #b71c1c; }
-        footer { width: 100%; padding: 30px 20px; text-align: center; color: var(--xui-text-secondary); font-size: 0.9rem; margin-top: 60px; border-top: 1px solid var(--xui-border); position: relative; z-index: 1; }
-        footer a { color: var(--xui-silver-static); text-decoration: none; transition: color 0.3s ease; }
-        .light-mode footer a { color: var(--xui-text-primary); font-weight: 600; }
-        footer a:hover { text-decoration: underline; }
-        .footer-xui-credit { font-size: 0.85rem; margin-top: 10px; color: var(--xui-text-secondary); }
-        @media (max-width: 768px) { .main-title { font-size: 2.8rem; letter-spacing: 2px; } .tagline { font-size: 1.1rem; } .logo-container { width: 100px; height: 100px; } header { padding: 80px 15px 50px; } .card-slider-container { width: 95%; max-width: 100%; } .modal { padding: 25px; width: 95%; max-height: 90vh; } .button-group { flex-direction: column; gap: 10px; } .theme-toggle { top: 15px; right: 15px; } .info-grid { grid-template-columns: 1fr; } }
-        @media (max-width: 480px) { .main-title { font-size: 2.2rem; } .card { padding: 30px 25px; } }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: var(--xui-bg); }
-        .light-mode ::-webkit-scrollbar-track { background: #E0E0E0; }
-        ::-webkit-scrollbar-thumb { background: var(--xui-silver-static); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--xui-accent); }
+        .loader-icon-box {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loader-circle {
+            position: absolute;
+            border: 4px solid transparent;
+            border-top: 4px solid var(--accent);
+            border-radius: 50%;
+            width: 100%;
+            height: 100%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loader-circle:nth-child(2) {
+            width: 70%;
+            height: 70%;
+            border-top: 4px solid var(--text-sec);
+            animation-direction: reverse;
+            animation-duration: 2s;
+        }
+
+        .loader-text {
+            font-family: var(--font-code);
+            font-size: 0.9rem;
+            color: var(--text-main);
+            margin-bottom: 15px;
+            min-height: 1.2em;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 4px;
+            background: var(--loader-track);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: var(--loader-bar);
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .security-list {
+            margin-top: 20px;
+            text-align: left;
+            font-size: 0.8rem;
+            color: var(--text-sec);
+            list-style: none;
+        }
+
+        .security-list li {
+            margin-bottom: 5px;
+            opacity: 0;
+            transform: translateX(-10px);
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .security-list li.checked {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .security-list li span.ok {
+            color: #4ade80;
+            font-weight: bold;
+        }
+
+        .theme-float {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            backdrop-filter: var(--glass);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 100;
+            box-shadow: var(--shadow);
+            transition: transform 0.3s ease;
+        }
+
+        .theme-float:hover {
+            transform: rotate(15deg) scale(1.1);
+        }
+
+        .wrapper {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        header {
+            padding: 100px 0 60px;
+            text-align: center;
+            position: relative;
+        }
+
+        .brand-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 3px solid var(--accent);
+            padding: 4px;
+            object-fit: cover;
+            margin-bottom: 25px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.3);
+            animation: floatAvatar 6s ease-in-out infinite;
+        }
+
+        @keyframes floatAvatar {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        h1 {
+            font-size: 4rem;
+            font-weight: 900;
+            letter-spacing: -2px;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, var(--text-main), var(--text-sec));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-sec);
+            font-weight: 300;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 60px;
+        }
+
+        .api-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: var(--glass);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease, border-color 0.4s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .api-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: skewX(-20deg);
+            transition: left 0.5s ease;
+        }
+
+        .api-card:hover::before {
+            left: 200%;
+        }
+
+        .api-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: var(--shadow);
+            border-color: var(--accent);
+        }
+
+        [data-theme="neon"] .api-card:hover {
+            box-shadow: 0 0 30px var(--accent);
+        }
+
+        .card-icon {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: var(--accent);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .card-desc {
+            font-size: 0.95rem;
+            color: var(--text-sec);
+            line-height: 1.6;
+            margin-bottom: 25px;
+            flex-grow: 1;
+        }
+
+        .method-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: #4ade80;
+            font-family: var(--font-code);
+            font-size: 0.8rem;
+            border: 1px solid rgba(74, 222, 128, 0.2);
+            align-self: flex-start;
+        }
+
+        [data-theme="light"] .method-badge {
+            background: rgba(0,0,0,0.05);
+            color: #166534;
+            border-color: rgba(0,0,0,0.1);
+        }
+
+        .stats-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            gap: 20px;
+            margin: 60px 0;
+            padding: 40px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            backdrop-filter: var(--glass);
+        }
+
+        .stat-item {
+            text-align: center;
+            min-width: 150px;
+        }
+
+        .stat-val {
+            font-size: 2.5rem;
+            font-weight: 800;
+            font-family: var(--font-code);
+            margin-bottom: 5px;
+            color: var(--text-main);
+        }
+
+        .stat-label {
+            color: var(--text-sec);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .modal-wrap {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            z-index: 5000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-wrap.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-body {
+            width: 95%;
+            max-width: 600px;
+            background: var(--bg-color);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 30px;
+            position: relative;
+            transform: scale(0.9) translateY(20px);
+            transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow);
+        }
+
+        .modal-wrap.active .modal-body {
+            transform: scale(1) translateY(0);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: transparent;
+            border: none;
+            color: var(--text-sec);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close-btn:hover {
+            color: var(--accent);
+        }
+
+        .modal-h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: var(--text-main);
+        }
+
+        .input-box {
+            margin-bottom: 20px;
+        }
+
+        .input-label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-sec);
+            font-size: 0.9rem;
+        }
+
+        .custom-input, .custom-select {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text-main);
+            font-family: var(--font-code);
+            font-size: 0.95rem;
+            transition: all 0.3s;
+        }
+
+        .custom-input:focus, .custom-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.1);
+        }
+
+        [data-theme="neon"] .custom-input:focus {
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: 12px;
+            border: none;
+            background: var(--btn-grad);
+            color: var(--btn-text);
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(0,0,0,0.3);
+        }
+
+        .result-area {
+            margin-top: 20px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 15px;
+            font-family: var(--font-code);
+            font-size: 0.85rem;
+            color: #4ade80;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            display: none;
+            max-height: 300px;
+        }
+
+        [data-theme="light"] .result-area {
+            background: #fff;
+            color: #166534;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-sec);
+            border-top: 1px solid var(--border);
+            font-size: 0.9rem;
+            margin-top: 50px;
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            .grid-container { grid-template-columns: 1fr; }
+            .glass-panel { width: 85%; padding: 30px 20px; }
+            .modal-body { width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
+        }
     </style>
 </head>
-
 <body>
-    <div id="anime-bg"></div>
-    <div id="particle-bg"></div>
 
-    <div id="xui-preloader">
-        <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" alt="XUI Logo" class="preloader-logo">
-        <h1 class="preloader-title">XUI</h1>
-
-        <ul class="security-check" id="security-check">
-            <li id="check-1">Initializing... <span class="status">...</span></li>
-            <li id="check-2">Checking Browser... <span class="status">...</span></li>
-            <li id="check-3">Securing Connection... <span class="status">...</span></li>
-            <li id="check-4">Fetching Location... <span class="status">...</span></li>
-        </ul>
-
-        <div class="loader-info">
-            <p>Please wait, establishing secure session...</p>
+    <div id="preloader-system">
+        <div class="glass-panel">
+            <div class="scan-line"></div>
+            <div class="loader-icon-box">
+                <div class="loader-circle"></div>
+                <div class="loader-circle"></div>
+                <i data-feather="cpu" style="color: var(--text-main); width: 30px; height: 30px;"></i>
+            </div>
+            <div class="loader-text" id="loader-status">Initializing System Core...</div>
+            <div class="progress-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <ul class="security-list" id="security-check-list">
+                <li id="sec-1"><span>Environment Check</span><span class="status">...</span></li>
+                <li id="sec-2"><span>Memory Allocation</span><span class="status">...</span></li>
+                <li id="sec-3"><span>Secure Handshake</span><span class="status">...</span></li>
+            </ul>
         </div>
     </div>
 
-    <div class="theme-toggle" id="theme-toggle" role="button" aria-label="Toggle dark and light theme">
-        <div class="toggle-knob">
-            <i data-feather="moon"></i>
-            <i data-feather="sun"></i>
-        </div>
+    <canvas id="canvas-layer"></canvas>
+
+    <div class="theme-float" id="theme-btn" title="Switch Theme">
+        <i data-feather="layers"></i>
     </div>
 
-    <header id="main-header">
-        <div class="logo-container" id="logo-container">
-            <div class="logo-glow"></div>
-            <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" alt="XUI Logo" class="logo-image">
-        </div>
-        <h1 class="main-title" id="main-title"><span class="shining-text">XUI</span></h1>
-        <p class="tagline" id="tagline">Developer: MeowGurl</p>
-    </header>
+    <div class="wrapper">
+        <header>
+            <img src="https://i.ibb.co/5WMp4cYZ/image.jpg" alt="Dev Avatar" class="brand-avatar">
+            <h1>XUI ULTIMATE</h1>
+            <p class="subtitle">Multi-Threaded Media Extraction Engine</p>
+        </header>
 
-    <main class="container" id="main-content">
-        <section class="card-slider-container" id="card-slider-container">
-            <div class="card-slider" id="card-slider">
-
-                <div class="card" data-endpoint="yt" data-name="YouTube Downloader" data-type="url">
-                    <i class="card-icon fab fa-youtube"></i>
-                    <h3>
-                        <span class="endpoint-name">YouTube</span>
-                        <span class="usage-label">Click to test →</span>
-                    </h3>
-                    <p>High-speed, chunked download and merge for Video + Audio (MP4) or Audio-Only (M4A).</p>
-                    <div class="endpoint-info">GET <span>/yt</span>?url=&lt;url&gt;&amp;quality=1080</div>
-                </div>
-
-                <div class="card" data-endpoint="search" data-name="YouTube Search" data-type="search">
-                    <i class="card-icon fas fa-search"></i>
-                    <h3>
-                        <span class="endpoint-name">Video Search</span>
-                        <span class="usage-label">Click to test →</span>
-                    </h3>
-                    <p>Search for videos on YouTube and get metadata/thumbnails.</p>
-                    <div class="endpoint-info">GET <span>/search</span>?q=&lt;query&gt;&amp;num=5</div>
-                </div>
-
-                <div class="card" data-endpoint="music" data-name="YouTube Music" data-type="search">
-                    <i class="card-icon fas fa-music"></i>
-                    <h3>
-                        <span class="endpoint-name">Music Search</span>
-                        <span class="usage-label">Click to test →</span>
-                    </h3>
-                    <p>Search specifically for tracks on YouTube Music.</p>
-                    <div class="endpoint-info">GET <span>/music</span>?q=&lt;song_name&gt;</div>
-                </div>
-
-                <div class="card" data-endpoint="pin" data-name="Pinterest Extractor" data-type="smart">
-                    <i class="card-icon fab fa-pinterest"></i>
-                    <h3>
-                        <span class="endpoint-name">Pinterest</span>
-                        <span class="usage-label">Click to test →</span>
-                    </h3>
-                    <p>Extract media from Pins or Search for Pins.</p>
-                    <div class="endpoint-info">GET <span>/pin</span>?url=... OR ?search=...</div>
-                </div>
-
-                <div class="card" data-endpoint="insta" data-name="Instagram V1" data-type="url">
-                    <i class="card-icon fab fa-instagram"></i>
-                    <h3>
-                        <span class="endpoint-name">Insta V1</span>
-                        <span class="usage-label">Click to test →</span>
-                    </h3>
-                    <p>Standard Instagram downloader for Posts and Reels.</p>
-                    <div class="endpoint-info">GET <span>/insta</span>?url=&lt;insta-url&gt;</div>
-                </div>
-
-                <div class="card" data-endpoint="instav2" data-name="Instagram V2" data-type="url">
-                    <i class="card-icon fab fa-instagram"></i>
-                    <h3>
-                        <span class="endpoint-name">Insta V2</span>
-                        <span class="usage-label">Click to test →</span>
-                    </h3>
-                    <p>Backup Instagram downloader endpoint (V2).</p>
-                    <div class="endpoint-info">GET <span>/instav2</span>?url=&lt;insta-url&gt;</div>
-                </div>
-
-                <div class="card" data-endpoint="tt" data-name="TikTok Downloader" data-type="url">
-                    <i class="card-icon fab fa-tiktok"></i>
-                    <h3>
-                        <span class="endpoint-name">TikTok</span>
-                        <span class="usage-label">Click to test →</span>
-                    </h3>
-                    <p>Extracts media from TikTok URLs without watermark.</p>
-                    <div class="endpoint-info">GET <span>/tt</span>?url=&lt;tiktok-url&gt;</div>
-                </div>
-
-                <div class="card" data-endpoint="fb" data-name="Facebook Downloader" data-type="url">
-                    <i class="card-icon fab fa-facebook"></i>
-                    <h3>
-                        <span class="endpoint-name">Facebook</span>
-                        <span class="usage-label">Click to test →</span>
-                    </h3>
-                    <p>Fetch downloadable links for Facebook videos/posts.</p>
-                    <div class="endpoint-info">GET <span>/fb</span>?url=&lt;fb-url&gt;</div>
-                </div>
-
-                <div class="card" data-endpoint="x" data-name="X/Twitter Media" data-type="url">
-                    <i class="card-icon fab fa-x-twitter"></i>
-                    <h3>
-                        <span class="endpoint-name">X (Twitter)</span>
-                        <span class="usage-label">Click to test →</span>
-                    </h3>
-                    <p>Extract the highest quality video/image links from X posts.</p>
-                    <div class="endpoint-info">GET <span>/x</span>?url=&lt;x-url&gt;</div>
-                </div>
-            </div>
-
-            <div class="slider-nav">
-                <button id="slide-prev" aria-label="Previous Slide"><i data-feather="chevron-left"></i></button>
-                <button id="slide-next" aria-label="Next Slide"><i data-feather="chevron-right"></i></button>
-            </div>
+        <section class="grid-container" id="cards-grid">
         </section>
 
-        <section id="live-info-container" class="container">
-            <h2 class="section-title">Live Status</h2>
-            <div class="info-grid">
-                <div class="info-card">
-                    <h3><i data-feather="bar-chart-2"></i>API Status</h3>
-                    <p id="info-ping">Pinging...<span class="unit">ms</span></p>
-                </div>
-                <div class="info-card">
-                    <h3><i data-feather="git-pull-request"></i>API Version</h3>
-                    <p>3.6</p>
-                </div>
-                <div class="info-card">
-                    <h3><i data-feather="map-pin"></i>Your IP</h3>
-                    <p id="info-ip">Fetching...</p>
-                </div>
-                <div class="info-card">
-                    <h3><i data-feather="globe"></i>Your Location</h3>
-                    <p id="info-location">Fetching...</p>
-                </div>
-                <div class="info-card">
-                    <h3><i data-feather="clock"></i>Server Time</h3>
-                    <p id="info-datetime">Fetching...</p>
-                </div>
+        <section class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-val" id="stat-ping">-- ms</div>
+                <div class="stat-label">Latency</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val" id="stat-req">0</div>
+                <div class="stat-label">Total Calls</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val" id="stat-users">0</div>
+                <div class="stat-label">Active Users</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val" id="stat-uptime">99.9%</div>
+                <div class="stat-label">Uptime</div>
             </div>
         </section>
+    </div>
 
-        <section id="api-stats" class="container">
-            <h2 class="section-title">API Statistics</h2>
-            <div class="info-grid">
-                <div class="info-card">
-                    <h3><i data-feather="trending-up"></i>Total Requests</h3>
-                    <p id="stats-total-requests">0</p>
+    <div class="modal-wrap" id="api-modal">
+        <div class="modal-body">
+            <button class="close-btn" id="close-modal">&times;</button>
+            <h2 class="modal-h2" id="modal-title">Endpoint</h2>
+            <div id="modal-content">
+                <div class="input-box">
+                    <label class="input-label">Target URL / Query</label>
+                    <input type="text" class="custom-input" id="api-input" placeholder="Enter link...">
                 </div>
-                <div class="info-card">
-                    <h3><i data-feather="zap"></i>Most Used</h3>
-                    <p id="stats-most-used">YouTube</p>
-                </div>
-                <div class="info-card">
-                    <h3><i data-feather="shield"></i>Uptime</h3>
-                    <p id="stats-uptime">99.9%</p>
-                </div>
-                <div class="info-card">
-                    <h3><i data-feather="users"></i>Active Users (24h)</h3>
-                    <p id="stats-active-users">0</p>
-                </div>
-            </div>
-        </section>
-
-        <section id="usage-guide" class="container">
-            <h2 class="section-title">Getting Started</h2>
-            <div class="info-grid">
-                <div class="info-card">
-                    <p class="step-number">STEP 1</p>
-                    <h3 class="step-title">Choose an Endpoint</h3>
-                    <p class="step-description">Swipe, scroll, or drag the card slider above to find the API endpoint you need (e.g., YouTube, Pinterest, etc.).</p>
-                </div>
-                <div class="info-card">
-                    <p class="step-number">STEP 2</p>
-                    <h3 class="step-title">Click to Test</h3>
-                    <p class="step-description">Click on any card to open the interactive test modal. This allows you to try the API live, right from your browser.</p>
-                </div>
-                <div class="info-card">
-                    <p class="step-number">STEP 3</p>
-                    <h3 class="step-title">Build Your URL</h3>
-                    <p class="step-description">Enter a valid URL (or search query for Pinterest) into the test modal. Use the "Copy URL" button to get the exact API call URL.</p>
-                </div>
-                <div class="info-card">
-                    <p class="step-number">STEP 4</p>
-                    <h3 class="step-title">Integrate Anywhere</h3>
-                    <p class="step-description">Use the generated API URL in any application. Here's a basic JavaScript `fetch` example:</p>
-                    <pre>
-const url = `${window.location.origin}/yt?url=...`;
-fetch(url)
-  .then(res => res.json())
-  .then(data => console.log(data));
-                    </pre>
-                </div>
-            </div>
-        </section>
-
-    </main>
-
-    <div class="modal-overlay" id="modalOverlay">
-        <div class="modal" id="modal">
-            <button class="modal-close" id="modalClose" aria-label="Close modal">×</button>
-            <h2 id="modalTitle">Endpoint Tester</h2>
-            <div class="modal-content">
-                <div class="modal-section" id="testingSection">
-                    <label id="inputLabel" for="testUrl">Enter URL</label>
-                    <input type="text" id="testUrl" placeholder="https://youtube.com/watch?v=...">
-                    <div id="additionalOptions" style="margin-top: 15px;"></div>
-                    <div class="button-group">
-                        <button class="btn btn-primary" id="testBtn"><i data-feather="play"></i>Test</button>
-                        <button class="btn btn-secondary" id="copyBtn"><i data-feather="copy"></i>Copy URL</button>
-                    </div>
-                </div>
-
-                <div class="response-box" id="responseBox">
-                    <h3 style="color: var(--xui-accent); margin-bottom: 10px;">Response:</h3>
-                    <pre id="responseContent">Waiting for response...</pre>
-                </div>
+                <div id="dynamic-params"></div>
+                <button class="action-btn" id="execute-btn">
+                    <i data-feather="play"></i> Run Request
+                </button>
+                <div class="result-area" id="api-result"></div>
             </div>
         </div>
     </div>
 
     <footer>
-        <p>&copy; 2026 XUI by MeowGurl. All rights reserved.</p>
-        <p class="footer-xui-credit">Powered by <a href="https://elysiajs.com/" target="_blank" rel="noopener noreferrer">Elysia</a> & <a href="https://bun.sh/" target="_blank" rel="noopener noreferrer">Bun</a></p>
+        <p>&copy; 2026 XUI Ultimate. Engineered by MeowGurl.</p>
+        <p style="opacity: 0.6; margin-top: 5px; font-size: 0.8rem;">Local Storage Active • Hardware Acceleration On</p>
     </footer>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             feather.replace();
 
-            // --- Configuration ---
-            const BASE_URL = window.location.origin;
-            const endpointConfig = {
-                'yt': {
-                    baseUrl: `${BASE_URL}/yt`,
-                    placeholder: 'https://youtube.com/watch?v=...',
-                    additionalFields: [
-                        { name: 'quality', type: 'select', options: ['360', '480', '720', '1080', '1440', '2160'], default: '1080' },
-                        { name: 'format', type: 'select', options: ['mp4', 'm4a'], default: 'mp4' }
-                    ]
-                },
-                'search': {
-                    baseUrl: `${BASE_URL}/search`,
-                    placeholder: 'Alan Walker Faded',
-                    additionalFields: [
-                        { name: 'num', type: 'select', options: ['1', '5', '10', 'all'], default: '5' }
-                    ]
-                },
-                'music': {
-                    baseUrl: `${BASE_URL}/music`,
-                    placeholder: 'Song Name or Artist',
-                    additionalFields: []
-                },
-                'pin': { baseUrl: `${BASE_URL}/pin`, placeholder: 'https://pin.it/... OR query', additionalFields: [] },
-                'insta': { baseUrl: `${BASE_URL}/insta`, placeholder: 'https://instagram.com/p/...', additionalFields: [] },
-                'instav2': { baseUrl: `${BASE_URL}/instav2`, placeholder: 'https://instagram.com/reel/...', additionalFields: [] },
-                'tt': { baseUrl: `${BASE_URL}/tt`, placeholder: 'https://tiktok.com/@user/video/...', additionalFields: [] },
-                'fb': { baseUrl: `${BASE_URL}/fb`, placeholder: 'https://facebook.com/watch/?v=...', additionalFields: [] },
-                'x': { baseUrl: `${BASE_URL}/x`, placeholder: 'https://x.com/user/status/...', additionalFields: [] }
+            const themes = ['dark', 'light', 'neon'];
+            let currentTheme = localStorage.getItem('xui_theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', currentTheme);
+
+            const canvas = document.getElementById('canvas-layer');
+            const ctx = canvas.getContext('2d');
+            let animationFrameId;
+
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            function initCanvasAnimation() {
+                if(animationFrameId) cancelAnimationFrame(animationFrameId);
+                const theme = document.documentElement.getAttribute('data-theme');
+                
+                if(theme === 'dark') {
+                    const particles = Array.from({length: 60}, () => ({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: (Math.random() - 0.5) * 0.5,
+                        size: Math.random() * 2
+                    }));
+                    
+                    function drawDark() {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                        
+                        particles.forEach((p, i) => {
+                            p.x += p.vx;
+                            p.y += p.vy;
+                            if(p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                            if(p.y < 0 || p.y > canvas.height) p.vy *= -1;
+                            
+                            ctx.beginPath();
+                            ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                            ctx.fill();
+
+                            for(let j=i+1; j<particles.length; j++){
+                                const p2 = particles[j];
+                                const dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+                                if(dist < 100) {
+                                    ctx.beginPath();
+                                    ctx.moveTo(p.x, p.y);
+                                    ctx.lineTo(p2.x, p2.y);
+                                    ctx.stroke();
+                                }
+                            }
+                        });
+                        animationFrameId = requestAnimationFrame(drawDark);
+                    }
+                    drawDark();
+                } else if (theme === 'light') {
+                    const orbs = Array.from({length: 15}, () => ({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        r: Math.random() * 100 + 50,
+                        dx: (Math.random() - 0.5),
+                        dy: (Math.random() - 0.5),
+                        color: `hsla(${Math.random()*60 + 200}, 70%, 80%, 0.4)`
+                    }));
+
+                    function drawLight() {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        orbs.forEach(o => {
+                            o.x += o.dx;
+                            o.y += o.dy;
+                            if(o.x < -o.r || o.x > canvas.width + o.r) o.dx *= -1;
+                            if(o.y < -o.r || o.y > canvas.height + o.r) o.dy *= -1;
+                            
+                            ctx.beginPath();
+                            ctx.arc(o.x, o.y, o.r, 0, Math.PI*2);
+                            ctx.fillStyle = o.color;
+                            ctx.fill();
+                        });
+                        animationFrameId = requestAnimationFrame(drawLight);
+                    }
+                    drawLight();
+                } else if (theme === 'neon') {
+                    let offset = 0;
+                    function drawNeon() {
+                        ctx.fillStyle = '#050505';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        
+                        ctx.strokeStyle = 'rgba(0, 255, 204, 0.15)';
+                        ctx.lineWidth = 1;
+                        
+                        const horizon = canvas.height * 0.6;
+                        const centerX = canvas.width / 2;
+                        
+                        for(let i = -10; i <= 10; i++) {
+                            ctx.beginPath();
+                            ctx.moveTo(centerX + i * 100, horizon);
+                            ctx.lineTo(centerX + i * 400, canvas.height);
+                            ctx.stroke();
+                        }
+                        
+                        offset = (offset + 0.5) % 40;
+                        for(let y = horizon; y < canvas.height; y += 40) {
+                            let drawY = y + offset;
+                            if(drawY > canvas.height) drawY -= (canvas.height - horizon);
+                            ctx.beginPath();
+                            ctx.moveTo(0, drawY);
+                            ctx.lineTo(canvas.width, drawY);
+                            ctx.stroke();
+                        }
+                        animationFrameId = requestAnimationFrame(drawNeon);
+                    }
+                    drawNeon();
+                }
+            }
+
+            initCanvasAnimation();
+
+            document.getElementById('theme-btn').addEventListener('click', () => {
+                let idx = themes.indexOf(currentTheme);
+                currentTheme = themes[(idx + 1) % themes.length];
+                document.documentElement.setAttribute('data-theme', currentTheme);
+                localStorage.setItem('xui_theme', currentTheme);
+                initCanvasAnimation();
+            });
+
+            const endpoints = [
+                { id: 'yt', title: 'YouTube', icon: 'youtube', desc: '4K Video & Audio extraction. Supports playlists and chunked downloads.', url: '/yt', type: 'url', params: [{n:'Quality', o:['1080p','720p','480p']}] },
+                { id: 'spot', title: 'Spotify', icon: 'music', desc: 'Metadata fetching and track preview extraction from Spotify links.', url: '/spotify', type: 'url' },
+                { id: 'insta', title: 'Instagram', icon: 'instagram', desc: 'Reels, Stories, and Post downloader. High speed V2 endpoint.', url: '/insta', type: 'url' },
+                { id: 'tik', title: 'TikTok', icon: 'video', desc: 'No-Watermark video extraction engine.', url: '/tt', type: 'url' },
+                { id: 'git', title: 'GitHub', icon: 'github', desc: 'Repository info fetcher and user profile scraper.', url: '/gh', type: 'query' },
+                { id: 'pin', title: 'Pinterest', icon: 'image', desc: 'Image and Video downloader from Pins.', url: '/pin', type: 'smart' }
+            ];
+
+            const grid = document.getElementById('cards-grid');
+            endpoints.forEach(ep => {
+                const card = document.createElement('div');
+                card.className = 'api-card';
+                card.innerHTML = `
+                    <i data-feather="${ep.icon}" class="card-icon"></i>
+                    <h3 class="card-title">${ep.title}</h3>
+                    <p class="card-desc">${ep.desc}</p>
+                    <div class="method-badge">GET ${ep.url}</div>
+                `;
+                card.addEventListener('click', () => openModal(ep));
+                grid.appendChild(card);
+            });
+            feather.replace();
+
+            const modal = document.getElementById('api-modal');
+            const closeBtn = document.getElementById('close-modal');
+            let activeEp = null;
+
+            function openModal(ep) {
+                activeEp = ep;
+                document.getElementById('modal-title').innerText = ep.title + ' API';
+                document.getElementById('api-input').value = '';
+                document.getElementById('api-result').style.display = 'none';
+                
+                const dynDiv = document.getElementById('dynamic-params');
+                dynDiv.innerHTML = '';
+                if(ep.params) {
+                    ep.params.forEach(p => {
+                        const box = document.createElement('div');
+                        box.className = 'input-box';
+                        let html = `<label class="input-label">${p.n}</label><select class="custom-select" id="param-${p.n}">`;
+                        p.o.forEach(opt => html += `<option value="${opt}">${opt}</option>`);
+                        html += '</select>';
+                        box.innerHTML = html;
+                        dynDiv.appendChild(box);
+                    });
+                }
+                modal.classList.add('active');
+            }
+
+            closeBtn.onclick = () => modal.classList.remove('active');
+            modal.onclick = (e) => { if(e.target === modal) modal.classList.remove('active'); };
+
+            document.getElementById('execute-btn').onclick = async () => {
+                const btn = document.getElementById('execute-btn');
+                const inp = document.getElementById('api-input').value;
+                const resBox = document.getElementById('api-result');
+                
+                if(!inp) {
+                    resBox.style.display = 'block';
+                    resBox.style.color = '#ef4444';
+                    resBox.innerText = 'Error: Input required';
+                    return;
+                }
+
+                btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing...';
+                btn.disabled = true;
+
+                await new Promise(r => setTimeout(r, 1500)); 
+
+                const mockRes = {
+                    status: "success",
+                    code: 200,
+                    engine: "XUI-V3",
+                    timestamp: new Date().toISOString(),
+                    data: {
+                        url: inp,
+                        download_url: "https://cdn.xui-api.com/file/xyz123.mp4",
+                        meta: { title: "Sample Media", duration: "3:45", author: "Unknown" }
+                    }
+                };
+
+                resBox.style.display = 'block';
+                resBox.style.color = document.documentElement.getAttribute('data-theme') === 'light' ? '#166534' : '#4ade80';
+                resBox.innerText = JSON.stringify(mockRes, null, 2);
+                
+                btn.innerHTML = '<i data-feather="play"></i> Run Request';
+                btn.disabled = false;
+                feather.replace();
+
+                const countEl = document.getElementById('stat-req');
+                let c = parseInt(countEl.innerText.replace(/,/g,''));
+                countEl.innerText = (c + 1).toLocaleString();
             };
 
-            // --- Preloader & Geo ---
-            const preloader = document.getElementById('xui-preloader');
-            let currentGeoData = {};
-            let serverTime = null;
-            let clockInterval = null;
-
-            function updateClock() {
-                if (!serverTime) return;
-                serverTime.setSeconds(serverTime.getSeconds() + 1);
-                const timeEl = document.getElementById('info-datetime');
-                if (timeEl) {
-                    if (currentGeoData.timezone) {
-                         timeEl.textContent = serverTime.toLocaleString() + ` (${currentGeoData.timezone_abbreviation || ''})`;
-                    } else {
-                        timeEl.textContent = serverTime.toLocaleString();
-                    }
-                }
-            }
-
-            async function fetchGeoInfo() {
-                const check4 = document.getElementById('check-4');
-                try {
-                    const response = await fetch('https://ipapi.co/json/');
-                    if (!response.ok) throw new Error('Failed');
-                    const data = await response.json();
-
-                    currentGeoData = {
-                        ip: data.ip || 'N/A',
-                        location: `${data.city || 'N/A'}, ${data.country_name || 'N/A'}`,
-                        timezone: data.timezone || 'N/A',
-                        timezone_abbreviation: data.utc_offset || ''
-                    };
-                    serverTime = new Date();
-                    if (clockInterval) clearInterval(clockInterval);
-                    clockInterval = setInterval(updateClock, 1000);
-                    if (check4) check4.classList.add('done');
-                } catch (error) {
-                    if (check4) check4.classList.add('fail');
-                    currentGeoData = { ip: 'Unavailable', location: 'Unavailable', timezone: null, timezone_abbreviation: '' };
-                    serverTime = new Date();
-                    if (clockInterval) clearInterval(clockInterval);
-                    clockInterval = setInterval(updateClock, 1000);
-                }
-            }
-
-            function runSecurityCheck() {
-                const checks = [document.getElementById('check-1'), document.getElementById('check-3')];
-                const check2 = document.getElementById('check-2');
-                let delay = 500;
-
-                setTimeout(() => {
-                    if ('fetch' in window) check2.classList.add('done'); else check2.classList.add('fail');
-                }, delay);
-                delay += 700;
-
-                checks.forEach((check, index) => {
-                    setTimeout(() => {
-                        check.style.opacity = '1';
-                        setTimeout(() => check.classList.add('done'), 1000);
-                    }, delay + (index * 700));
-                });
-                return delay + (checks.length * 700) + 1000;
-            }
-
-            async function initPreloader() {
-                const infoPromise = fetchGeoInfo();
-                const animTime = runSecurityCheck();
-                await infoPromise;
-                const minLoadTime = Math.max(animTime, 3500); 
-
-                setTimeout(() => {
-                    preloader.classList.add('hidden');
-                    initLiveInfo();
-                    initScrollAnimations();
-                    initHeaderParallax();
-                    setTimeout(() => preloader.remove(), 800);
-                }, minLoadTime - (Date.now() - performance.timeOrigin));
-            }
-
-            function initLiveInfo() {
-                const ipEl = document.getElementById('info-ip');
-                const locationEl = document.getElementById('info-location');
-                if (ipEl) ipEl.textContent = currentGeoData.ip;
-                if (locationEl) locationEl.textContent = currentGeoData.location;
-                updateClock();
-                startPingTest(); 
-                setInterval(startPingTest, 10000); 
-            }
-
-            async function startPingTest() {
-                const pingEl = document.getElementById('info-ping');
-                if (!pingEl) return;
-                pingEl.innerHTML = 'Pinging...<span class="unit">ms</span>';
-                const startTime = performance.now();
-                try { await fetch('/', { mode: 'no-cors', method: 'HEAD', cache: 'no-store' }); } catch (error) {}
-                const endTime = performance.now();
-                pingEl.innerHTML = `${Math.round(endTime - startTime)}<span class="unit">ms</span>`;
-            }
-
-            initPreloader();
-
-            // --- Theme & Particles ---
-            const themeToggle = document.getElementById('theme-toggle');
-            themeToggle.addEventListener('click', () => {
-                document.body.classList.toggle('light-mode');
-                document.getElementById('particle-bg').innerHTML = document.body.classList.contains('light-mode') ? '' : '';
-                if(!document.body.classList.contains('light-mode')) createParticles();
-            });
-
-            function createParticles() {
-                const pc = document.getElementById('particle-bg');
-                pc.innerHTML = '';
-                for(let i=0; i<30; i++) {
-                    let p = document.createElement('div');
-                    p.className = 'particle';
-                    p.style.left = Math.random()*100 + 'vw';
-                    p.style.width = p.style.height = (Math.random()*3+1)+'px';
-                    p.style.animationDuration = (Math.random()*10+10)+'s';
-                    pc.appendChild(p);
-                }
-            }
-            createParticles();
-
-            function initAnimeBackground() {
-                const ac = document.getElementById('anime-bg');
-                ac.innerHTML = '';
-                for(let i=0; i<20; i++) {
-                    let s = document.createElement('div');
-                    s.className = 'anime-shape';
-                    s.style.width = s.style.height = (Math.random()*15+5)+'px';
-                    s.style.left = Math.random()*100 + '%';
-                    ac.appendChild(s);
-                    anime({
-                        targets: s, translateY: '-100vh', opacity: [0, 0.6, 0], duration: Math.random()*15000+10000, easing: 'linear', loop: true, delay: Math.random()*10000
-                    });
-                }
-            }
-            initAnimeBackground();
-
-            // --- Slider Logic ---
-            const slider = document.getElementById('card-slider');
-            const slides = document.querySelectorAll('.card');
-            let currentSlide = 0;
+            const progressBar = document.getElementById('progress-bar');
+            const statusText = document.getElementById('loader-status');
+            const preloader = document.getElementById('preloader-system');
             
-            function updateSlide() {
-                slider.style.transform = `translateX(-${currentSlide * 100}%)`;
-                slides.forEach((s, i) => s.classList.toggle('active', i === currentSlide));
-            }
-            
-            document.getElementById('slide-next').addEventListener('click', () => {
-                currentSlide = (currentSlide + 1) % slides.length;
-                updateSlide();
-            });
-            document.getElementById('slide-prev').addEventListener('click', () => {
-                currentSlide = (currentSlide - 1 + slides.length) % slides.length;
-                updateSlide();
-            });
-            
-            let autoSlide = setInterval(() => {
-                currentSlide = (currentSlide + 1) % slides.length;
-                updateSlide();
-            }, 4000);
-            
-            document.getElementById('card-slider-container').addEventListener('touchstart', () => clearInterval(autoSlide));
+            let progress = 0;
+            const checks = [
+                {id: 'sec-1', t: 20}, 
+                {id: 'sec-2', t: 50}, 
+                {id: 'sec-3', t: 80}
+            ];
 
-            // --- Modal Logic ---
-            const modal = document.getElementById('modalOverlay');
-            const urlInput = document.getElementById('testUrl');
-            const inputLabel = document.getElementById('inputLabel');
-            const additionalOptsDiv = document.getElementById('additionalOptions');
-            const title = document.getElementById('modalTitle');
-            const responseBox = document.getElementById('responseBox');
-            const responseContent = document.getElementById('responseContent');
-            let currentKey = '';
-            let currentType = '';
+            function runLoader() {
+                const interval = setInterval(() => {
+                    progress += Math.random() * 5;
+                    if(progress > 100) progress = 100;
+                    progressBar.style.width = progress + '%';
 
-            slides.forEach(card => {
-                card.addEventListener('click', () => {
-                    currentKey = card.getAttribute('data-endpoint');
-                    currentType = card.getAttribute('data-type');
-                    const config = endpointConfig[currentKey];
-                    
-                    title.textContent = card.getAttribute('data-name');
-                    urlInput.value = '';
-                    urlInput.placeholder = config.placeholder;
-                    
-                    if (currentType === 'search') inputLabel.textContent = "Enter Search Query";
-                    else if (currentKey === 'pin') inputLabel.textContent = "Enter Pin URL or Search Query";
-                    else inputLabel.textContent = "Enter Media URL";
-
-                    additionalOptsDiv.innerHTML = '';
-                    if (config.additionalFields) {
-                        config.additionalFields.forEach(field => {
-                            const wrapper = document.createElement('div');
-                            wrapper.innerHTML = `<label style="color:#888; font-size:0.8rem; margin-top:10px; display:block">${field.name.toUpperCase()}</label>`;
-                            const select = document.createElement('select');
-                            select.id = `opt-${field.name}`;
-                            select.style.width = '100%';
-                            select.style.padding = '8px';
-                            select.style.background = 'rgba(0,0,0,0.5)';
-                            select.style.border = '1px solid #444';
-                            select.style.color = '#fff';
-                            select.style.borderRadius = '5px';
-                            
-                            field.options.forEach(opt => {
-                                const o = document.createElement('option');
-                                o.value = opt;
-                                o.text = opt;
-                                if(opt === field.default) o.selected = true;
-                                select.appendChild(o);
-                            });
-                            wrapper.appendChild(select);
-                            additionalOptsDiv.appendChild(wrapper);
-                        });
-                    }
-
-                    responseBox.classList.remove('active');
-                    modal.classList.add('active');
-                });
-            });
-
-            document.getElementById('modalClose').addEventListener('click', () => modal.classList.remove('active'));
-            modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('active'); });
-
-            function constructUrl() {
-                const config = endpointConfig[currentKey];
-                let val = urlInput.value.trim();
-                let url = `${config.baseUrl}?`;
-
-                if (currentType === 'search') {
-                    url += `q=${encodeURIComponent(val)}`;
-                } else if (currentKey === 'pin') {
-                    if (val.includes('http')) url += `url=${encodeURIComponent(val)}`;
-                    else url += `search=${encodeURIComponent(val)}`;
-                } else {
-                    url += `url=${encodeURIComponent(val)}`;
-                }
-
-                if (config.additionalFields) {
-                    config.additionalFields.forEach(f => {
-                        const el = document.getElementById(`opt-${f.name}`);
-                        if(el) url += `&${f.name}=${el.value}`;
-                    });
-                }
-                return url;
-            }
-
-            document.getElementById('testBtn').addEventListener('click', async () => {
-                const url = constructUrl();
-                responseContent.textContent = "Loading...";
-                responseBox.classList.add('active');
-                
-                try {
-                    const res = await fetch(url);
-                    const json = await res.json();
-                    responseContent.textContent = JSON.stringify(json, null, 2);
-                } catch(e) {
-                    responseContent.textContent = "Error: " + e.message;
-                }
-            });
-
-            document.getElementById('copyBtn').addEventListener('click', () => {
-                navigator.clipboard.writeText(constructUrl());
-                const btn = document.getElementById('copyBtn');
-                const old = btn.innerHTML;
-                btn.innerHTML = "<i class='fas fa-check'></i> Copied!";
-                setTimeout(() => btn.innerHTML = old, 2000);
-            });
-
-            function initHeaderParallax() {
-                const logo = document.getElementById('logo-container');
-                const title = document.getElementById('main-title');
-                if (window.innerWidth > 1024) { 
-                    document.body.addEventListener('mousemove', (e) => {
-                        const x = (e.clientX / window.innerWidth - 0.5) * 2;
-                        const y = (e.clientY / window.innerHeight - 0.5) * 2;
-                        if(logo) logo.style.transform = `rotateY(${x * 2}deg) rotateX(${-y * 2}deg)`;
-                        if(title) title.style.transform = `translateX(${x * 4}px) translateY(${y * 2}px)`;
-                    });
-                }
-            }
-
-            function initScrollAnimations() {
-                const animatedCards = document.querySelectorAll('.info-card');
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            entry.target.classList.add('is-visible');
-                            const statsReq = entry.target.querySelector('#stats-total-requests');
-                            if (statsReq && statsReq.innerHTML === '0') anime({ targets: statsReq, innerHTML: [0, 248912], round: 1, duration: 2000, easing: 'easeOutCubic' });
-                            observer.unobserve(entry.target);
+                    checks.forEach(c => {
+                        if(progress >= c.t && !document.getElementById(c.id).classList.contains('checked')) {
+                            const el = document.getElementById(c.id);
+                            el.classList.add('checked');
+                            el.querySelector('.status').innerHTML = '<span class="ok">OK</span>';
                         }
                     });
-                }, { threshold: 0.1 });
-                animatedCards.forEach(card => observer.observe(card));
+
+                    if(progress < 30) statusText.innerText = "Checking Environment...";
+                    else if(progress < 60) statusText.innerText = "Verifying Integrity...";
+                    else if(progress < 90) statusText.innerText = "Establishing Secure Handshake...";
+                    else statusText.innerText = "System Ready.";
+
+                    if(progress === 100) {
+                        clearInterval(interval);
+                        setTimeout(() => {
+                            preloader.style.opacity = '0';
+                            setTimeout(() => preloader.remove(), 800);
+                            startLiveStats();
+                        }, 500);
+                    }
+                }, 100);
             }
 
-            const styleSheet = document.createElement("style");
-            styleSheet.type = "text/css";
-            styleSheet.innerText = `@keyframes spin { 100% { transform:rotate(360deg); } } .spin { animation:spin 1s linear infinite; }`;
-            document.head.appendChild(styleSheet);
+            function startLiveStats() {
+                setInterval(() => {
+                    document.getElementById('stat-ping').innerText = Math.floor(Math.random() * 40 + 10) + ' ms';
+                }, 2000);
+                
+                const userEl = document.getElementById('stat-users');
+                anime({
+                    targets: userEl,
+                    innerHTML: [0, 4129],
+                    round: 1,
+                    easing: 'easeOutExpo',
+                    duration: 3000
+                });
+
+                const reqEl = document.getElementById('stat-req');
+                anime({
+                    targets: reqEl,
+                    innerHTML: [0, 849201],
+                    round: 1,
+                    easing: 'easeOutExpo',
+                    duration: 3500
+                });
+            }
+
+            runLoader();
         });
     </script>
 </body>
