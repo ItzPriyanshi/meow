@@ -26,7 +26,7 @@
     "json-custom-numbers": "latest",
     "lucide-react": "^0.560.0",
     "memoirist": "latest",
-    "moment-timezone":" latest",
+    "moment-timezone": "0.6.0",
     "next": "^16.0.8",
     "node-fetch": "latest",
     "postcss": "^8.5.6",
