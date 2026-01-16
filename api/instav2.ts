@@ -6,7 +6,7 @@ const INSTAGRAM_HEADERS = {
     'Accept-Language': 'en-US,en;q=0.5',
     'Content-Type': 'application/x-www-form-urlencoded',
     'X-FB-Friendly-Name': 'PolarisPostActionLoadPostQueryQuery',
-    'X-CSRFToken': 'RVDUooU5MYsBbS1CNN3CzVAuEP8oHB52',
+    'X-CSRFToken': 'Gs50xX-0t-hz_2bezC1yWj',
     'X-IG-App-ID': '1217981644879628',
     'X-FB-LSD': 'AVqbxe3J_YA',
     'X-ASBD-ID': '129477',
