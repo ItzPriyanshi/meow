@@ -238,6 +238,7 @@ const cookie = await getCookieFileContent(COOKIE_FILE_PATH);
 innertube = await Innertube.create({
   cookie,
   cache: new UniversalCache(false),
+  client_type: "MWEB"
 });
 
 function scheduleIdleRestart() {
@@ -279,14 +280,14 @@ async function getOrFetchVideoData(videoId: string): Promise<{ videoData: VideoC
 
   const infoFetchStart = performance.now();
   const playerResponse = await innertube.actions.execute("/player", {
-    videoId,
-    client: "WEB_EMBEDDED",
-    playbackContext: {
-      contentPlaybackContext: {
-        signatureTimestamp: innertube.session.player?.signature_timestamp,
-      },
+  videoId,
+  client: "MWEB",
+  playbackContext: {
+    contentPlaybackContext: {
+      signatureTimestamp: innertube.session.player?.signature_timestamp,
     },
-  });
+  },
+});
 
   const info = new YT.VideoInfo([playerResponse], innertube.actions, videoId);
   const player = innertube.session.player!;
@@ -380,10 +381,10 @@ async function getOrFetchSearchResults(searchQuery: string): Promise<{ results: 
 
   const apiFetchStart = performance.now();
   const response = await innertube.actions.execute("/search", {
-    query: searchQuery,
-    client: "TV_EMBEDDED",
-    parse: false,
-  });
+  query: searchQuery,
+  client: "MWEB",
+  parse: false,
+});
 
   const searchData: any = response.data;
   const results: VideoResult[] = [];
