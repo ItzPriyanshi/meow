@@ -3,69 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>XUI Ultimate 3.9-Beta | High Performance API</title>
-    <meta name="description" content="Next Gen Multi-Threaded Media Extraction Engine">
-    
+    <title>Meow-Dl v4.0 | Next-Gen Media Extractor</title>
+    <meta name="description" content="High Performance Multi-Threaded Media Extraction Engine">
+
     <link rel="icon" type="image/png" href="https://i.ibb.co/fVrZKnjH/image.jpg">
-    
+
+    <!-- Fonts & Material Symbols -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
-    
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-    
+
     <style>
         :root {
-            /* V3.9-Beta Variables */
-            --bg-color: #050507;
-            --text-main: #ffffff;
-            --text-sec: #8a8d98;
-            --card-bg: rgba(15, 15, 20, 0.4);
-            --border: rgba(255, 255, 255, 0.08);
-            --accent: #6366f1;
-            --glass: blur(24px);
-            --shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.5);
+            /* Material 3 Dark Theme (Default) */
+            --md-bg: #141218;
+            --md-surface: #211F26;
+            --md-surface-variant: #49454F;
+            --md-on-bg: #E6E1E5;
+            --md-on-surface-variant: #CAC4D0;
+            --md-primary: #D0BCFF;
+            --md-on-primary: #381E72;
+            --md-primary-container: #4F378B;
+            --md-on-primary-container: #EADDFF;
+            --md-outline: #938F99;
+            --md-glass: rgba(33, 31, 38, 0.7);
+            
+            --radius-sm: 12px;
+            --radius-md: 16px;
+            --radius-lg: 28px;
+            --radius-full: 9999px;
+
             --font-main: 'Outfit', -apple-system, sans-serif;
-            --font-code: 'Fira Code', 'XUI KERNEL', monospace;
-            --btn-grad: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-            --btn-text: #ffffff;
-            --input-bg: rgba(0,0,0,0.4);
-            --loader-track: rgba(255,255,255,0.1);
-            --loader-bar: #6366f1;
-            --radius: 20px;
-            --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            --font-code: 'JetBrains Mono', monospace;
+            --transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+            --shadow-1: 0 1px 3px 1px rgba(0,0,0,0.15), 0 1px 2px 0 rgba(0,0,0,0.3);
+            --shadow-3: 0 4px 8px 3px rgba(0,0,0,0.15), 0 1px 3px 0 rgba(0,0,0,0.3);
         }
 
         [data-theme="light"] {
-            --bg-color: #f8fafc;
-            --text-main: #0f172a;
-            --text-sec: #64748b;
-            --card-bg: rgba(255, 255, 255, 0.5);
-            --border: rgba(0, 0, 0, 0.05);
-            --accent: #3b82f6;
-            --shadow: 0 10px 40px -10px rgba(0,0,0,0.08);
-            --btn-grad: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            --btn-text: #ffffff;
-            --input-bg: rgba(255,255,255,0.8);
-            --loader-track: rgba(0,0,0,0.1);
-            --loader-bar: #3b82f6;
-        }
-
-        [data-theme="cinematic"] {
-            --bg-color: #0b0c10;
-            --text-main: #c5c6c7;
-            --text-sec: #66fcf1;
-            --card-bg: rgba(31, 40, 51, 0.5);
-            --border: rgba(102, 252, 241, 0.2);
-            --accent: #45a29e;
-            --glass: blur(30px);
-            --shadow: 0 15px 35px rgba(0,0,0,0.6);
-            --btn-grad: linear-gradient(135deg, #45a29e 0%, #1f2833 100%);
-            --btn-text: #ffffff;
-            --input-bg: rgba(11, 12, 16, 0.7);
-            --loader-track: #1f2833;
-            --loader-bar: #66fcf1;
+            --md-bg: #FEF7FF;
+            --md-surface: #F3EDF7;
+            --md-surface-variant: #E7E0EC;
+            --md-on-bg: #1D1B20;
+            --md-on-surface-variant: #49454F;
+            --md-primary: #6750A4;
+            --md-on-primary: #FFFFFF;
+            --md-primary-container: #EADDFF;
+            --md-on-primary-container: #21005D;
+            --md-outline: #79747E;
+            --md-glass: rgba(243, 237, 247, 0.7);
+            --shadow-1: 0 1px 3px 1px rgba(0,0,0,0.1), 0 1px 2px 0 rgba(0,0,0,0.1);
+            --shadow-3: 0 4px 8px 3px rgba(0,0,0,0.1), 0 1px 3px 0 rgba(0,0,0,0.1);
         }
 
         * {
@@ -77,413 +68,596 @@
         }
 
         body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
+            background-color: var(--md-bg);
+            color: var(--md-on-bg);
             font-family: var(--font-main);
             min-height: 100dvh;
             overflow-x: hidden;
-            transition: background-color 0.6s ease, color 0.6s ease;
+            transition: background-color 0.4s ease, color 0.4s ease;
         }
 
-        /* -------------------------------------
-           Device Specific Background Images 
-           ------------------------------------- */
+        /* Material Symbols Setup */
+        .material-symbols-rounded {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Live Region Top Bar */
+        .live-region {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: var(--md-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--md-surface-variant);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 24px;
+            font-size: 0.85rem;
+            font-family: var(--font-code);
+            z-index: 1000;
+            color: var(--md-on-surface-variant);
+        }
+
+        .live-region .group {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .live-region .item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .live-region .icon {
+            font-size: 16px;
+            color: var(--md-primary);
+        }
+
+        /* Background Effects */
         #bg-layer {
             position: fixed;
-            top: 0; left: 0;
-            width: 100vw; height: 100dvh;
+            inset: 0;
             z-index: -2;
             background-size: cover;
             background-position: center;
-            background-repeat: no-repeat;
-            opacity: 0.8; /* Adjust for image visibility */
+            opacity: 0.15;
             transition: opacity 0.5s ease;
+            pointer-events: none;
         }
 
-        /* Desktop Background */
-        @media (min-width: 769px) {
-            #bg-layer {
-                background-image: url('https://i.ibb.co/xt8xYwyp/image.jpg');
-            }
-        }
+        @media (min-width: 769px) { #bg-layer { background-image: url('https://i.ibb.co/xt8xYwyp/image.jpg'); } }
+        @media (max-width: 768px) { #bg-layer { background-image: url('https://i.ibb.co/1GgPW9Jg/image.jpg'); } }
 
-        /* Mobile Background */
-        @media (max-width: 768px) {
-            #bg-layer {
-                background-image: url('https://i.ibb.co/1GgPW9Jg/image.jpg');
-            }
-        }
-
-        #canvas-layer {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100vw; height: 100dvh;
-            z-index: -1;
-            transform: translateZ(0); 
-            will-change: transform;
-            opacity: 0.6; /* Lowered so background images show clearly */
-        }
-
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: var(--bg-color); }
-        ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
-
-        /* V3.9 Real-time Preloader */
-        #preloader-system {
-            position: fixed;
-            inset: 0;
-            background: rgba(5, 5, 7, 0.95);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            z-index: 10000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            transition: opacity 0.8s cubic-bezier(0.7, 0, 0.3, 1), visibility 0.8s;
-        }
-
-        .sys-boot-container {
-            width: 90%;
-            max-width: 600px;
-            font-family: var(--font-code);
-            display: none; /* Hidden until tap */
-        }
-
-        .boot-header {
-            display: flex;
-            justify-content: space-between;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            font-size: 0.85rem;
-            color: var(--text-sec);
-        }
-
-        .boot-log {
-            height: 150px;
-            overflow: hidden;
-            font-size: 0.85rem;
-            color: var(--accent);
-            line-height: 1.5;
-            mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 100%);
-            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 100%);
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-        }
-
-        .boot-log-line {
-            opacity: 0;
-            transform: translateY(10px);
-            animation: slideUpLog 0.3s forwards;
-        }
-
-        @keyframes slideUpLog {
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .boot-progress {
-            margin-top: 20px;
-            width: 100%;
-            height: 2px;
-            background: var(--loader-track);
-            position: relative;
-        }
-
-        .boot-bar {
-            height: 100%;
-            width: 0%;
-            background: var(--loader-bar);
-            transition: width 0.1s linear;
-            box-shadow: 0 0 10px var(--loader-bar);
-        }
-
-        #init-btn {
-            padding: 15px 30px;
-            background: var(--btn-grad);
-            border: none;
-            border-radius: 8px;
-            color: var(--btn-text);
-            font-family: var(--font-code);
-            font-weight: bold;
-            font-size: 1.1rem;
-            cursor: pointer;
-            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
-            animation: pulseBtn 2s infinite;
-        }
-
-        @keyframes pulseBtn {
-            0% { transform: scale(1); box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
-            50% { transform: scale(1.05); box-shadow: 0 0 30px rgba(99, 102, 241, 0.8); }
-            100% { transform: scale(1); box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
-        }
-
-        /* Theme Switcher */
-        .theme-float {
-            position: fixed;
-            top: clamp(15px, 3vw, 30px);
-            right: clamp(15px, 3vw, 30px);
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            backdrop-filter: var(--glass);
-            -webkit-backdrop-filter: var(--glass);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            z-index: 100;
-            box-shadow: var(--shadow);
-            transition: var(--transition);
-        }
-        .theme-float:hover { transform: rotate(45deg) scale(1.1); }
-
+        /* Main Container */
         .wrapper {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
-            padding: clamp(20px, 4vw, 40px);
+            padding: 80px 24px 40px; /* Offset for live region */
             position: relative;
             z-index: 2;
         }
 
-        /* Centered Header Fix */
+        /* Header / Logo */
         header {
-            padding: clamp(60px, 10vh, 100px) 0 clamp(40px, 8vh, 80px);
             display: flex;
             flex-direction: column;
-            align-items: center; /* Forces center alignment */
+            align-items: center;
             text-align: center;
+            padding: 40px 0 60px;
         }
 
-        .brand-avatar {
-            width: clamp(90px, 18vw, 130px);
-            height: clamp(90px, 18vw, 130px);
-            border-radius: 50%;
-            border: 3px solid var(--accent);
-            padding: 4px;
-            object-fit: cover;
-            margin: 0 auto 25px auto; /* Margin auto forces horizontal center */
-            box-shadow: 0 0 35px rgba(0,0,0,0.5);
-            animation: floatAvatar 6s ease-in-out infinite;
+        .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
         }
 
-        @keyframes floatAvatar {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-12px) scale(1.02); }
+        .meow-icon {
+            font-size: 56px;
+            color: var(--md-primary);
+            animation: bounce 2s infinite cubic-bezier(0.28, 0.84, 0.42, 1);
         }
 
-        .version-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            background: rgba(99, 102, 241, 0.1);
-            color: var(--accent);
-            border: 1px solid var(--accent);
-            border-radius: 20px;
-            font-family: var(--font-code);
-            font-size: 0.75rem;
-            margin-bottom: 15px;
-            letter-spacing: 1px;
-            backdrop-filter: blur(10px);
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
         }
 
         h1 {
-            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-size: clamp(2.5rem, 6vw, 4rem);
             font-weight: 900;
-            letter-spacing: -2px;
-            margin-bottom: 15px;
-            background: linear-gradient(to right, var(--text-main), var(--text-sec));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+            color: var(--md-on-bg);
             line-height: 1.1;
-            width: 100%;
+        }
+
+        .version-badge {
+            background: var(--md-primary-container);
+            color: var(--md-on-primary-container);
+            padding: 6px 16px;
+            border-radius: var(--radius-full);
+            font-family: var(--font-code);
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .subtitle {
-            font-size: clamp(0.95rem, 2vw, 1.25rem);
-            color: var(--text-sec);
-            font-weight: 400;
-            max-width: 600px;
-            margin: 0 auto;
-            width: 100%;
+            font-size: 1.1rem;
+            color: var(--md-on-surface-variant);
+            max-width: 500px;
+            line-height: 1.5;
         }
 
+        /* Material 3 Cards Grid */
         .grid-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(clamp(280px, 30vw, 350px), 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 24px;
             margin-bottom: 60px;
         }
 
         .api-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 32px;
-            backdrop-filter: var(--glass);
-            -webkit-backdrop-filter: var(--glass);
-            transition: var(--transition);
-            cursor: pointer;
+            background: var(--md-surface);
+            border-radius: var(--radius-lg);
+            padding: 24px;
             position: relative;
             overflow: hidden;
+            transition: var(--transition);
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.05);
             display: flex;
             flex-direction: column;
-            height: 100%;
+            box-shadow: var(--shadow-1);
         }
 
-        .api-card::before {
+        /* Ripple Effect Layer */
+        .api-card::after {
             content: '';
             position: absolute;
-            top: 0; left: -100%; width: 50%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-            transform: skewX(-20deg);
-            transition: left 0.7s ease;
+            inset: 0;
+            background: var(--md-on-bg);
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
         }
 
-        .api-card:hover::before { left: 200%; }
         .api-card:hover {
-            transform: translateY(-8px);
-            box-shadow: var(--shadow);
-            border-color: var(--accent);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-3);
+        }
+
+        .api-card:hover::after {
+            opacity: 0.05;
+        }
+
+        .api-card:active::after {
+            opacity: 0.1;
         }
 
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
 
-        .card-icon { color: var(--accent); }
-        .status-dot {
-            width: 8px; height: 8px;
-            background: #10b981; border-radius: 50%;
-            box-shadow: 0 0 10px #10b981;
-            animation: pulseDot 2s infinite;
+        .card-icon-wrapper {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-md);
+            background: var(--md-primary-container);
+            color: var(--md-on-primary-container);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        @keyframes pulseDot {
-            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        .card-icon {
+            font-size: 28px;
         }
 
-        .card-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 12px; }
-        .card-desc { font-size: 0.95rem; color: var(--text-sec); line-height: 1.6; margin-bottom: 25px; flex-grow: 1; }
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--md-on-bg);
+        }
+
+        .card-desc {
+            font-size: 0.95rem;
+            color: var(--md-on-surface-variant);
+            line-height: 1.5;
+            flex-grow: 1;
+            margin-bottom: 24px;
+        }
 
         .method-badge {
-            display: inline-flex; align-items: center; gap: 8px;
-            padding: 8px 14px; border-radius: 10px;
-            background: var(--input-bg); color: var(--text-main);
-            font-family: var(--font-code); font-size: 0.8rem;
-            border: 1px solid var(--border);
+            align-self: flex-start;
+            padding: 6px 12px;
+            background: var(--md-bg);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-code);
+            font-size: 0.8rem;
+            color: var(--md-on-surface-variant);
+            border: 1px solid var(--md-surface-variant);
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
+        .method-type {
+            color: var(--md-primary);
+            font-weight: 600;
+        }
+
+        /* Stats Bar */
         .stats-bar {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px; margin: 60px 0; padding: 40px;
-            background: var(--card-bg); border: 1px solid var(--border);
-            border-radius: var(--radius);
-            backdrop-filter: var(--glass); -webkit-backdrop-filter: var(--glass);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            margin: 40px 0;
+            padding: 32px;
+            background: var(--md-surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-1);
         }
 
-        .stat-item { display: flex; flex-direction: column; align-items: center; text-align: center; }
-        .stat-val { font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 800; font-family: var(--font-code); color: var(--text-main); margin-bottom: 5px; font-variant-numeric: tabular-nums; }
-        .stat-label { color: var(--text-sec); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 2px; font-weight: 600; }
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
 
+        .stat-val {
+            font-size: 2.5rem;
+            font-weight: 700;
+            font-family: var(--font-code);
+            color: var(--md-primary);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            color: var(--md-on-surface-variant);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        /* Theme FAB (Floating Action Button) */
+        .theme-fab {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            width: 56px;
+            height: 56px;
+            border-radius: var(--radius-md);
+            background: var(--md-primary-container);
+            color: var(--md-on-primary-container);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-3);
+            z-index: 100;
+            transition: var(--transition);
+        }
+
+        .theme-fab:hover {
+            box-shadow: 0 8px 12px 6px rgba(0,0,0,0.15);
+            transform: scale(1.05);
+        }
+
+        .theme-fab .material-symbols-rounded { font-size: 24px; }
+
+        /* Material 3 Dialog (Modal) */
         .modal-wrap {
-            position: fixed; inset: 0;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            z-index: 5000; display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.3s ease; padding: 20px;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 5000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            padding: 24px;
         }
 
-        .modal-wrap.active { opacity: 1; pointer-events: all; }
+        .modal-wrap.active {
+            opacity: 1;
+            pointer-events: all;
+        }
 
         .modal-body {
-            width: 100%; max-width: 550px;
-            background: var(--bg-color); border: 1px solid var(--border);
-            border-radius: var(--radius); padding: clamp(20px, 4vw, 40px);
-            position: relative; transform: translateY(20px) scale(0.95);
-            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-            max-height: 90dvh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 480px;
+            background: var(--md-surface);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            position: relative;
+            transform: scale(0.9) translateY(20px);
+            transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+            box-shadow: 0 24px 38px 3px rgba(0,0,0,0.14);
         }
 
-        .modal-wrap.active .modal-body { transform: translateY(0) scale(1); }
-
-        .close-btn {
-            position: absolute; top: 20px; right: 20px;
-            background: var(--input-bg); border: 1px solid var(--border);
-            width: 36px; height: 36px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            color: var(--text-sec); cursor: pointer; transition: var(--transition);
+        .modal-wrap.active .modal-body {
+            transform: scale(1) translateY(0);
         }
-        .close-btn:hover { background: var(--accent); color: #fff; transform: rotate(90deg); }
 
-        .modal-h2 { font-size: 1.8rem; margin-bottom: 25px; color: var(--text-main); display: flex; align-items: center; gap: 10px; }
-        .input-box { margin-bottom: 20px; }
-        .input-label { display: block; margin-bottom: 10px; color: var(--text-sec); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-
-        .custom-input, .custom-select {
-            width: 100%; padding: 16px; border-radius: 12px;
-            border: 1px solid var(--border); background: var(--input-bg);
-            color: var(--text-main); font-family: var(--font-code); font-size: 0.95rem; transition: var(--transition);
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
         }
-        .custom-input:focus, .custom-select:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
 
-        .action-btn {
-            width: 100%; padding: 18px; border-radius: 12px; border: none;
-            background: var(--btn-grad); color: var(--btn-text);
-            font-weight: 700; font-size: 1.05rem; cursor: pointer;
-            transition: var(--transition); display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px;
+        .modal-h2 {
+            font-size: 1.5rem;
+            color: var(--md-on-bg);
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
-        .action-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px var(--accent); }
-        .action-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        .icon-btn {
+            background: transparent;
+            border: none;
+            color: var(--md-on-surface-variant);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .icon-btn:hover { background: var(--md-surface-variant); }
+
+        /* M3 Input Fields */
+        .input-group { margin-bottom: 24px; }
+        
+        .m3-input {
+            width: 100%;
+            padding: 16px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--md-outline);
+            background: transparent;
+            color: var(--md-on-bg);
+            font-family: var(--font-code);
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        .m3-input:focus {
+            border-color: var(--md-primary);
+            border-width: 2px;
+            padding: 15px; /* Offset border width */
+        }
+
+        .m3-input::placeholder { color: var(--md-on-surface-variant); }
+
+        /* M3 Filled Button */
+        .btn-filled {
+            width: 100%;
+            padding: 0 24px;
+            height: 48px;
+            border-radius: var(--radius-full);
+            border: none;
+            background: var(--md-primary);
+            color: var(--md-on-primary);
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-filled:hover {
+            box-shadow: var(--shadow-1);
+            background: var(--md-primary); /* Ripple handled by pseudo */
+        }
+        
+        .btn-filled::after {
+            content: ''; position: absolute; inset: 0; background: #fff; opacity: 0; transition: opacity 0.2s;
+        }
+        .btn-filled:hover::after { opacity: 0.08; }
 
         .result-area {
-            margin-top: 25px; background: var(--input-bg); border: 1px solid var(--border);
-            border-radius: 12px; padding: 20px; font-family: var(--font-code);
-            font-size: 0.85rem; color: #10b981; overflow-x: auto; white-space: pre-wrap; display: none; max-height: 250px;
+            margin-top: 24px;
+            background: var(--md-bg);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            font-family: var(--font-code);
+            font-size: 0.85rem;
+            color: var(--md-primary);
+            overflow-x: auto;
+            white-space: pre-wrap;
+            display: none;
+            max-height: 200px;
         }
 
-        footer { text-align: center; padding: 40px 20px; color: var(--text-sec); border-top: 1px solid var(--border); font-size: 0.9rem; margin-top: 40px; }
-        .footer-badges { display: flex; justify-content: center; gap: 15px; margin-top: 15px; flex-wrap: wrap; }
-        .f-badge { padding: 4px 10px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; font-size: 0.75rem; font-family: var(--font-code); backdrop-filter: blur(10px); }
+        /* Preloader System (Sleek Boot) */
+        #preloader {
+            position: fixed;
+            inset: 0;
+            background: var(--md-bg);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            transition: opacity 0.6s ease, visibility 0.6s;
+        }
+
+        .boot-card {
+            width: 90%;
+            max-width: 500px;
+            background: var(--md-surface);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            box-shadow: var(--shadow-3);
+            display: none; /* Hidden until init */
+        }
+
+        .boot-log {
+            height: 120px;
+            overflow: hidden;
+            font-family: var(--font-code);
+            font-size: 0.85rem;
+            color: var(--md-on-surface-variant);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            margin-bottom: 24px;
+        }
+
+        .boot-line {
+            animation: slideUp 0.2s ease forwards;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .progress-track {
+            height: 4px;
+            background: var(--md-surface-variant);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--md-primary);
+            transition: width 0.1s linear;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 24px;
+            color: var(--md-on-surface-variant);
+            font-size: 0.9rem;
+        }
+        
+        .footer-chips {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .chip {
+            padding: 6px 16px;
+            background: var(--md-surface);
+            border: 1px solid var(--md-outline);
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Mobile specific adjustments */
+        @media (max-width: 768px) {
+            .live-region {
+                flex-direction: column;
+                gap: 8px;
+                padding: 12px;
+                font-size: 0.75rem;
+            }
+            .wrapper { padding-top: 100px; }
+            h1 { font-size: 2.5rem; }
+        }
     </style>
 </head>
 <body>
 
+    <!-- Dynamic Background Layer -->
     <div id="bg-layer"></div>
 
-    <div id="preloader-system">
-        <button id="init-btn">INITIALIZE SYSTEM BOOT</button>
-        <div class="sys-boot-container" id="boot-ui">
-            <div class="boot-header">
-                <span>XUI KERNEL BOOT sequence</span>
-                <span id="boot-time">0.00s</span>
+    <!-- Live Region Top Bar -->
+    <div class="live-region">
+        <div class="group">
+            <div class="item" title="Local Time">
+                <span class="material-symbols-rounded icon">schedule</span>
+                <span id="live-time">Loading...</span>
             </div>
-            <div class="boot-log" id="boot-log"></div>
-            <div class="boot-progress">
-                <div class="boot-bar" id="boot-bar"></div>
+            <div class="item" title="Current Date">
+                <span class="material-symbols-rounded icon">calendar_today</span>
+                <span id="live-date">Loading...</span>
+            </div>
+        </div>
+        <div class="group">
+            <div class="item" title="Detected IP">
+                <span class="material-symbols-rounded icon">router</span>
+                <span id="live-ip">Fetching IP...</span>
+            </div>
+            <div class="item" title="Device Signature">
+                <span class="material-symbols-rounded icon">devices</span>
+                <span id="live-device">Analyzing...</span>
             </div>
         </div>
     </div>
 
-    <canvas id="canvas-layer"></canvas>
-
-    <div class="theme-float" id="theme-btn" title="Cycle Framework Theme">
-        <i data-feather="aperture"></i>
+    <!-- System Preloader -->
+    <div id="preloader">
+        <button class="btn-filled" id="init-btn" style="width: auto; height: 56px; padding: 0 32px;">
+            <span class="material-symbols-rounded">power_settings_new</span>
+            Initialize Meow-Dl Engine
+        </button>
+        <div class="boot-card" id="boot-ui">
+            <div style="display:flex; justify-content:space-between; margin-bottom:16px; font-family:var(--font-code); color:var(--md-primary); font-size:0.9rem;">
+                <span>SYSTEM BOOT</span>
+                <span id="boot-timer">0.00s</span>
+            </div>
+            <div class="boot-log" id="boot-log"></div>
+            <div class="progress-track">
+                <div class="progress-fill" id="boot-bar"></div>
+            </div>
+        </div>
     </div>
+
+    <!-- Floating Theme Switcher -->
+    <button class="theme-fab" id="theme-btn" title="Toggle Theme">
+        <span class="material-symbols-rounded" id="theme-icon">dark_mode</span>
+    </button>
 
     <div class="wrapper">
         <header>
-            <div class="version-badge">v3.9-BETA ESM</div>
-            <img src="https://i.ibb.co/fVrZKnjH/image.jpg" alt="Developer" class="brand-avatar">
-            <h1>XUI ULTIMATE</h1>
-            <p class="subtitle">Next-Generation Multi-Threaded Media Extraction Engine. Architected for speed, built for developers.</p>
+            <div class="version-badge">
+                <span class="material-symbols-rounded" style="font-size:16px;">verified</span>
+                V4.0-CORE ESM
+            </div>
+            <div class="logo-container">
+                <span class="material-symbols-rounded meow-icon">pets</span>
+                <h1>Meow-Dl</h1>
+            </div>
+            <p class="subtitle">Next-Generation Multi-Threaded Media Extraction Engine. Designed with Material You, architected for absolute speed.</p>
         </header>
 
         <section class="grid-container" id="cards-grid"></section>
@@ -499,27 +673,32 @@
             </div>
             <div class="stat-item">
                 <div class="stat-val" id="stat-users">0</div>
-                <div class="stat-label">Concurrent Threads</div>
+                <div class="stat-label">Active Threads</div>
             </div>
             <div class="stat-item">
                 <div class="stat-val" id="stat-uptime">99.99%</div>
-                <div class="stat-label">Core Uptime</div>
+                <div class="stat-label">Core Reliability</div>
             </div>
         </section>
     </div>
 
+    <!-- Material 3 Dialog -->
     <div class="modal-wrap" id="api-modal">
         <div class="modal-body">
-            <button class="close-btn" id="close-modal"><i data-feather="x"></i></button>
-            <h2 class="modal-h2" id="modal-title"></h2>
+            <div class="modal-header">
+                <h2 class="modal-h2" id="modal-title">
+                    <span class="material-symbols-rounded icon" id="modal-icon">api</span>
+                    <span id="modal-text">Node</span>
+                </h2>
+                <button class="icon-btn" id="close-modal"><span class="material-symbols-rounded">close</span></button>
+            </div>
             <div id="modal-content">
-                <div class="input-box">
-                    <label class="input-label">Target URL / Identifier</label>
-                    <input type="text" class="custom-input" id="api-input" autocomplete="off" placeholder="Paste URI here...">
+                <div class="input-group">
+                    <input type="text" class="m3-input" id="api-input" autocomplete="off" placeholder="Paste Target URI here...">
                 </div>
                 <div id="dynamic-params"></div>
-                <button class="action-btn" id="execute-btn">
-                    <i data-feather="zap"></i> Execute Node
+                <button class="btn-filled" id="execute-btn">
+                    <span class="material-symbols-rounded">bolt</span> Execute Request
                 </button>
                 <div class="result-area" id="api-result"></div>
             </div>
@@ -527,124 +706,73 @@
     </div>
 
     <footer>
-        <p>&copy; 2026 XUI Ultimate. Architected by Priyanshi Kaur.</p>
-        <div class="footer-badges">
-            <div class="f-badge">Node.js Engine Active</div>
-            <div class="f-badge">Bun.js Runtime Native</div>
-            <div class="f-badge">Hardware Acceleration ON</div>
+        <p>&copy; 2026 Meow-Dl Network. Re-Architected by Priyanshi Kaur.</p>
+        <div class="footer-chips">
+            <div class="chip">Node.js Engine Active</div>
+            <div class="chip">Bun.js Runtime Native</div>
+            <div class="chip">Material Design 3</div>
         </div>
     </footer>
 
-    <script type="module">
+    <script>
         document.addEventListener('DOMContentLoaded', () => {
-            feather.replace();
+            // Live Region Logic (Time, Date, IP, Device)
+            const timeEl = document.getElementById('live-time');
+            const dateEl = document.getElementById('live-date');
+            const ipEl = document.getElementById('live-ip');
+            const deviceEl = document.getElementById('live-device');
 
-            const themes = ['dark', 'light', 'cinematic'];
-            let currentTheme = localStorage.getItem('xui_v3_theme') || 'light';
-            document.documentElement.setAttribute('data-theme', currentTheme);
-
-            const canvas = document.getElementById('canvas-layer');
-            const ctx = canvas.getContext('2d', { alpha: false });
-            let animationFrameId;
-            let entities = [];
-
-            function resizeCanvas() {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-                initCanvasAnimation(true); 
+            function updateClock() {
+                const now = new Date();
+                timeEl.innerText = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                dateEl.innerText = now.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
             }
-            window.addEventListener('resize', resizeCanvas);
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            setInterval(updateClock, 1000);
+            updateClock();
 
-            function initCanvasAnimation(isResize = false) {
-                if(animationFrameId) cancelAnimationFrame(animationFrameId);
-                const theme = document.documentElement.getAttribute('data-theme');
-                if (!isResize) entities = [];
+            // Fetch IP
+            fetch('https://api.ipify.org?format=json')
+                .then(r => r.json())
+                .then(data => { ipEl.innerText = data.ip; })
+                .catch(() => { ipEl.innerText = "Unavailable"; });
 
-                if(theme === 'dark') {
-                    if(!isResize) {
-                        for(let i=0; i<50; i++) entities.push({
-                            x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-                            vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3, size: Math.random() * 1.5 + 0.5
-                        });
-                    }
-                    function drawDark() {
-                        ctx.clearRect(0,0, canvas.width, canvas.height);
-                        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-                        entities.forEach((p, i) => {
-                            p.x += p.vx; p.y += p.vy;
-                            if(p.x < 0 || p.x > canvas.width) p.vx *= -1;
-                            if(p.y < 0 || p.y > canvas.height) p.vy *= -1;
-                            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
-                            for(let j=i+1; j<entities.length; j++){
-                                if(Math.hypot(p.x - entities[j].x, p.y - entities[j].y) < 100) {
-                                    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(entities[j].x, entities[j].y); ctx.stroke();
-                                }
-                            }
-                        });
-                        animationFrameId = requestAnimationFrame(drawDark);
-                    }
-                    drawDark();
-                } else if (theme === 'light') {
-                    if(!isResize) {
-                        for(let i=0; i<15; i++) entities.push({
-                            x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-                            r: Math.random() * 120 + 40, dx: (Math.random() - 0.5)*1.2, dy: (Math.random() - 0.5)*1.2,
-                            c: `hsla(${Math.random()*40 + 210}, 80%, 75%, 0.1)`
-                        });
-                    }
-                    function drawLight() {
-                        ctx.clearRect(0,0, canvas.width, canvas.height);
-                        entities.forEach(o => {
-                            o.x += o.dx; o.y += o.dy;
-                            if(o.x < -o.r || o.x > canvas.width + o.r) o.dx *= -1;
-                            if(o.y < -o.r || o.y > canvas.height + o.r) o.dy *= -1;
-                            ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI*2);
-                            ctx.fillStyle = o.c; ctx.fill();
-                        });
-                        animationFrameId = requestAnimationFrame(drawLight);
-                    }
-                    drawLight();
-                } else if (theme === 'cinematic') {
-                    if(!isResize) {
-                        for(let i=0; i<80; i++) entities.push({
-                            x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-                            l: Math.random() * 20 + 10, speed: Math.random() * 2 + 1, o: Math.random() * 0.4 + 0.1
-                        });
-                    }
-                    function drawCinematic() {
-                        ctx.clearRect(0,0, canvas.width, canvas.height);
-                        entities.forEach(d => {
-                            ctx.fillStyle = `rgba(102, 252, 241, ${d.o})`;
-                            ctx.fillRect(d.x, d.y, 1.5, d.l);
-                            d.y += d.speed;
-                            if (d.y > canvas.height) { d.y = -d.l; d.x = Math.random() * canvas.width; }
-                        });
-                        animationFrameId = requestAnimationFrame(drawCinematic);
-                    }
-                    drawCinematic();
-                }
+            // Detect Device
+            const ua = navigator.userAgent;
+            let os = "Unknown OS";
+            if (/android/i.test(ua)) os = "Android";
+            else if (/ipad|iphone|ipod/i.test(ua)) os = "iOS";
+            else if (/windows/i.test(ua)) os = "Windows";
+            else if (/mac/i.test(ua)) os = "macOS";
+            else if (/linux/i.test(ua)) os = "Linux";
+            const formFactor = /mobile/i.test(ua) ? "Mobile" : "Desktop";
+            deviceEl.innerText = `${os} ${formFactor}`;
+
+
+            // Theme Management
+            const themeBtn = document.getElementById('theme-btn');
+            const themeIcon = document.getElementById('theme-icon');
+            let isLight = localStorage.getItem('meow_dl_theme') === 'light';
+            
+            function applyTheme() {
+                document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+                themeIcon.innerText = isLight ? 'light_mode' : 'dark_mode';
             }
+            applyTheme();
 
-            initCanvasAnimation();
-
-            document.getElementById('theme-btn').addEventListener('click', () => {
-                let idx = themes.indexOf(currentTheme);
-                currentTheme = themes[(idx + 1) % themes.length];
-                document.documentElement.setAttribute('data-theme', currentTheme);
-                localStorage.setItem('xui_v3_theme', currentTheme);
-                initCanvasAnimation();
+            themeBtn.addEventListener('click', () => {
+                isLight = !isLight;
+                localStorage.setItem('meow_dl_theme', isLight ? 'light' : 'dark');
+                applyTheme();
             });
 
+            // API Endpoints Data (Updated with Material Symbols)
             const endpoints = [
-                { id: 'yt', title: 'YouTube Engine', icon: 'youtube', desc: '4K Video & Audio extraction. Bypasses standard bot detection blocks automatically.', url: '/api/v3/yt', type: 'url', params: [{n:'Quality Profile', o:['Max Res (4K/1080p)','720p Optimized','Audio Only (320kbps)']}] },
-                { id: 'insta', title: 'IG Scraper V2', icon: 'instagram', desc: 'Reels, Stories, and Post downloader. Real-time media extraction without auth.', url: '/api/v3/ig', type: 'url' },
-                { id: 'tik', title: 'TikTok No-Watermark', icon: 'video', desc: 'Pulls pure HD video chunks and metadata directly from the source.', url: '/api/v3/tiktok', type: 'url' },
-                { id: 'pin', title: 'Pinterest Board Puller', icon: 'image', desc: 'Extracts full resolution images and video pins via direct URI.', url: '/api/v3/pin', type: 'url' },
-                { id: 'git', title: 'GitHub Recon', icon: 'github', desc: 'Repository architecture fetcher and developer profile scraper.', url: '/api/v3/github', type: 'query' },
-                { id: 'spot', title: 'Spotify Meta', icon: 'music', desc: 'High-speed metadata fetching and 30s track preview extraction.', url: '/api/v3/spotify', type: 'url' }
+                { id: 'yt', title: 'YouTube Engine', icon: 'smart_display', desc: '4K Video & Audio extraction. Bypasses standard bot detection blocks automatically.', url: '/api/yt', type: 'url' },
+                { id: 'insta', title: 'IG Scraper V2', icon: 'photo_camera', desc: 'Reels, Stories, and Post downloader. Real-time media extraction without auth.', url: '/api/insta', type: 'url' },
+                { id: 'tik', title: 'TikTok No-Watermark', icon: 'music_video', desc: 'Pulls pure HD video chunks and metadata directly from the source.', url: '/api/tt', type: 'url' },
+                { id: 'pin', title: 'Pinterest Board Puller', icon: 'push_pin', desc: 'Extracts full resolution images and video pins via direct URI.', url: '/api/pin', type: 'url' },
+                { id: 'x', title: 'X (Twitter) Fetch', icon: 'chat', desc: 'Retrieves media attachments from X posts natively.', url: '/api/x', type: 'url' },
+                { id: 'fb', title: 'Facebook Media', icon: 'public', desc: 'High-speed video blob extraction for FB Watch and posts.', url: '/api/fb', type: 'url' }
             ];
 
             const grid = document.getElementById('cards-grid');
@@ -653,42 +781,32 @@
                 card.className = 'api-card';
                 card.innerHTML = `
                     <div class="card-header">
-                        <i data-feather="${ep.icon}" class="card-icon" style="width:32px; height:32px;"></i>
-                        <div class="status-dot" title="Operational"></div>
+                        <div class="card-icon-wrapper">
+                            <span class="material-symbols-rounded card-icon">${ep.icon}</span>
+                        </div>
                     </div>
                     <h3 class="card-title">${ep.title}</h3>
                     <p class="card-desc">${ep.desc}</p>
-                    <div class="method-badge"><span style="color:#10b981; font-weight:bold;">GET</span> ${ep.url}</div>
+                    <div class="method-badge">
+                        <span class="method-type">GET</span> ${ep.url}
+                    </div>
                 `;
                 card.addEventListener('click', () => openModal(ep));
                 grid.appendChild(card);
             });
-            feather.replace();
 
+            // Modal Logic
             const modal = document.getElementById('api-modal');
             const closeBtn = document.getElementById('close-modal');
             let activeEp = null;
 
             function openModal(ep) {
                 activeEp = ep;
-                document.getElementById('modal-title').innerHTML = `<i data-feather="${ep.icon}"></i> ${ep.title}`;
+                document.getElementById('modal-icon').innerText = ep.icon;
+                document.getElementById('modal-text').innerText = ep.title;
                 document.getElementById('api-input').value = '';
                 document.getElementById('api-result').style.display = 'none';
-
-                const dynDiv = document.getElementById('dynamic-params');
-                dynDiv.innerHTML = '';
-                if(ep.params) {
-                    ep.params.forEach(p => {
-                        const box = document.createElement('div');
-                        box.className = 'input-box';
-                        let html = `<label class="input-label">${p.n}</label><select class="custom-select" id="param-${p.n}">`;
-                        p.o.forEach(opt => html += `<option value="${opt}">${opt}</option>`);
-                        html += '</select>';
-                        box.innerHTML = html;
-                        dynDiv.appendChild(box);
-                    });
-                }
-                feather.replace();
+                
                 modal.classList.add('active');
                 setTimeout(() => document.getElementById('api-input').focus(), 100);
             }
@@ -696,91 +814,68 @@
             closeBtn.onclick = () => modal.classList.remove('active');
             modal.onclick = (e) => { if(e.target === modal) modal.classList.remove('active'); };
 
+            // Execute Request Mockup
             document.getElementById('execute-btn').onclick = async () => {
                 const btn = document.getElementById('execute-btn');
                 const inp = document.getElementById('api-input').value;
                 const resBox = document.getElementById('api-result');
 
                 if(!inp) {
-                    resBox.style.display = 'block'; resBox.style.color = '#ef4444'; resBox.innerText = '> _ERR: Target URI cannot be null.'; return;
+                    resBox.style.display = 'block'; 
+                    resBox.style.color = 'var(--md-error, #FFB4AB)'; 
+                    resBox.innerText = '> Error: Target URI required.'; 
+                    return;
                 }
 
-                btn.innerHTML = '<i data-feather="loader" class="fa-spin"></i> Processing...';
-                feather.replace();
-                btn.querySelector('svg').style.animation = 'spin 1s linear infinite';
+                btn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">sync</span> Processing...';
                 btn.disabled = true;
 
+                // Fake delay
                 await new Promise(r => setTimeout(r, 1200)); 
 
                 const mockRes = {
-                    status: 200, message: "Query Resolved", core: "XUI-V3.9",
-                    latency: Math.floor(Math.random() * 30 + 10) + "ms",
-                    payload: { target: inp, resource_url: "https://media.xui-api.network/temp/x90a2.mp4", metadata: { filename: "extracted_media", size: "14.2 MB" } }
+                    status: 200, 
+                    engine: "Meow-Dl V4.0",
+                    latency: Math.floor(Math.random() * 40 + 15) + "ms",
+                    payload: { target: inp, url: "https://dl.meow.network/file/stream.mp4" }
                 };
 
                 resBox.style.display = 'block';
-                resBox.style.color = document.documentElement.getAttribute('data-theme') === 'light' ? '#059669' : '#10b981';
+                resBox.style.color = 'var(--md-primary)';
                 resBox.innerText = JSON.stringify(mockRes, null, 2);
 
-                btn.innerHTML = '<i data-feather="zap"></i> Execute Node';
-                btn.disabled = false; feather.replace();
+                btn.innerHTML = '<span class="material-symbols-rounded">bolt</span> Execute Request';
+                btn.disabled = false;
 
+                // Update Stats
                 const countEl = document.getElementById('stat-req');
                 let c = parseInt(countEl.innerText.replace(/,/g,''));
                 countEl.innerText = (c + 1).toLocaleString();
             };
 
-            // Audio API Synthesizer Setup (To avoid autoplay issues)
-            let audioCtx;
-            function playTerminalBeep() {
-                if(!audioCtx) return;
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(250, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.05);
-                gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-            }
+            // Custom Spin Animation for Icon
+            const style = document.createElement('style');
+            style.innerHTML = `@keyframes spin { 100% { transform: rotate(360deg); } }`;
+            document.head.appendChild(style);
 
-            function playBootChime() {
-                if(!audioCtx) return;
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.5);
-                gain.gain.setValueAtTime(0, audioCtx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.1);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + 1.5);
-            }
-
+            // Preloader / Boot Sequence
             const bootSequence = [
                 "Mounting virtual DOM components...",
-                "Loading XUI KERNEL fonts and aesthetics...",
-                "Initializing ESM module architecture...",
-                "Allocating hardware accelerated canvas context...",
-                "Bypassing runtime bottlenecks...",
+                "Loading Meow-Dl V4 UI dependencies...",
+                "Initializing Material 3 architectures...",
                 "Establishing wss:// secure handshake...",
-                "System Core V3.9-BETA Ready."
+                "Bypassing runtime bottlenecks...",
+                "System Core V4.0 Ready."
             ];
 
             const initBtn = document.getElementById('init-btn');
             const bootUi = document.getElementById('boot-ui');
-            const preloader = document.getElementById('preloader-system');
+            const preloader = document.getElementById('preloader');
             const logBox = document.getElementById('boot-log');
             const bootBar = document.getElementById('boot-bar');
-            const bootTime = document.getElementById('boot-time');
+            const bootTimer = document.getElementById('boot-timer');
 
             initBtn.addEventListener('click', () => {
-                // Initialize Audio Context on user gesture to bypass browser restrictions
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if(audioCtx.state === 'suspended') audioCtx.resume();
-                
                 initBtn.style.display = 'none';
                 bootUi.style.display = 'block';
 
@@ -788,46 +883,45 @@
                 let timeElapsed = 0;
                 const timerInt = setInterval(() => {
                     timeElapsed += 0.05;
-                    bootTime.innerText = timeElapsed.toFixed(2) + 's';
+                    bootTimer.innerText = timeElapsed.toFixed(2) + 's';
                 }, 50);
 
                 function appendLog() {
                     if (step >= bootSequence.length) {
                         clearInterval(timerInt);
-                        playBootChime();
                         setTimeout(() => {
                             preloader.style.opacity = '0';
                             preloader.style.visibility = 'hidden';
                             startLiveStats();
-                        }, 800);
+                        }, 500);
                         return;
                     }
                     const line = document.createElement('div');
-                    line.className = 'boot-log-line';
-                    line.innerText = `[${new Date().toISOString().split('T')[1].slice(0,-1)}] INFO: ${bootSequence[step]}`;
+                    line.className = 'boot-line';
+                    line.innerText = `> ${bootSequence[step]}`;
                     logBox.appendChild(line);
                     logBox.scrollTop = logBox.scrollHeight;
-                    
-                    playTerminalBeep();
+
                     bootBar.style.width = ((step + 1) / bootSequence.length) * 100 + '%';
-                    
+
                     step++;
-                    setTimeout(appendLog, Math.random() * 200 + 150);
+                    setTimeout(appendLog, Math.random() * 150 + 100);
                 }
                 setTimeout(appendLog, 200);
             });
 
+            // Random stats generation
             function startLiveStats() {
                 setInterval(() => {
-                    document.getElementById('stat-ping').innerText = Math.floor(Math.random() * 25 + 8) + ' ms';
+                    document.getElementById('stat-ping').innerText = Math.floor(Math.random() * 20 + 12) + ' ms';
                     const userEl = document.getElementById('stat-users');
-                    let currentUsers = parseInt(userEl.innerText.replace(/,/g,'')) || 4134;
-                    currentUsers += Math.floor(Math.random() * 10 - 4);
+                    let currentUsers = parseInt(userEl.innerText.replace(/,/g,'')) || 8421;
+                    currentUsers += Math.floor(Math.random() * 8 - 3);
                     userEl.innerText = currentUsers.toLocaleString();
-                }, 2500);
+                }, 2000);
 
-                anime({ targets: document.getElementById('stat-users'), innerHTML: [0, 4134], round: 1, easing: 'easeOutExpo', duration: 2500 });
-                anime({ targets: document.getElementById('stat-req'), innerHTML: [0, 892041], round: 1, easing: 'easeOutExpo', duration: 3000 });
+                anime({ targets: document.getElementById('stat-users'), innerHTML: [0, 8421], round: 1, easing: 'easeOutExpo', duration: 2500 });
+                anime({ targets: document.getElementById('stat-req'), innerHTML: [0, 1204892], round: 1, easing: 'easeOutExpo', duration: 3000 });
             }
         });
     </script>
