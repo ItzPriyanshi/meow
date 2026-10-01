@@ -115,20 +115,31 @@ function getVideoId(url: string): string | null {
       if (shortsMatch) return shortsMatch[2];
     }
     if (urlObj.hostname.includes("youtu.be")) return urlObj.pathname.split("/")[1];
-  } catch (error) {}
+  } catch (error) {
+    console.warn(`Failed to parse video ID from URL: ${url}`, error);
+  }
   return null;
 }
 
 async function getCookieFileContent(cookieFilePath: string): Promise<string> {
   const cookieFile = Bun.file(cookieFilePath);
-  if (!(await cookieFile.exists())) return "";
+  if (!(await cookieFile.exists())) {
+    console.warn(`🔴 WARNING: Cookie file not found at '${cookieFilePath}'. Running unauthenticated.`);
+    return "";
+  }
   return cookieFile.text();
 }
 
 function sanitizeFilename(name: string): string {
   let clean = name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
-  clean = clean.replace(/[^\x20-\x7E]/g, "").replace(/[\\/:*?"<>|#!]/g, "_").replace(/\s+/g, " ").trim();
-  if (clean.length > 200) clean = clean.substring(0, 200);
+  clean = clean
+    .replace(/[^\x20-\x7E]/g, "")
+    .replace(/[\\/:*?"<>|#!]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (clean.length > 200) {
+    clean = clean.substring(0, 200);
+  }
   return clean || `video_${Date.now()}`;
 }
 
@@ -140,7 +151,7 @@ function formatBytes(bytes: number | undefined, decimals = 2): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${["Bytes", "KiB", "MiB", "GiB"][i]}`;
 }
 
-function formatDuration(_: any): string {
+function formatDuration(_: number): string {
   const TUNNEL_LINK_EXPIRATION_HOURS = 5;
   const totalSeconds = TUNNEL_LINK_EXPIRATION_HOURS * 3600;
   if (totalSeconds < 3600) return `In ${Math.round(totalSeconds / 60)} minutes`;
@@ -159,10 +170,13 @@ function createContentDisposition(filename: string): string {
 async function cleanupCachedFile(cacheKey: string) {
   const cacheEntry = remuxedFileCache.get(cacheKey);
   if (cacheEntry) {
+    console.log(`[Cache] Cleaning up expired file: ${cacheEntry.filename}`);
     remuxedFileCache.delete(cacheKey);
     try {
       await rm(cacheEntry.filePath, { force: true });
-    } catch (err) {}
+    } catch (err: any) {
+      console.error(`[Cache] Error deleting cached file ${cacheEntry.filePath}:`, err.message);
+    }
   }
 }
 
@@ -171,13 +185,25 @@ function scheduleFileCleanup(cacheKey: string) {
   if (!cacheEntry) return;
   const REMUXED_FILE_CACHE_SECONDS = 300;
   if (cacheEntry.expiryTimeoutId) clearTimeout(cacheEntry.expiryTimeoutId);
-  cacheEntry.expiryTimeoutId = setTimeout(() => cleanupCachedFile(cacheKey), REMUXED_FILE_CACHE_SECONDS * 1000);
+  cacheEntry.expiryTimeoutId = setTimeout(
+    () => cleanupCachedFile(cacheKey),
+    REMUXED_FILE_CACHE_SECONDS * 1000,
+  );
 }
 
-async function parallelDownloadManager(sessionId: string, tasks: DownloadTask[], destinationFile: string, mediaType: "Audio" | "Video", player: any) {
+async function parallelDownloadManager(
+  sessionId: string,
+  tasks: DownloadTask[],
+  destinationFile: string,
+  mediaType: "Audio" | "Video",
+  player: any,
+) {
   if (!player) throw new Error("Player object is required for deciphering URLs.");
+  const startTime = performance.now();
   const totalSize = tasks.reduce((sum, task) => sum + (task.end - task.start + 1), 0);
   const actualWorkers = Math.min(tasks.length, MAX_CONCURRENT_DOWNLOADS);
+  
+  console.log(`[${sessionId}] ⬇️ Starting ${mediaType} download: ${tasks.length} chunks, ${formatBytes(totalSize)}. Using ${actualWorkers} workers...`);
 
   const downloadedChunks = new Map<number, Buffer>();
   let chunksWritten = 0;
@@ -201,7 +227,8 @@ async function parallelDownloadManager(sessionId: string, tasks: DownloadTask[],
           chunksWritten++;
         }
         return;
-      } catch (error) {
+      } catch (error: any) {
+        console.error(`\n[${sessionId}] Worker ${workerId} FAILED task ${task.description} (attempt ${attempt + 1}/${task.retries + 1}). Error: ${error.message}`);
         if (attempt < task.retries) {
           attempt++;
           await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
@@ -212,6 +239,7 @@ async function parallelDownloadManager(sessionId: string, tasks: DownloadTask[],
       }
     }
   };
+  
   const tasksToProcess = [...tasks];
   const workerPromises = Array.from({ length: actualWorkers }, (_, i) => {
     const workerId = i + 1;
@@ -222,11 +250,20 @@ async function parallelDownloadManager(sessionId: string, tasks: DownloadTask[],
       }
     })();
   });
+  
   await Promise.all(workerPromises);
   await writer.end();
+  const endTime = performance.now();
+  const durationSec = (endTime - startTime) / 1000;
+  const speed = durationSec > 0 ? totalSize / durationSec : 0;
+  console.log(`[${sessionId}] ✅ ${mediaType} Download Complete: ${formatBytes(totalSize)} in ${durationSec.toFixed(2)}s (${formatBytes(speed)}/s)`);
+  return destinationFile;
 }
 
-Platform.shim.eval = async (data: Types.BuildScriptResult, env: Record<string, Types.VMPrimative>) => {
+Platform.shim.eval = async (
+  data: Types.BuildScriptResult,
+  env: Record<string, Types.VMPrimative>,
+) => {
   const properties: string[] = [];
   if (env.n) properties.push(`n: exportedVars.nFunction(${JSON.stringify(String(env.n))})`);
   if (env.sig) properties.push(`sig: exportedVars.sigFunction(${JSON.stringify(String(env.sig))})`);
@@ -234,6 +271,8 @@ Platform.shim.eval = async (data: Types.BuildScriptResult, env: Record<string, T
   return new Function(fullCode)();
 };
 
+console.log("🚀 Server starting: Performing one-time expensive setup...");
+const setupStartTime = performance.now();
 const cookie = await getCookieFileContent(COOKIE_FILE_PATH);
 innertube = await Innertube.create({
   cookie,
@@ -241,28 +280,42 @@ innertube = await Innertube.create({
   client_type: "MWEB"
 });
 
+if (!innertube.session.player) {
+  console.warn("⚠️ Innertube session is missing the Player object. Deciphering may fail.");
+}
+console.log(`✅ One-time setup complete in ${(performance.now() - setupStartTime).toFixed(2)}ms.`);
+
 function scheduleIdleRestart() {
   if (!restartScheduled) return;
-  if (shutdownTimer) clearTimeout(shutdownTimer);
+  if (shutdownTimer) {
+    clearTimeout(shutdownTimer);
+  }
+  console.log(`[Auto-Restart] Scheduling restart in ${IDLE_RESTART_DELAY_MS / 1000} seconds if server remains idle.`);
   shutdownTimer = setTimeout(() => {
     if (activeOperations === 0 && activeRequests === 0) {
       gracefulShutdown("High latency detected and server is idle.");
+    } else {
+      console.log(`[Auto-Restart] Restart postponed. Server is not idle (Downloads: ${activeOperations}, Requests: ${activeRequests}).`);
     }
   }, IDLE_RESTART_DELAY_MS);
 }
 
 async function gracefulShutdown(reason: string) {
   if (!restartScheduled) return;
+  console.log(`[Graceful Shutdown] Initiating shutdown. Reason: ${reason}`);
   restartScheduled = false;
   if (shutdownTimer) {
     clearTimeout(shutdownTimer);
     shutdownTimer = null;
   }
   await app.stop();
+  console.log("[Graceful Shutdown] Server has stopped accepting new connections.");
   const waitForIdle = async () => {
     if (activeOperations === 0 && activeRequests === 0) {
+      console.log("[Graceful Shutdown] All operations finished. Exiting now.");
       process.exit(0);
     } else {
+      console.log(`[Graceful Shutdown] Waiting for operations to complete. Downloads: ${activeOperations}, Requests: ${activeRequests}`);
       setTimeout(waitForIdle, 1000);
     }
   };
@@ -272,28 +325,39 @@ async function gracefulShutdown(reason: string) {
 async function getOrFetchVideoData(videoId: string): Promise<{ videoData: VideoCacheEntry; cacheHit: boolean; audioTunnelId: string; }> {
   const cachedData = videoDataCache.get(videoId);
   if (cachedData && cachedData.expiryTimestamp > Date.now()) {
-    const audioFormat = cachedData.info.streaming_data?.adaptive_formats.find((f) => f.itag === cachedData.bestAudioFormat.itag);
+    console.log(`\n♻️ [${videoId}] Full Cache HIT.`);
+    const audioFormat = cachedData.info.streaming_data?.adaptive_formats.find(
+      (f) => f.itag === cachedData.bestAudioFormat.itag,
+    );
     const audioTunnelId = audioFormat ? cachedData.tunnels.get(audioFormat.itag) : undefined;
     if (!audioTunnelId) throw new Error("Cached audio tunnel ID is missing.");
     return { videoData: cachedData, cacheHit: true, audioTunnelId };
   }
 
+  console.log(`\n📥 [${videoId}] API Cache MISS. Fetching from YouTube.`);
   const infoFetchStart = performance.now();
   const playerResponse = await innertube.actions.execute("/player", {
-  videoId,
-  client: "MWEB",
-  playbackContext: {
-    contentPlaybackContext: {
-      signatureTimestamp: innertube.session.player?.signature_timestamp,
+    videoId,
+    client: "MWEB",
+    playbackContext: {
+      contentPlaybackContext: {
+        signatureTimestamp: innertube.session.player?.signature_timestamp,
+      },
     },
-  },
-});
+  });
 
   const info = new YT.VideoInfo([playerResponse], innertube.actions, videoId);
   const player = innertube.session.player!;
   const fetchDuration = performance.now() - infoFetchStart;
+  console.log(`[${videoId}] Info fetched in ${fetchDuration.toFixed(2)}ms.`);
 
   if (fetchDuration > 20000 && !restartScheduled) {
+    console.warn(`
+      ####################################################################
+      ## ⚠️ High Latency Detected: ${fetchDuration.toFixed(2)}ms.
+      ## A safe restart will be triggered when the server is idle.
+      ####################################################################
+    `);
     restartScheduled = true;
     scheduleIdleRestart(); 
   }
@@ -301,13 +365,19 @@ async function getOrFetchVideoData(videoId: string): Promise<{ videoData: VideoC
   if (info.playability_status?.status !== "OK") throw new Error(`Video not playable: ${info.playability_status?.reason}`);
   if (!info.streaming_data) throw new Error("No streaming data found.");
 
+  console.log(`\n✨ [${videoId}] Generating and caching all static URLs.`);
   const adaptiveFormats = info.streaming_data.adaptive_formats;
   const audio_only_streams = adaptiveFormats.filter((f) => f.has_audio && !f.has_video);
-  let bestAudioFormat: ParsedYTFormat | undefined = audio_only_streams.find((f) => f.audio_track?.audio_is_default);
+  let bestAudioFormat: ParsedYTFormat | undefined = audio_only_streams.find(
+    (f) => f.audio_track?.audio_is_default,
+  );
+  
   if (!bestAudioFormat) bestAudioFormat = audio_only_streams.find((f) => f.is_original);
   if (!bestAudioFormat) bestAudioFormat = audio_only_streams.find((f) => f.itag === 140);
   if (!bestAudioFormat) {
-    const m4a_formats = audio_only_streams.filter((f) => f.mime_type.includes("mp4a")).sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+    const m4a_formats = audio_only_streams
+      .filter((f) => f.mime_type.includes("mp4a"))
+      .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
     bestAudioFormat = m4a_formats.length > 0 ? m4a_formats[0] : audio_only_streams.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
   }
   if (!bestAudioFormat) throw new Error("No suitable audio format found.");
@@ -319,7 +389,9 @@ async function getOrFetchVideoData(videoId: string): Promise<{ videoData: VideoC
     if (vp9) selectedQualities.set(q, vp9);
   });
   ["480p", "360p", "240p", "144p"].forEach((q) => {
-    const format = video_only_streams.find((f) => f.quality_label === q && f.mime_type.includes("avc1"));
+    const format = video_only_streams.find(
+      (f) => f.quality_label === q && f.mime_type.includes("avc1"),
+    );
     if (format) selectedQualities.set(q, format);
   });
 
@@ -344,7 +416,10 @@ async function getOrFetchVideoData(videoId: string): Promise<{ videoData: VideoC
 
   const audioTunnelId = Bun.randomUUIDv7();
   tunnels.set(bestAudioFormat.itag, audioTunnelId);
-  const audioFilename = sanitizeFilename(`${info.basic_info.title || "Unknown Title"} - ${info.basic_info.author || "Unknown Channel"}`).trim() + ".m4a";
+  const audioFilename = sanitizeFilename(
+    `${info.basic_info.title || "Unknown Title"} - ${info.basic_info.author || "Unknown Channel"}`,
+  ).trim() + ".m4a";
+  
   tunnelSessions.set(audioTunnelId, {
     videoId,
     itag: bestAudioFormat.itag,
@@ -356,7 +431,14 @@ async function getOrFetchVideoData(videoId: string): Promise<{ videoData: VideoC
     filename: audioFilename,
   });
 
-  const apiCacheExpirySeconds = Math.floor((info.streaming_data.expires.getTime() - Date.now()) / 1000);
+  const apiCacheExpirySeconds = Math.floor(
+    (info.streaming_data.expires.getTime() - Date.now()) / 1000,
+  );
+  
+  if (apiCacheExpirySeconds <= 60) {
+    console.warn(`[${videoId}] API response has a very short expiry time: ${apiCacheExpirySeconds}s.`);
+  }
+
   const videoData: VideoCacheEntry = {
     info,
     player,
@@ -370,21 +452,28 @@ async function getOrFetchVideoData(videoId: string): Promise<{ videoData: VideoC
   return { videoData, cacheHit: false, audioTunnelId };
 }
 
-async function getOrFetchSearchResults(searchQuery: string): Promise<{ results: VideoResult[]; fetchTime: number; cacheHit: boolean }> {
+async function getOrFetchSearchResults(
+  searchQuery: string,
+): Promise<{ results: VideoResult[]; fetchTime: number; cacheHit: boolean }> {
   const lookupStartTime = performance.now();
   const cacheKey = searchQuery.toLowerCase();
   const cachedEntry = searchCache.get(cacheKey);
 
   if (cachedEntry && cachedEntry.expires > Date.now()) {
-    return { results: cachedEntry.results, fetchTime: performance.now() - lookupStartTime, cacheHit: true };
+    console.log(`\n♻️ [Search Cache] HIT for "${searchQuery}".`);
+    const cacheFetchTime = performance.now() - lookupStartTime;
+    return { results: cachedEntry.results, fetchTime: cacheFetchTime, cacheHit: true };
   }
 
+  console.log(`\n🔍 [API Search] MISS for "${searchQuery}". Fetching from YouTube.`);
   const apiFetchStart = performance.now();
   const response = await innertube.actions.execute("/search", {
-  query: searchQuery,
-  client: "MWEB",
-  parse: false,
-});
+    query: searchQuery,
+    client: "TV_EMBEDDED",
+    parse: false,
+  });
+  const apiFetchTime = performance.now() - apiFetchStart;
+  console.log(`\n⏱️ [API Search] Duration: ${apiFetchTime.toFixed(2)}ms`);
 
   const searchData: any = response.data;
   const results: VideoResult[] = [];
@@ -400,8 +489,12 @@ async function getOrFetchSearchResults(searchQuery: string): Promise<{ results: 
         const duration = video.lengthText?.runs?.[0]?.text;
         let thumbnail = "";
         const thumbnails = video.thumbnail?.thumbnails;
-        if (Array.isArray(thumbnails) && thumbnails.length > 0) thumbnail = thumbnails[thumbnails.length - 1].url;
-        if (videoId && title && author && duration) results.push({ videoId, title, author, duration, thumbnail });
+        if (Array.isArray(thumbnails) && thumbnails.length > 0) {
+          thumbnail = thumbnails[thumbnails.length - 1].url;
+        }
+        if (videoId && title && author && duration) {
+          results.push({ videoId, title, author, duration, thumbnail });
+        }
       }
     }
   }
@@ -410,23 +503,34 @@ async function getOrFetchSearchResults(searchQuery: string): Promise<{ results: 
     searchCache.set(cacheKey, { results, expires: Date.now() + SEARCH_CACHE_TTL });
   }
 
-  return { results, fetchTime: performance.now() - apiFetchStart, cacheHit: false };
+  return { results, fetchTime: apiFetchTime, cacheHit: false };
 }
 
-async function getOrStartDownload(session: TunnelSession, cacheKey: string, isAudioOnly: boolean): Promise<FileCacheEntry> {
+async function getOrStartDownload(
+  session: TunnelSession,
+  cacheKey: string,
+  isAudioOnly: boolean,
+): Promise<FileCacheEntry> {
   const { player, bestAudioFormat, chosenVideoFormat, filename } = session;
   let downloadPromise = activeDownloads.get(cacheKey);
   let cachedFile = remuxedFileCache.get(cacheKey);
 
   if (cachedFile) {
+    console.log(`[${cacheKey}] ♻️ Cache HIT. Scheduling cleanup.`);
     scheduleFileCleanup(cacheKey);
     return cachedFile;
   }
-  if (downloadPromise) return downloadPromise;
+  if (downloadPromise) {
+    console.log(`[${cacheKey}] ⏳ Download in progress. Awaiting completion...`);
+    return downloadPromise;
+  }
 
   const processPromise = (async (): Promise<FileCacheEntry> => {
     const tempDir = join(TEMP_DIR_BASE, Bun.randomUUIDv7());
-    const tempAudioFile = join(tempDir, `audio.${bestAudioFormat.mime_type.includes("mp4a") ? "m4a" : "webm"}`);
+    const tempAudioFile = join(
+      tempDir,
+      `audio.${bestAudioFormat.mime_type.includes("mp4a") ? "m4a" : "webm"}`,
+    );
     await mkdir(tempDir, { recursive: true });
 
     try {
@@ -445,11 +549,27 @@ async function getOrStartDownload(session: TunnelSession, cacheKey: string, isAu
         }
         await parallelDownloadManager(cacheKey, audioTasks, tempDownloadPath, "Audio", player);
 
-        const ffmpegArgs = [ffmpeg!, "-loglevel", "error", "-i", tempDownloadPath, "-c:a", "copy", "-movflags", "faststart", "-y", finalFilePath];
+        console.log(`[${cacheKey}] 🔄 Starting Audio-Only Remux...`);
+        const ffmpegStart = performance.now();
+        const ffmpegArgs = [
+          ffmpeg!, "-loglevel", "error", "-i", tempDownloadPath, "-c:a", "copy", "-movflags", "faststart", "-y", finalFilePath,
+        ];
         const ffmpegProcess = Bun.spawn(ffmpegArgs, { stderr: "pipe" });
-        if ((await ffmpegProcess.exited) !== 0) throw new Error(`FFmpeg failed`);
+        if ((await ffmpegProcess.exited) !== 0) throw new Error(
+          `FFmpeg failed during audio remux: ${await new Response(ffmpegProcess.stderr).text()}`,
+        );
+        console.log(`[${cacheKey}] ✅ Audio Remux successful in ${(performance.now() - ffmpegStart).toFixed(2)}ms.`);
       } else {
-        if (!chosenVideoFormat) throw new Error("Chosen video format is missing.");
+        if (!chosenVideoFormat) throw new Error("Chosen video format is missing for video download.");
+        
+        const audioContentLength = bestAudioFormat.content_length || 0;
+        const audioTasks: DownloadTask[] = [];
+        for (let i = 0, start = 0; start < audioContentLength; i++) {
+          const end = Math.min(start + targetChunkSizeBytes - 1, audioContentLength - 1);
+          audioTasks.push({ index: i, format: bestAudioFormat, start, end, retries: 2, description: `Audio Chunk ${i + 1}` });
+          start = end + 1;
+        }
+
         const tempVideoFile = join(tempDir, `video.mp4`);
         const videoContentLength = chosenVideoFormat.content_length || 0;
         const videoTasks: DownloadTask[] = [];
@@ -459,22 +579,21 @@ async function getOrStartDownload(session: TunnelSession, cacheKey: string, isAu
           start = end + 1;
         }
 
-        const audioContentLength = bestAudioFormat.content_length || 0;
-        const audioTasks: DownloadTask[] = [];
-        for (let i = 0, start = 0; start < audioContentLength; i++) {
-          const end = Math.min(start + targetChunkSizeBytes - 1, audioContentLength - 1);
-          audioTasks.push({ index: i, format: bestAudioFormat, start, end, retries: 2, description: `Audio Chunk ${i + 1}` });
-          start = end + 1;
-        }
-
         await Promise.all([
           parallelDownloadManager(cacheKey, videoTasks, tempVideoFile, "Video", player),
           parallelDownloadManager(cacheKey, audioTasks, tempAudioFile, "Audio", player),
         ]);
 
-        const ffmpegArgs = [ffmpeg!, "-i", tempVideoFile, "-i", tempAudioFile, "-c", "copy", "-y", finalFilePath];
+        console.log(`[${cacheKey}] 🔄 Starting FFmpeg process...`);
+        const ffmpegStart = performance.now();
+        const ffmpegArgs = [
+          ffmpeg!, "-i", tempVideoFile, "-i", tempAudioFile, "-c", "copy", "-y", finalFilePath,
+        ];
         const ffmpegProcess = Bun.spawn(ffmpegArgs, { stderr: "pipe" });
-        if ((await ffmpegProcess.exited) !== 0) throw new Error(`FFmpeg failed`);
+        if ((await ffmpegProcess.exited) !== 0) throw new Error(
+          `FFmpeg failed during video+audio remux: ${await new Response(ffmpegProcess.stderr).text()}`,
+        );
+        console.log(`[${cacheKey}] ✅ FFmpeg successful in ${(performance.now() - ffmpegStart).toFixed(2)}ms.`);
       }
 
       const newCacheEntry: FileCacheEntry = { filePath: finalFilePath, filename: finalFilename, expiryTimeoutId: null! };
@@ -488,10 +607,17 @@ async function getOrStartDownload(session: TunnelSession, cacheKey: string, isAu
   })();
 
   activeDownloads.set(cacheKey, processPromise);
+  console.log(`[${cacheKey}] ✨ New download initiated.`);
   return processPromise;
 }
 
-async function handleVideoRequest(videoId: string, query: { url: string; quality?: string; format?: string }, request: Request, set: any, startTime: number) {
+async function handleVideoRequest(
+  videoId: string,
+  query: { url: string; quality?: string; format?: string },
+  request: Request,
+  set: any,
+  startTime: number,
+) {
   const fetchedData: { videoData: VideoCacheEntry; cacheHit: boolean; audioTunnelId: string; } = (await getOrFetchVideoData(videoId)) as any;
   const { videoData, cacheHit, audioTunnelId } = fetchedData;
   const { info, tunnels, bestAudioFormat } = videoData;
@@ -534,16 +660,31 @@ async function handleVideoRequest(videoId: string, query: { url: string; quality
     return new Response(JSON.stringify(responseData, null, 2));
   }
 
-  const video_only_streams = info.streaming_data?.adaptive_formats.filter((f) => f.has_video && !f.has_audio) || [];
+  if (!info.streaming_data) throw new Error("No streaming data found for this video.");
+  const video_only_streams = info.streaming_data.adaptive_formats.filter(
+    (f) => f.has_video && !f.has_audio,
+  );
+  
   const selectedQualities = new Map<string, ParsedYTFormat>();
   const qualityOrder = ["1080p", "720p", "480p", "360p", "240p", "144p"];
 
   ["1080p", "720p"].forEach((q) => {
-    const vp9 = video_only_streams.find((f) => f.quality_label === q && f.mime_type.includes("vp9")) || video_only_streams.find((f) => f.quality_label === q && f.mime_type.includes("avc1"));
+    const vp9 = video_only_streams.find(
+      (f) => f.quality_label === q && f.mime_type.includes("vp9"),
+    );
     if (vp9) selectedQualities.set(q, vp9);
+    else {
+      const avc1 = video_only_streams.find(
+        (f) => f.quality_label === q && f.mime_type.includes("avc1"),
+      );
+      if (avc1) selectedQualities.set(q, avc1);
+    }
   });
+  
   ["480p", "360p", "240p", "144p"].forEach((q) => {
-    const format = video_only_streams.find((f) => f.quality_label === q && f.mime_type.includes("avc1"));
+    const format = video_only_streams.find(
+      (f) => f.quality_label === q && f.mime_type.includes("avc1"),
+    );
     if (format) selectedQualities.set(q, format);
   });
 
@@ -573,11 +714,15 @@ async function handleVideoRequest(videoId: string, query: { url: string; quality
     }
     if (!targetFormat) {
       set.status = 404;
-      return { success: false, error: "The requested quality is not available." };
+      return { success: false, error: "The requested quality is not available for this video." };
     }
 
     const tunnelId = tunnels.get(targetFormat.itag);
-    const session = tunnelSessions.get(tunnelId!);
+    if (!tunnelId) throw new Error("Could not find a cached tunnel ID for the requested format. This should not happen.");
+    
+    const session = tunnelSessions.get(tunnelId);
+    if (!session) throw new Error("Session not found for tunnel ID. This should not happen.");
+    
     const qualityLabel = targetFormat.quality_label!;
     const size = formatBytes((targetFormat.content_length || 0) + (bestAudioFormat.content_length || 0));
 
@@ -589,7 +734,7 @@ async function handleVideoRequest(videoId: string, query: { url: string; quality
       quality: qualityLabel,
       channel,
       thumbnail: bestThumbnail,
-      filename: session!.filename,
+      filename: session.filename,
       size,
       expires: formatDuration(TUNNEL_LINK_EXPIRATION_HOURS * 3600),
       infoFetchTime: `${(performance.now() - startTime).toFixed(2)}ms`,
@@ -655,6 +800,7 @@ const app = new Elysia()
     if (shutdownTimer) {
       clearTimeout(shutdownTimer);
       shutdownTimer = null;
+      console.log("[Auto-Restart] Postponed due to new incoming request.");
     }
   })
   .onAfterHandle(({ response, set }) => {
@@ -673,8 +819,11 @@ const app = new Elysia()
     } catch (err) {}
 
     let hoursRunning = 0;
-    console.log(`✅ API is running.`);
-    setInterval(() => { hoursRunning++; }, 1000 * 60 * 60);
+    console.log(`✅ API is running. Uptime logging has started.`);
+    setInterval(() => {
+        hoursRunning++;
+        console.log(`\n---\n🕒 API has been running for ${hoursRunning} hour(s).\n---`);
+    }, 1000 * 60 * 60);
     setInterval(() => {
         const now = Date.now();
         for (const [id, session] of tunnelSessions.entries()) {
@@ -734,27 +883,60 @@ const app = new Elysia()
       const { url } = query;
       if (!url) return new Response(Bun.file("public/home.html"));
       const startTime = performance.now();
+      let videoId: string | null = null;
       try {
-        const videoId = getVideoId(url);
-        if (!videoId) { set.status = 400; return { success: false, error: "Invalid YouTube URL." }; }
+        videoId = getVideoId(url);
+        if (!videoId) {
+          set.status = 400; 
+          return { success: false, error: "Invalid or unsupported YouTube URL provided." }; 
+        }
         return await handleVideoRequest(videoId, query, request, set, startTime);
       } catch (error: any) {
         set.status = 500;
-        return { success: false, error: error?.message ?? "Unknown error" };
+        const errorPayload = { 
+          success: false, 
+          error: error?.message ?? "Unknown error", 
+          code: error?.code, 
+          name: error?.name, 
+          stack: error?.stack, 
+          playabilityStatus: error?.playabilityStatus, 
+          timestamp: new Date().toISOString(), 
+        };
+        await Bun.write("./last-error.json", JSON.stringify(errorPayload, null, 2));
+        return new Response(JSON.stringify(errorPayload, null, 2), { headers: { "Content-Type": "application/json; charset=utf-8" }, });
+      } finally {
+        const duration = (performance.now() - startTime).toFixed(2);
+        console.log(`[${videoId || "Invalid URL"}] Request processed in ${duration}ms.`);
       }
     }, { query: t.Object({ url: t.Optional(t.String()), quality: t.Optional(t.String()), format: t.Optional(t.String()) }) }
   )
   .get("/yt", async ({ query, request, set }) => {
       const { url } = query;
-      if (!url) { set.status=400; return { success: false, error: "URL missing"}; }
       const startTime = performance.now();
+      let videoId: string | null = null;
       try {
-        const videoId = getVideoId(url);
-        if (!videoId) { set.status = 400; return { success: false, error: "Invalid YouTube URL." }; }
+        videoId = getVideoId(url);
+        if (!videoId) { 
+          set.status = 400; 
+          return { success: false, error: "Invalid or unsupported YouTube URL provided." }; 
+        }
         return await handleVideoRequest(videoId, query, request, set, startTime);
       } catch (error: any) {
         set.status = 500;
-        return { success: false, error: error?.message ?? "Unknown error" };
+        const errorPayload = { 
+          success: false, 
+          error: error?.message ?? "Unknown error", 
+          code: error?.code, 
+          name: error?.name, 
+          stack: error?.stack, 
+          playabilityStatus: error?.playabilityStatus, 
+          timestamp: new Date().toISOString(), 
+        };
+        await Bun.write("./last-error.json", JSON.stringify(errorPayload, null, 2));
+        return new Response(JSON.stringify(errorPayload, null, 2), { headers: { "Content-Type": "application/json; charset=utf-8" }, });
+      } finally {
+        const duration = (performance.now() - startTime).toFixed(2);
+        console.log(`[${videoId || "Invalid URL"}] Request processed in ${duration}ms.`);
       }
     }, { query: t.Object({ url: t.String(), quality: t.Optional(t.String()), format: t.Optional(t.String()) }) }
   )
@@ -821,21 +1003,34 @@ const app = new Elysia()
       if (!searchQuery) { set.status = 400; return { success: false, error: "Query parameter 'q' is required." }; }
       try {
         const { results, fetchTime, cacheHit } = await getOrFetchSearchResults(searchQuery);
-        if (results.length === 0) { set.status = 404; return { success: false, error: "No results." }; }
+        if (results.length === 0) { 
+          console.warn(`[Search: "${searchQuery}"] No parsable video results found.`);
+          set.status = 404; 
+          return { success: false, error: `No video results found for "${searchQuery}".`, }; 
+        }
         if (num) {
           let finalResults = results;
           if (num.toLowerCase() !== "all") {
             const desiredCount = parseInt(num, 10);
-            if (!isNaN(desiredCount) && desiredCount > 0) finalResults = results.slice(0, desiredCount);
+            if (!isNaN(desiredCount) && desiredCount > 0) {
+              finalResults = results.slice(0, desiredCount);
+            }
           }
-          return JSON.stringify({ infofetchtime: `${fetchTime.toFixed(2)}ms`, cache: cacheHit, results: finalResults }, null, 2);
+          const responsePayload = { infofetchtime: `${fetchTime.toFixed(2)}ms`, cache: cacheHit, results: finalResults, };
+          set.status = 200;
+          set.headers["Content-Type"] = "application/json; charset=utf-8";
+          const duration = (performance.now() - startTime).toFixed(2);
+          console.log(`[List Search: "${searchQuery}"] Request processed in ${duration}ms.`);
+          return JSON.stringify(responsePayload, null, 2);
         }
         const videoId = results[0].videoId;
+        console.log(`✅ [Download Search] Found ID: ${videoId} (from ${cacheHit ? "cache" : "API"}). Handing off...`);
         const mappedQuery = { url: `https://www.youtube.com/watch?v=${videoId}`, quality, format };
         return await handleVideoRequest(videoId, mappedQuery, request, set, startTime);
       } catch (error: any) {
+        console.error(`\n❌ [Search] An error occurred for "${searchQuery}":`, error.message);
         set.status = 500;
-        return { success: false, error: "Search error." };
+        return { success: false, error: "An internal error occurred during search." };
       }
     }, { query: t.Object({ q: t.String(), quality: t.Optional(t.String()), format: t.Optional(t.String()), num: t.Optional(t.String()) }) }
   )
@@ -844,27 +1039,53 @@ const app = new Elysia()
       const { q: songQuery, quality, format } = query;
       try {
         if (!songQuery) { set.status = 400; return { success: false, error: "Query parameter 'q' is required." }; }
+        console.log(`\n🎵 [Music Search] Searching for "${songQuery}"...`);
         const search = await innertube.music.search(songQuery);
         let song: any;
+        let shelfType = "N/A";
         if (Array.isArray(search.contents)) {
           for (const item of search.contents) {
-            if (item.type === "MusicCardShelf" && (item as any).title?.endpoint?.payload?.videoId) { song = item; break; }
+            if (item.type === "MusicCardShelf" && (item as any).title?.endpoint?.payload?.videoId) { song = item; shelfType = "MusicCardShelf"; break; }
             if (item.type === "MusicShelf" && Array.isArray(item.contents)) {
               const foundSong = item.contents.find((contentItem: any) => contentItem.videoId || contentItem.flex_columns?.[0]?.title?.endpoint?.payload?.videoId);
-              if (foundSong) { song = foundSong; break; }
+              if (foundSong) { song = foundSong; shelfType = "MusicShelf"; break; }
             }
           }
         }
-        if (!song && search.songs?.contents?.length) song = search.songs.contents.find((item: any) => item.videoId);
-        if (!song && search.videos?.contents?.length) song = search.videos.contents.find((item: any) => item.videoId);
-        if (!song) { set.status = 404; return { success: false, error: "No song found." }; }
+        if (!song && search.songs?.contents?.length) { 
+          song = search.songs.contents.find((item: any) => item.videoId); 
+          if (song) shelfType = "songs";
+        }
+        if (!song && search.videos?.contents?.length) { 
+          song = search.videos.contents.find((item: any) => item.videoId); 
+          if (song) shelfType = "videos";
+        }
+        if (!song) { 
+          set.status = 404; 
+          console.warn("No valid song item found in search results. Raw search object for debugging:");
+          console.dir(search, { depth: 2 });
+          return { success: false, error: `No song results found for "${songQuery}".`, };
+        }
+        
+        const title = (song as any).title?.text || (song as any).title?.runs?.[0]?.text || (song as any).flex_columns?.[0]?.title?.text || (song as any).title || (song as any).name || "[No title]";
         const videoId = (song as any).videoId || (song as any).endpoint?.payload?.videoId || (song as any).title?.endpoint?.payload?.videoId || (song as any).flex_columns?.[0]?.title?.endpoint?.payload?.videoId || (song as any).id || "";
-        if (!videoId) { set.status = 500; return { success: false, error: "ID extraction failed." }; }
+        const fetchVidTime = performance.now() - startTime;
+        
+        if (!videoId) { 
+          set.status = 500; 
+          console.error("Failed to extract ID from a confirmed song object:", song);
+          return { success: false, error: "Could not extract video ID from the top search result.", };
+        }
+        console.log(`✅ [Music Search] Found ID: ${videoId} (title: ${title}) [${shelfType}] in ${fetchVidTime.toFixed(2)}ms`);
         const mappedQuery = { url: `https://www.youtube.com/watch?v=${videoId}`, quality, format };
         return await handleVideoRequest(videoId, mappedQuery, request, set, startTime);
       } catch (error: any) {
+        console.error(`\n❌ [Music Search] An error occurred during search for "${songQuery}":`, error.message);
         set.status = 500;
         return { success: false, error: error.message };
+      } finally {
+        const duration = (performance.now() - startTime).toFixed(2);
+        console.log(`[Music Search: "${songQuery}"] Request processed in ${duration}ms.`);
       }
     }, { query: t.Object({ q: t.String(), quality: t.Optional(t.String()), format: t.Optional(t.String()) }) }
   )
@@ -874,7 +1095,7 @@ const app = new Elysia()
       const session = tunnelSessions.get(tunnelId);
       if (!session || session.expiryTimestamp < Date.now()) {
         set.status = 404;
-        return { success: false, error: "Link expired." };
+        return { success: false, error: "Download link not found or expired. Please generate a new one.", };
       }
       const { chosenVideoFormat } = session;
       const cacheKey = chosenVideoFormat ? `${session.videoId}-${session.itag}` : `${session.videoId}-audio-only`;
@@ -883,27 +1104,43 @@ const app = new Elysia()
       try {
         const cachedFile = await getOrStartDownload(session, cacheKey, isAudioOnly);
         const file = Bun.file(cachedFile.filePath);
-        if (!(await file.exists())) throw new Error("File deleted unexpectedly.");
+        if (!(await file.exists())) { throw new Error("Cached file was deleted unexpectedly."); }
+        
+        const handlerTimeMs = (performance.now() - startTime).toFixed(2);
         const contentType = isAudioOnly ? "audio/mp4" : "video/mp4";
+        
+        if (remuxedFileCache.has(cacheKey)) {
+          console.log(`[${cacheKey}] ✅ Cached HIT. Handler time: ${handlerTimeMs}ms. Preparing to stream.`);
+        } else {
+          console.log(`[${cacheKey}] ⏳ Non-cached stream initiated. Handler time: ${handlerTimeMs}ms.`);
+        }
+        
         set.headers["Content-Disposition"] = createContentDisposition(cachedFile.filename);
         set.headers["Content-Type"] = contentType;
         set.headers["Content-Length"] = file.size.toString();
         return new Response(file.stream());
       } catch (error: any) {
         activeDownloads.delete(cacheKey);
+        console.error(`[${cacheKey}] ❌ Processing Error:`, error.message);
         set.status = 500;
-        return { success: false, error: `Stream error: ${error.message}` };
+        return { success: false, error: `Failed to process stream: ${error.message}`, };
       } finally {
         activeOperations--;
+        console.log(`[State] Operation finished. Active operations: ${activeOperations}, Active requests: ${activeRequests}`);
         if (restartScheduled && activeOperations === 0 && activeRequests === 0) {
+          console.log("[Auto-Restart] Last active download finished.");
           scheduleIdleRestart();
+        }
+        const totalTimeMs = (performance.now() - startTime).toFixed(2);
+        if (!remuxedFileCache.has(cacheKey)) {
+          console.log(`[${cacheKey}] Total non-cached time: ${totalTimeMs}ms.`);
         }
       }
     }, { params: t.Object({ tunnelId: t.String() }) }
   )
   .listen(PORT);
 
-process.on("SIGINT", () => { restartScheduled = true; gracefulShutdown("SIGINT"); });
-process.on("SIGTERM", () => { restartScheduled = true; gracefulShutdown("SIGTERM"); });
+process.on("SIGINT", () => { console.log("\nReceived SIGINT (Ctrl+C)."); restartScheduled = true; gracefulShutdown("Manual interrupt (SIGINT)"); });
+process.on("SIGTERM", () => { console.log("\nReceived SIGTERM."); restartScheduled = true; gracefulShutdown("Termination signal (SIGTERM)"); });
 
-console.log(`🔥 API running at http://${app.server?.hostname}:${app.server?.port}`);
+console.log(`🔥 Multi-Format Downloader API is running at http://${app.server?.hostname}:${app.server?.port}`);
