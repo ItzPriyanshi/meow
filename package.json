@@ -23,6 +23,7 @@
     "entities": "latest",
     "ffmpeg-static": "latest",
     "json-custom-numbers": "latest",
+    "jsdom": "latest",
     "lucide-react": "^0.560.0",
     "memoirist": "latest",
     "moment-timezone": "0.6.0",
