@@ -16,7 +16,6 @@ import pinHandler, {
 } from "./api/pin";
 import ttHandler from "./api/tt";
 import xHandler from "./api/x";
-import ffHandler from "./api/ff";
 import { getIp, getIpInfo } from "./handler/ip";
 import { getDeviceInfo } from "./handler/device";
 import {
