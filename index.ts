@@ -1,6 +1,14 @@
 import { Elysia, t } from "elysia";
 import { staticPlugin } from "@elysiajs/static";
-import { Innertube, UniversalCache, Platform, Types, YT } from "youtubei.js";
+import {
+  Innertube,
+  UniversalCache,
+  Platform,
+  Types,
+  YT,
+  YTNodes,
+  ClientType,
+} from "youtubei.js";
 import { performance } from "node:perf_hooks";
 import { join } from "node:path";
 import { mkdir, rm } from "node:fs/promises";
@@ -16,6 +24,7 @@ import pinHandler, {
 } from "./api/pin";
 import ttHandler from "./api/tt";
 import xHandler from "./api/x";
+/import ffHandler from "./api/ff";
 import { getIp, getIpInfo } from "./handler/ip";
 import { getDeviceInfo } from "./handler/device";
 import {
@@ -585,7 +594,7 @@ const cookie = await getCookieFileContent(COOKIE_FILE_PATH);
 innertube = await Innertube.create({
   cookie: cookie || undefined,
   cache: new UniversalCache(false),
-  client_type: "WEB",
+  client_type: ClientType.WEB,
   retrieve_player: true,
   retrieve_innertube_config: true,
 });
@@ -667,7 +676,7 @@ async function getOrFetchVideoData(
   videoDataCache.delete(videoId);
 
   const infoFetchStart = performance.now();
-  const info = await innertube.getInfo(videoId);
+  const info = await innertube.getBasicInfo(videoId, { client: "WEB" });
   const fetchDuration = performance.now() - infoFetchStart;
   const player = innertube.session.player;
 
@@ -783,56 +792,48 @@ async function getOrFetchSearchResults(
 
   searchCache.delete(cacheKey);
 
-  const search = await innertube.search(searchQuery);
-  const contents = (search as any).contents || [];
+  const search = await innertube.search(searchQuery, { type: "video" });
   const results: VideoResult[] = [];
 
-  for (const item of contents) {
-    const videoId =
-      item?.id ||
-      item?.video_id ||
-      item?.videoId ||
-      item?.endpoint?.payload?.videoId;
-
-    const title =
-      item?.title?.text ||
-      item?.title ||
-      item?.headline?.text ||
-      item?.flex_columns?.[0]?.title?.text;
-
-    const author =
-      item?.author?.name ||
-      item?.author?.text ||
-      item?.authors?.[0]?.name ||
-      item?.short_byline_text?.text ||
-      item?.shortBylineText?.runs?.[0]?.text ||
-      "Unknown Channel";
-
-    const duration =
-      item?.duration?.text ||
-      item?.duration?.seconds?.toString() ||
-      item?.length_text?.text ||
-      item?.lengthText?.simpleText ||
-      "Unknown";
-
-    const thumbnail =
-      item?.thumbnails?.[0]?.url ||
-      item?.thumbnail?.[0]?.url ||
-      item?.thumbnail?.thumbnails?.at?.(-1)?.url ||
-      "";
+  for (const item of search.results) {
+    if (item.is(YTNodes.Video)) {
+      results.push({
+        videoId: item.video_id,
+        title: item.title.toString(),
+        author: item.author.name,
+        duration: item.duration.text || "Unknown",
+        thumbnail: item.best_thumbnail?.url || "",
+      });
+      continue;
+    }
 
     if (
-      typeof videoId === "string" &&
-      /^[a-zA-Z0-9_-]{11}$/.test(videoId) &&
-      typeof title === "string" &&
-      title.trim()
+      item.is(YTNodes.LockupView) &&
+      (item.content_type === "VIDEO" || item.content_type === "SHORT") &&
+      /^[a-zA-Z0-9_-]{11}$/.test(item.content_id)
     ) {
+      const thumbnail =
+        item.content_image?.is(YTNodes.ThumbnailView)
+          ? item.content_image.image.at(-1)?.url || ""
+          : "";
+      const metadataRows = item.metadata?.metadata?.metadata_rows || [];
+      const metadataText = metadataRows
+        .flatMap((row) => row.metadata_parts || [])
+        .map((part) => part.text?.toString() || "")
+        .filter(Boolean);
+      const duration =
+        metadataText.find((text) => /^\d+(?::[0-5]\d)+$/.test(text)) ||
+        "Unknown";
+      const author =
+        metadataText.find((text) => !/^\d+(?::[0-5]\d)+$/.test(text)) ||
+        "Unknown Channel";
+
       results.push({
-        videoId,
-        title,
-        author: typeof author === "string" ? author : "Unknown Channel",
-        duration: typeof duration === "string" ? duration : "Unknown",
-        thumbnail: typeof thumbnail === "string" ? thumbnail : "",
+        videoId: item.content_id,
+        title: item.metadata?.title.toString() || "Unknown Title",
+        author,
+        duration,
+        thumbnail,
       });
     }
   }
@@ -1689,56 +1690,13 @@ const app = new Elysia()
       const startTime = performance.now();
 
       try {
-        const search = await innertube.music.search(query.q);
-        let song: any;
-
-        if (Array.isArray((search as any).contents)) {
-          for (const item of (search as any).contents) {
-            if (
-              item?.videoId ||
-              item?.id ||
-              item?.endpoint?.payload?.videoId ||
-              item?.title?.endpoint?.payload?.videoId
-            ) {
-              song = item;
-              break;
-            }
-
-            if (Array.isArray(item?.contents)) {
-              song = item.contents.find(
-                (candidate: any) =>
-                  candidate?.videoId ||
-                  candidate?.id ||
-                  candidate?.endpoint?.payload?.videoId ||
-                  candidate?.title?.endpoint?.payload?.videoId,
-              );
-
-              if (song) {
-                break;
-              }
-            }
-          }
-        }
-
-        if (!song && Array.isArray((search as any).songs?.contents)) {
-          song = (search as any).songs.contents.find(
-            (candidate: any) => candidate?.videoId || candidate?.id,
-          );
-        }
-
-        if (!song && Array.isArray((search as any).videos?.contents)) {
-          song = (search as any).videos.contents.find(
-            (candidate: any) => candidate?.videoId || candidate?.id,
-          );
-        }
-
-        const videoId =
-          song?.videoId ||
-          song?.id ||
-          song?.endpoint?.payload?.videoId ||
-          song?.title?.endpoint?.payload?.videoId ||
-          song?.flex_columns?.[0]?.title?.endpoint?.payload?.videoId;
-
+        const search = await innertube.music.search(query.q, { type: "song" });
+        const song = search.songs?.contents.find(
+          (item) =>
+            (item.item_type === "song" || item.item_type === "video") &&
+            typeof item.id === "string",
+        );
+        const videoId = song?.id;
         if (
           typeof videoId !== "string" ||
           !/^[a-zA-Z0-9_-]{11}$/.test(videoId)
