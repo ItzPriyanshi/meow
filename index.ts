@@ -8,7 +8,18 @@ import {
   YT,
   YTNodes,
   ClientType,
+  type IRawResponse,
 } from "youtubei.js";
+import { BotGuardClient } from "bgutils-js/botguard";
+import type { WebPoSignalOutput } from "bgutils-js/shared-types";
+import {
+  buildURL,
+  parseLooseJSON,
+  getHeaders,
+  USER_AGENT,
+} from "bgutils-js/utils";
+import { WebPoMinter } from "bgutils-js/webpo";
+import { JSDOM } from "jsdom";
 import { performance } from "node:perf_hooks";
 import { join } from "node:path";
 import { mkdir, rm } from "node:fs/promises";
@@ -24,7 +35,6 @@ import pinHandler, {
 } from "./api/pin";
 import ttHandler from "./api/tt";
 import xHandler from "./api/x";
-// import ffHandler from "./api/ff";
 import { getIp, getIpInfo } from "./handler/ip";
 import { getDeviceInfo } from "./handler/device";
 import {
@@ -51,6 +61,7 @@ const ADMIN_USER = "PriyanshiKaurJi";
 const ADMIN_PASS = "787957";
 const TUNNEL_LINK_EXPIRATION_HOURS = 5;
 const REMUXED_FILE_CACHE_SECONDS = 300;
+const PO_REQUEST_KEY = "O43z0dpjhgX20SCx4KAo";
 
 type YTInfo = YT.VideoInfo;
 type ParsedYTFormat =
@@ -118,6 +129,211 @@ const activeDownloads = new Map<string, Promise<FileCacheEntry>>();
 const remuxedFileCache = new Map<string, FileCacheEntry>();
 
 let innertube: Innertube;
+let webPoMinter: WebPoMinter | null = null;
+let webPoMinterExpiresAt = 0;
+let webPoMinterPromise: Promise<WebPoMinter> | null = null;
+
+async function createWebPoMinter(): Promise<WebPoMinter> {
+  const dom = new JSDOM(
+    '<!DOCTYPE html><html lang="en"><head><title></title></head><body></body></html>',
+    {
+      url: "https://www.youtube.com/",
+      referrer: "https://www.youtube.com/",
+    },
+  );
+
+  const pageResponse = await fetch("https://www.youtube.com/", {
+    headers: {
+      accept: "*/*",
+      "accept-language": "en-US,en;q=0.7",
+      "user-agent": USER_AGENT,
+    },
+  });
+
+  if (!pageResponse.ok) {
+    throw new Error(
+      `Could not load YouTube for PO token generation: HTTP ${pageResponse.status}`,
+    );
+  }
+
+  const pageHtml = await pageResponse.text();
+  const ytConfig = pageHtml.match(/ytcfg\.set\(({.+?})\);/s)?.[1];
+
+  if (!ytConfig) {
+    throw new Error("Could not find ytcfg in page HTML");
+  }
+
+  const domWindow = dom.window as typeof dom.window & {
+    yt: { config_: Record<string, unknown> };
+  };
+
+  domWindow.yt = {
+    config_: JSON.parse(ytConfig) as Record<string, unknown>,
+  };
+
+  Object.assign(globalThis, {
+    yt: domWindow.yt,
+    window: domWindow,
+    document: domWindow.document,
+    location: domWindow.location,
+    origin: domWindow.origin,
+  });
+
+  if (!("navigator" in globalThis)) {
+    Object.defineProperty(globalThis, "navigator", {
+      value: domWindow.navigator,
+      configurable: true,
+    });
+  }
+
+  const initialAttestationData = pageHtml.match(
+    /window\.ytAtN\(\s*({[\s\S]*?})\s*\)/,
+  );
+
+  if (!initialAttestationData) {
+    throw new Error("Could not find BotGuard challenge in page HTML");
+  }
+
+  const initialAttestationDataJson = parseLooseJSON(
+    initialAttestationData[1],
+  ) as { R?: IRawResponse };
+  const challengeResponse = initialAttestationDataJson.R;
+
+  if (!challengeResponse?.bgChallenge) {
+    throw new Error("Could not get BotGuard challenge");
+  }
+
+  const interpreterPath =
+    challengeResponse.bgChallenge.interpreterUrl
+      .privateDoNotAccessOrElseTrustedResourceUrlWrappedValue;
+
+  if (!interpreterPath) {
+    throw new Error("BotGuard interpreter URL is unavailable");
+  }
+
+  const interpreterUrl = interpreterPath.startsWith("http")
+    ? interpreterPath
+    : `https:${interpreterPath}`;
+  const bgScriptResponse = await fetch(interpreterUrl);
+
+  if (!bgScriptResponse.ok) {
+    throw new Error(
+      `Could not load BotGuard VM: HTTP ${bgScriptResponse.status}`,
+    );
+  }
+
+  const interpreterJavascript = await bgScriptResponse.text();
+
+  if (!interpreterJavascript) {
+    throw new Error("Could not load BotGuard VM");
+  }
+
+  new Function(interpreterJavascript)();
+
+  const botGuardClient = await BotGuardClient.create({
+    program: challengeResponse.bgChallenge.program,
+    globalName: challengeResponse.bgChallenge.globalName,
+    globalObject: globalThis,
+  });
+  const webPoSignalOutput: WebPoSignalOutput = [];
+  const botguardResponse = await botGuardClient.snapshot({
+    webPoSignalOutput,
+  });
+  const integrityTokenResponse = await fetch(buildURL("GenerateIT", true), {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify([PO_REQUEST_KEY, botguardResponse]),
+  });
+
+  if (!integrityTokenResponse.ok) {
+    throw new Error(
+      `Could not generate integrity token: HTTP ${integrityTokenResponse.status}`,
+    );
+  }
+
+  const integrityTokenJson =
+    (await integrityTokenResponse.json()) as [string, number, number, string];
+  const [
+    integrityToken,
+    estimatedTtlSecs,
+    mintRefreshThreshold,
+    websafeFallbackToken,
+  ] = integrityTokenJson;
+
+  if (!integrityToken) {
+    throw new Error("Integrity token response did not contain a token");
+  }
+
+  const minter = await WebPoMinter.create(
+    {
+      integrityToken,
+      estimatedTtlSecs,
+      mintRefreshThreshold,
+      websafeFallbackToken,
+    },
+    webPoSignalOutput,
+  );
+  const refreshAfter = Math.max(
+    60,
+    Math.min(
+      estimatedTtlSecs - 60,
+      mintRefreshThreshold > 0 ? mintRefreshThreshold : estimatedTtlSecs - 300,
+    ),
+  );
+
+  webPoMinterExpiresAt = Date.now() + refreshAfter * 1000;
+  return minter;
+}
+
+async function getWebPoMinter(forceRefresh = false): Promise<WebPoMinter> {
+  if (
+    !forceRefresh &&
+    webPoMinter &&
+    Date.now() < webPoMinterExpiresAt
+  ) {
+    return webPoMinter;
+  }
+
+  if (!forceRefresh && webPoMinterPromise) {
+    return webPoMinterPromise;
+  }
+
+  const promise = createWebPoMinter();
+  webPoMinterPromise = promise;
+
+  try {
+    webPoMinter = await promise;
+    return webPoMinter;
+  } finally {
+    if (webPoMinterPromise === promise) {
+      webPoMinterPromise = null;
+    }
+  }
+}
+
+async function mintContentPoToken(videoId: string): Promise<string> {
+  try {
+    return await (await getWebPoMinter()).mintAsWebsafeString(videoId);
+  } catch {
+    webPoMinter = null;
+    webPoMinterExpiresAt = 0;
+    return (await getWebPoMinter(true)).mintAsWebsafeString(videoId);
+  }
+}
+
+function addPoToken(url: string, poToken: string): string {
+  if (!url) {
+    throw new Error("Selected format has no downloadable URL");
+  }
+
+  const parsedUrl = new URL(url);
+  parsedUrl.searchParams.set("pot", poToken);
+  return parsedUrl.toString();
+}
+
+function hasDownloadableUrl(format: ParsedYTFormat): boolean {
+  return Boolean(format.url || format.signature_cipher || format.cipher);
+}
 
 function getClientId(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -305,13 +521,19 @@ function createDownloadTasks(
 
 function getVideoFormats(info: YTInfo): ParsedYTFormat[] {
   return (info.streaming_data?.adaptive_formats || []).filter(
-    (format) => format.has_video && !format.has_audio,
+    (format) =>
+      format.has_video &&
+      !format.has_audio &&
+      hasDownloadableUrl(format),
   );
 }
 
 function getAudioFormats(info: YTInfo): ParsedYTFormat[] {
   return (info.streaming_data?.adaptive_formats || []).filter(
-    (format) => format.has_audio && !format.has_video,
+    (format) =>
+      format.has_audio &&
+      !format.has_video &&
+      hasDownloadableUrl(format),
   );
 }
 
@@ -456,6 +678,7 @@ async function parallelDownloadManager(
   destinationFile: string,
   mediaType: "Audio" | "Video",
   player: NonNullable<Innertube["session"]["player"]>,
+  poToken: string,
 ): Promise<string> {
   if (!player) {
     throw new Error("YouTube player is unavailable for stream deciphering.");
@@ -506,7 +729,10 @@ async function parallelDownloadManager(
 
     for (let attempt = 0; attempt <= task.retries; attempt++) {
       try {
-        const decipheredUrl = await task.format.decipher(player);
+        const decipheredUrl = addPoToken(
+          await task.format.decipher(player),
+          poToken,
+        );
         const response = await fetch(decipheredUrl, {
           headers: {
             Range: `bytes=${task.start}-${task.end}`,
@@ -590,6 +816,7 @@ console.log("Server starting: performing one-time setup.");
 
 const setupStartTime = performance.now();
 const cookie = await getCookieFileContent(COOKIE_FILE_PATH);
+await getWebPoMinter();
 
 innertube = await Innertube.create({
   cookie: cookie || undefined,
@@ -676,7 +903,11 @@ async function getOrFetchVideoData(
   videoDataCache.delete(videoId);
 
   const infoFetchStart = performance.now();
-  const info = await innertube.getBasicInfo(videoId, { client: "WEB" });
+  const contentPoToken = await mintContentPoToken(videoId);
+  const info = await innertube.getBasicInfo(videoId, {
+    client: "YTMUSIC",
+    po_token: contentPoToken,
+  });
   const fetchDuration = performance.now() - infoFetchStart;
   const player = innertube.session.player;
 
@@ -812,10 +1043,9 @@ async function getOrFetchSearchResults(
       (item.content_type === "VIDEO" || item.content_type === "SHORT") &&
       /^[a-zA-Z0-9_-]{11}$/.test(item.content_id)
     ) {
-      const thumbnail =
-        item.content_image?.is(YTNodes.ThumbnailView)
-          ? item.content_image.image.at(-1)?.url || ""
-          : "";
+      const thumbnail = item.content_image?.is(YTNodes.ThumbnailView)
+        ? item.content_image.image.at(-1)?.url || ""
+        : "";
       const metadataRows = item.metadata?.metadata?.metadata_rows || [];
       const metadataText = metadataRows
         .flatMap((row) => row.metadata_parts || [])
@@ -874,6 +1104,7 @@ async function getOrStartDownload(
     const tempDir = join(TEMP_DIR_BASE, Bun.randomUUIDv7());
 
     try {
+      const contentPoToken = await mintContentPoToken(session.videoId);
       await mkdir(tempDir, { recursive: true });
 
       const finalFilename = session.filename;
@@ -894,6 +1125,7 @@ async function getOrStartDownload(
           rawAudioPath,
           "Audio",
           session.player,
+          contentPoToken,
         );
 
         const ffmpegArgs = audioFormat.mime_type?.includes("mp4a")
@@ -952,6 +1184,7 @@ async function getOrStartDownload(
             rawVideoPath,
             "Video",
             session.player,
+            contentPoToken,
           ),
           parallelDownloadManager(
             cacheKey,
@@ -959,6 +1192,7 @@ async function getOrStartDownload(
             rawAudioPath,
             "Audio",
             session.player,
+            contentPoToken,
           ),
         ]);
 
@@ -1400,7 +1634,17 @@ const app = new Elysia()
           };
         }
 
-        return await handleVideoRequest(videoId, query, request, set, startTime);
+        return await handleVideoRequest(
+          videoId,
+          {
+            url: query.url,
+            quality: query.quality,
+            format: query.format,
+          },
+          request,
+          set,
+          startTime,
+        );
       } catch (error) {
         set.status = 500;
 
@@ -1595,18 +1839,6 @@ const app = new Elysia()
     {
       query: t.Object({
         url: t.String(),
-      }),
-    },
-  )
-  .get(
-    "/ff",
-    async ({ query }) => {
-      return ffHandler(query.id, query.time || "TUY_CHINH");
-    },
-    {
-      query: t.Object({
-        id: t.String(),
-        time: t.Optional(t.String()),
       }),
     },
   )
