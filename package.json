@@ -16,6 +16,7 @@
     "autoprefixer": "^10.4.22",
     "axios": "latest",
     "bgutils-js": "latest",
+    "canvas": "latest",
     "cheerio": "latest",
     "clsx": "^2.1.1",
     "concurrently": "^9.2.1",
