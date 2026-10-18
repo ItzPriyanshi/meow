@@ -8,262 +8,36 @@
 
     <link rel="icon" type="image/png" href="https://i.postimg.cc/nrRfgMhK/Picsart-26-10-01-15-48-38-653.png">
 
-    <!-- Fonts & Material Symbols -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
 
+    <link rel="stylesheet" href="/base.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-
-    <!-- ==========================================
-         CSS MODULE 1: BASE STRUCTURE & COMPONENTS 
-         (Move to base.css)
-         ========================================== -->
-    <style id="css-base">
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            outline: none;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            font-family: var(--font-main);
-            min-height: 100dvh;
-            overflow-x: hidden;
-            transition: background-color 0.4s ease, color 0.4s ease;
-        }
-
-        .material-symbols-rounded {
-            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Top Live Region */
-        .live-region {
-            position: fixed; top: 0; left: 0; width: 100%;
-            background: var(--md-glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--md-surface-variant);
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 8px 24px; font-size: 0.85rem; font-family: var(--font-code);
-            z-index: 1000; color: var(--md-on-surface-variant);
-        }
-        .live-region .group { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-        .live-region .item { display: flex; align-items: center; gap: 6px; }
-        .live-region .icon { font-size: 16px; color: var(--md-primary); }
-
-        /* Main Wrapper */
-        .wrapper { max-width: 1200px; margin: 0 auto; padding: 80px 24px 40px; position: relative; z-index: 2; }
-        
-        header { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 40px 0 60px; }
-        
-        .brand-logo { width: 120px; height: auto; margin-bottom: 15px; animation: floatLogo 4s ease-in-out infinite; filter: drop-shadow(0 0 20px rgba(0, 229, 255, 0.3)); }
-        
-        @keyframes floatLogo {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-
-        h1 { font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 900; letter-spacing: -1px; color: var(--md-on-bg); line-height: 1.1; margin-bottom: 15px;}
-        
-        .subtitle { font-size: 1.1rem; color: var(--md-on-surface-variant); max-width: 500px; line-height: 1.5; }
-
-        /* Grid & Cards */
-        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; margin-bottom: 60px; }
-        
-        .api-card {
-            background: var(--md-surface); border-radius: var(--radius-lg); padding: 24px; position: relative;
-            overflow: hidden; transition: var(--transition); cursor: pointer; border: 1px solid var(--md-outline-faint);
-            display: flex; flex-direction: column; box-shadow: var(--shadow-1);
-        }
-        .api-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-3); border-color: var(--md-primary); }
-        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
-        .card-icon-wrapper { width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--md-primary-container); color: var(--md-on-primary-container); display: flex; align-items: center; justify-content: center; }
-        .card-icon { font-size: 28px; }
-        .card-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; color: var(--md-on-bg); }
-        .card-desc { font-size: 0.95rem; color: var(--md-on-surface-variant); line-height: 1.5; flex-grow: 1; margin-bottom: 24px; }
-        .method-badge { align-self: flex-start; padding: 6px 12px; background: var(--md-bg); border-radius: var(--radius-sm); font-family: var(--font-code); font-size: 0.8rem; color: var(--md-on-surface-variant); border: 1px solid var(--md-surface-variant); display: flex; align-items: center; gap: 6px; }
-        .method-type { color: var(--md-primary); font-weight: 600; }
-
-        /* Stats */
-        .stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; margin: 40px 0; padding: 32px; background: var(--md-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-1); border: 1px solid var(--md-outline-faint); }
-        .stat-item { display: flex; flex-direction: column; align-items: center; text-align: center; }
-        .stat-val { font-size: 2.5rem; font-weight: 700; font-family: var(--font-code); color: var(--md-primary); margin-bottom: 4px; }
-        .stat-label { color: var(--md-on-surface-variant); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; }
-
-        /* Modals & Inputs */
-        .modal-wrap { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); z-index: 5000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; padding: 24px; }
-        .modal-wrap.active { opacity: 1; pointer-events: all; }
-        .modal-body { width: 100%; max-width: 600px; background: var(--md-surface); border-radius: var(--radius-lg); padding: 24px; position: relative; transform: scale(0.95) translateY(20px); transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1); box-shadow: 0 24px 38px 3px rgba(0,0,0,0.4); border: 1px solid var(--md-outline-faint); }
-        .modal-wrap.active .modal-body { transform: scale(1) translateY(0); }
-        .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; border-bottom: 1px solid var(--md-surface-variant); padding-bottom: 16px; }
-        .modal-h2 { font-size: 1.5rem; color: var(--md-on-bg); display: flex; align-items: center; gap: 12px; }
-        .icon-btn { background: transparent; border: none; color: var(--md-on-surface-variant); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s, color 0.2s; }
-        .icon-btn:hover { background: var(--md-surface-variant); color: var(--md-primary); }
-        
-        .m3-input { width: 100%; padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--md-outline); background: var(--md-bg); color: var(--md-on-bg); font-family: var(--font-code); font-size: 1rem; transition: var(--transition); margin-bottom: 20px; }
-        .m3-input:focus { border-color: var(--md-primary); border-width: 2px; padding: 15px; }
-
-        .btn-filled { width: 100%; padding: 0 24px; height: 52px; border-radius: var(--radius-full); border: none; background: var(--md-primary); color: var(--md-on-primary); font-weight: 600; font-size: 1.05rem; cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn-filled:hover { filter: brightness(1.1); box-shadow: 0 0 15px rgba(0, 229, 255, 0.4); transform: translateY(-2px); }
-        .btn-filled:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
-
-        /* Real Live API Response Box */
-        .response-container { margin-top: 24px; position: relative; display: none; }
-        .result-actions { display: flex; gap: 8px; margin-bottom: 8px; justify-content: flex-end; }
-        .result-actions .icon-btn { width: 36px; height: 36px; background: var(--md-bg); border: 1px solid var(--md-surface-variant); }
-        .result-area { background: #0d0d0f; border-radius: var(--radius-sm); padding: 16px; font-family: var(--font-code); font-size: 0.85rem; color: #10b981; overflow-x: auto; white-space: pre-wrap; max-height: 350px; border: 1px solid var(--md-outline-faint); }
-
-        /* Toast Notification */
-        .toast { position: fixed; bottom: -60px; left: 50%; transform: translateX(-50%); background: var(--md-on-bg); color: var(--md-bg); padding: 12px 24px; border-radius: var(--radius-full); font-weight: 500; font-size: 0.9rem; z-index: 10000; transition: bottom 0.4s cubic-bezier(0.2, 0, 0, 1); display: flex; align-items: center; gap: 8px; box-shadow: var(--shadow-3); }
-        .toast.show { bottom: 32px; }
-
-        /* Footer */
-        footer { text-align: center; padding: 40px 24px; color: var(--md-on-surface-variant); font-size: 0.9rem; border-top: 1px solid var(--md-surface-variant); margin-top: 40px;}
-        .footer-chips { display: flex; justify-content: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
-        .chip { padding: 6px 16px; background: var(--md-surface); border: 1px solid var(--md-outline-faint); border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; color: var(--md-primary); }
-
-        /* Floating Theme Button */
-        .theme-fab { position: fixed; bottom: 32px; right: 32px; width: 56px; height: 56px; border-radius: 50%; background: var(--md-surface); color: var(--md-primary); border: 1px solid var(--md-outline-faint); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: var(--shadow-3); z-index: 100; transition: var(--transition); }
-        .theme-fab:hover { transform: scale(1.1) rotate(15deg); box-shadow: 0 0 20px rgba(0, 229, 255, 0.2); }
-
-        @media (max-width: 768px) {
-            .live-region { flex-direction: column; gap: 8px; padding: 12px; font-size: 0.75rem; align-items: flex-start;}
-            .wrapper { padding-top: 120px; }
-            h1 { font-size: 2.2rem; }
-        }
-    </style>
-
-    <!-- ==========================================
-         CSS MODULE 2: NEW ORBITAL PRELOADER
-         (Matches provided video reference)
-         ========================================== -->
-    <style id="css-preloader">
-        #orbital-preloader {
-            position: fixed; inset: 0; background: #0a0a0c; z-index: 99999;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: opacity 0.8s ease-out, visibility 0.8s;
-        }
-
-        .orbit-system {
-            position: relative; width: 200px; height: 200px;
-            display: flex; align-items: center; justify-content: center;
-        }
-
-        /* Center Origin Dot */
-        .origin-dot {
-            position: absolute; width: 6px; height: 6px; background: #fff; border-radius: 50%;
-            box-shadow: 0 0 10px #fff, 0 0 20px #00e5ff;
-            animation: pulseOrigin 2s ease-in-out infinite;
-        }
-
-        /* Expanding / Rotating Rings */
-        .orbit-ring {
-            position: absolute; border-radius: 50%; border: 1px solid transparent;
-            border-top-color: rgba(255, 255, 255, 0.3); border-bottom-color: rgba(255, 255, 255, 0.1);
-        }
-        
-        .ring-inner { 
-            width: 80px; height: 80px; 
-            animation: spinRing 2s linear infinite; 
-        }
-        .ring-outer { 
-            width: 140px; height: 140px; 
-            animation: spinRing 4s linear reverse infinite; 
-            border-left-color: rgba(0, 229, 255, 0.2);
-        }
-
-        /* Orbiting Dots */
-        .satellite-track {
-            position: absolute; width: 140px; height: 140px;
-            animation: spinRing 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        }
-
-        .satellite {
-            position: absolute; width: 8px; height: 8px; background: #fff; border-radius: 50%;
-            box-shadow: 0 0 15px #fff, 0 0 30px #00e5ff;
-        }
-        .sat-1 { top: -4px; left: 50%; transform: translateX(-50%); }
-        .sat-2 { bottom: -4px; left: 50%; transform: translateX(-50%); }
-
-        .loader-title {
-            margin-top: 50px; font-family: var(--font-main); font-size: 1.1rem;
-            color: #fff; letter-spacing: 3px; font-weight: 300; text-transform: uppercase;
-            opacity: 0; animation: fadeText 2s ease 1s forwards;
-            text-shadow: 0 0 10px rgba(255,255,255,0.3);
-        }
-
-        @keyframes spinRing { 100% { transform: rotate(360deg); } }
-        @keyframes pulseOrigin { 0%, 100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.5); opacity: 1; box-shadow: 0 0 20px #fff, 0 0 40px #00e5ff; } }
-        @keyframes fadeText { to { opacity: 1; transform: translateY(-10px); } }
-    </style>
-
-    <!-- ==========================================
-         CSS MODULE 3: THEMES (Dark/Light)
-         ========================================== -->
-    <style id="css-themes">
-        /* DARK THEME (DEFAULT) */
-        :root {
-            --md-bg: #09090b;
-            --md-surface: #121214;
-            --md-surface-variant: #27272a;
-            --md-on-bg: #fafafa;
-            --md-on-surface-variant: #a1a1aa;
-            
-            /* Cyan/Teal Accents based on your logo */
-            --md-primary: #00e5ff; 
-            --md-on-primary: #003339;
-            --md-primary-container: rgba(0, 229, 255, 0.1);
-            --md-on-primary-container: #80f2ff;
-            
-            --md-outline: #3f3f46;
-            --md-outline-faint: rgba(255,255,255,0.05);
-            --md-glass: rgba(9, 9, 11, 0.75);
-            
-            --radius-sm: 12px; --radius-md: 16px; --radius-lg: 24px; --radius-full: 9999px;
-            --font-main: 'Outfit', sans-serif; --font-code: 'JetBrains Mono', monospace;
-            --transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
-            --shadow-1: 0 4px 20px rgba(0,0,0,0.5);
-            --shadow-3: 0 8px 30px rgba(0, 229, 255, 0.15);
-        }
-
-        /* LIGHT THEME */
-        [data-theme="light"] {
-            --md-bg: #f8fafc;
-            --md-surface: #ffffff;
-            --md-surface-variant: #e2e8f0;
-            --md-on-bg: #0f172a;
-            --md-on-surface-variant: #64748b;
-            
-            --md-primary: #0284c7;
-            --md-on-primary: #ffffff;
-            --md-primary-container: #e0f2fe;
-            --md-on-primary-container: #0369a1;
-            
-            --md-outline: #cbd5e1;
-            --md-outline-faint: rgba(0,0,0,0.08);
-            --md-glass: rgba(248, 250, 252, 0.85);
-            
-            --shadow-1: 0 4px 15px rgba(0,0,0,0.05);
-            --shadow-3: 0 10px 25px rgba(2, 132, 199, 0.15);
-        }
-
-        /* Background image switching based on theme */
-        #bg-layer { position: fixed; inset: 0; z-index: -2; background-size: cover; background-position: center; opacity: 0.3; pointer-events: none; transition: opacity 0.5s ease; filter: blur(20px); }
-        :root[data-theme="dark"] #bg-layer { background-image: radial-gradient(circle at center, rgba(0,229,255,0.1) 0%, #09090b 70%); }
-        :root[data-theme="light"] #bg-layer { background-image: radial-gradient(circle at center, rgba(2,132,199,0.1) 0%, #f8fafc 70%); opacity: 0.6;}
-    </style>
 </head>
 <body data-theme="dark">
 
-    <!-- Dynamic Background Layer -->
-    <div id="bg-layer"></div>
+    <div class="bg-stage">
+        <div class="scene-dark">
+            <div class="cyber-grid"></div>
+            <div class="nebula-orb nebula-1"></div>
+            <div class="nebula-orb nebula-2"></div>
+            <div class="nebula-orb nebula-3"></div>
+            <div class="shooting-star star-1"></div>
+            <div class="shooting-star star-2"></div>
+            <div class="shooting-star star-3"></div>
+        </div>
+        <div class="scene-light">
+            <div class="aurora-wave aurora-1"></div>
+            <div class="aurora-wave aurora-2"></div>
+            <div class="aurora-wave aurora-3"></div>
+            <div class="glass-ring-deco ring-deco-1"></div>
+            <div class="glass-ring-deco ring-deco-2"></div>
+        </div>
+        <canvas id="bg-canvas"></canvas>
+    </div>
 
-    <!-- Live Region Top Bar -->
     <div class="live-region">
         <div class="group">
             <div class="item" title="Local Time">
@@ -291,7 +65,6 @@
         </div>
     </div>
 
-    <!-- NEW Orbital Preloader (Auto-hides) -->
     <div id="orbital-preloader">
         <div class="orbit-system">
             <div class="orbit-ring ring-outer"></div>
@@ -305,17 +78,37 @@
         <div class="loader-title">Welcome to MeowDL</div>
     </div>
 
-    <!-- Floating Theme Switcher -->
     <button class="theme-fab" id="theme-btn" title="Toggle Theme">
         <span class="material-symbols-rounded" id="theme-icon">light_mode</span>
     </button>
 
     <div class="wrapper">
         <header>
-            <img src="https://i.postimg.cc/nrRfgMhK/Picsart-26-10-01-15-48-38-653.png" alt="Meow-Dl Logo" class="brand-logo">
+            <div class="logo-halo">
+                <img src="https://i.postimg.cc/nrRfgMhK/Picsart-26-10-01-15-48-38-653.png" alt="Meow-Dl Logo" class="brand-logo">
+            </div>
+            <div class="status-pill">
+                <span class="pulse-dot"></span>
+                <span>Ngrok Tunnel &amp; Multi-Thread Engine Online</span>
+            </div>
             <h1>Meow-Dl Network</h1>
-            <p class="subtitle">Intelligent, Secure, and Blazing Fast Media Extraction API. Powered by advanced Node.js architecture.</p>
+            <p class="subtitle">Translucent Glassy Multi-Format Media Extraction Suite. Powered by Elysia, Bun, and Ngrok Tunneling.</p>
         </header>
+
+        <div class="filter-bar" id="filter-bar">
+            <button class="filter-btn active" data-category="all">
+                <span class="material-symbols-rounded">apps</span> All Endpoints
+            </button>
+            <button class="filter-btn" data-category="youtube">
+                <span class="material-symbols-rounded">smart_display</span> YouTube &amp; Music
+            </button>
+            <button class="filter-btn" data-category="social">
+                <span class="material-symbols-rounded">share</span> Social Scrapers
+            </button>
+            <button class="filter-btn" data-category="system">
+                <span class="material-symbols-rounded">memory</span> System &amp; Diagnostics
+            </button>
+        </div>
 
         <section class="grid-container" id="cards-grid"></section>
 
@@ -339,71 +132,81 @@
         </section>
     </div>
 
-    <!-- Interactive API Dialog -->
     <div class="modal-wrap" id="api-modal">
         <div class="modal-body">
             <div class="modal-header">
-                <h2 class="modal-h2" id="modal-title">
-                    <span class="material-symbols-rounded icon" id="modal-icon" style="color:var(--md-primary);">api</span>
-                    <span id="modal-text">Endpoint</span>
-                </h2>
+                <div class="modal-title-group">
+                    <h2 class="modal-h2">
+                        <span class="material-symbols-rounded icon" id="modal-icon" style="color:var(--md-primary);">api</span>
+                        <span id="modal-text">Endpoint</span>
+                    </h2>
+                    <span class="modal-endpoint-tag" id="modal-endpoint-path">GET /yt</span>
+                </div>
                 <button class="icon-btn" id="close-modal"><span class="material-symbols-rounded">close</span></button>
             </div>
-            
+
             <div id="modal-content">
-                <input type="text" class="m3-input" id="api-input" autocomplete="off" placeholder="Paste media URL here...">
-                
+                <div class="form-grid" id="dynamic-form"></div>
+
                 <button class="btn-filled" id="execute-btn">
-                    <span class="material-symbols-rounded">bolt</span> Extract Media
+                    <span class="material-symbols-rounded">bolt</span> Execute Request
                 </button>
-                
-                <!-- Live Response Section -->
+
                 <div class="response-container" id="response-container">
-                    <div class="result-actions">
-                        <button class="icon-btn" onclick="copyAction('response')" title="Copy JSON Data">
-                            <span class="material-symbols-rounded">content_copy</span>
-                        </button>
-                        <button class="icon-btn" onclick="copyAction('url')" title="Copy API Endpoint URL">
-                            <span class="material-symbols-rounded">link</span>
-                        </button>
-                        <button class="icon-btn" onclick="openAction()" title="Open API in New Tab">
-                            <span class="material-symbols-rounded">open_in_new</span>
-                        </button>
+                    <div class="response-toolbar">
+                        <div class="view-tabs">
+                            <button class="tab-btn active" id="tab-visual" onclick="switchResponseTab('visual')">
+                                <span class="material-symbols-rounded" style="font-size:16px;">auto_awesome</span> Visual Card
+                            </button>
+                            <button class="tab-btn" id="tab-json" onclick="switchResponseTab('json')">
+                                <span class="material-symbols-rounded" style="font-size:16px;">data_object</span> Raw JSON
+                            </button>
+                        </div>
+                        <div class="result-actions">
+                            <button class="action-chip-btn" onclick="copyAction('response')" title="Copy JSON Data">
+                                <span class="material-symbols-rounded" style="font-size:16px;">content_copy</span> JSON
+                            </button>
+                            <button class="action-chip-btn" onclick="copyAction('url')" title="Copy API Endpoint URL">
+                                <span class="material-symbols-rounded" style="font-size:16px;">link</span> Endpoint
+                            </button>
+                            <button class="action-chip-btn" onclick="openAction()" title="Open API in New Tab">
+                                <span class="material-symbols-rounded" style="font-size:16px;">open_in_new</span> Raw
+                            </button>
+                        </div>
                     </div>
+
+                    <div class="visual-response" id="visual-result"></div>
                     <div class="result-area" id="api-result"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Toast Notification -->
     <div class="toast" id="toast">
-        <span class="material-symbols-rounded">check_circle</span>
+        <span class="material-symbols-rounded" style="color:var(--md-primary);">check_circle</span>
         <span id="toast-msg">Copied to clipboard!</span>
     </div>
 
     <footer>
         <p>&copy; 2026 Meow-Dl. Architected by Priyanshi Kaur.</p>
         <div class="footer-chips">
-            <div class="chip">Node.js Engine Active</div>
-            <div class="chip">Bun.js Native</div>
-            <div class="chip">Real-Time API</div>
+            <span class="chip">Bun.js + Elysia</span>
+            <span class="chip">Ngrok Tunnel Active</span>
+            <span class="chip">WebPO BotGuard Minter</span>
+            <a href="/admin" class="chip">Admin Console</a>
         </div>
     </footer>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            
-            // --- 1. PRELOADER LOGIC ---
             const preloader = document.getElementById('orbital-preloader');
-            // Auto dismiss after 3.5 seconds
             setTimeout(() => {
                 preloader.style.opacity = '0';
                 preloader.style.visibility = 'hidden';
                 startLiveStats();
-            }, 3500);
+                animateCardsEntrance();
+            }, 2200);
 
-            // --- 2. LIVE REGION LOGIC (Time, IP, Location, Device) ---
             const timeEl = document.getElementById('live-time');
             const dateEl = document.getElementById('live-date');
             const ipEl = document.getElementById('live-ip');
@@ -415,39 +218,50 @@
                 timeEl.innerText = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 dateEl.innerText = now.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
             }
-            setInterval(updateClock, 1000); updateClock();
+            setInterval(updateClock, 1000);
+            updateClock();
 
-            // Fetch real IP and Location data for the live region UI
-            fetch('https://ipapi.co/json/')
+            fetch('/api/ip')
                 .then(r => r.json())
-                .then(data => { 
-                    ipEl.innerText = data.ip || "Unknown IP"; 
-                    locEl.innerText = `${data.city || 'Unknown'}, ${data.org || data.country_name || 'ISP'}`;
+                .then(data => {
+                    const ip = data.ip || data.query || 'Connected';
+                    const city = data.city || data.regionName || data.country || '';
+                    const isp = data.isp || data.org || data.country_name || '';
+                    ipEl.innerText = ip;
+                    locEl.innerText = [city, isp].filter(Boolean).join(' • ') || 'Ngrok Edge';
                 })
-                .catch(() => { 
-                    ipEl.innerText = "Unavailable"; 
-                    locEl.innerText = "Offline/Blocked"; 
+                .catch(() => {
+                    ipEl.innerText = '127.0.0.1';
+                    locEl.innerText = 'Local Tunnel';
                 });
 
-            // Device Detection
-            const ua = navigator.userAgent;
-            let os = "Unknown OS";
-            if (/android/i.test(ua)) os = "Android";
-            else if (/ipad|iphone|ipod/i.test(ua)) os = "iOS";
-            else if (/windows/i.test(ua)) os = "Windows";
-            else if (/mac/i.test(ua)) os = "macOS";
-            else if (/linux/i.test(ua)) os = "Linux";
-            deviceEl.innerText = `${os} ${/mobile/i.test(ua) ? "Mobile" : "Desktop"}`;
+            fetch('/api/device')
+                .then(r => r.json())
+                .then(data => {
+                    const os = data.os?.name || data.os || data.platform || '';
+                    const browser = data.browser?.name || data.browser || data.type || '';
+                    if (os || browser) {
+                        deviceEl.innerText = [os, browser].filter(Boolean).join(' • ');
+                    }
+                })
+                .catch(() => {});
 
-            // --- 3. THEME MANAGEMENT ---
+            const ua = navigator.userAgent;
+            let fallbackOs = 'Desktop';
+            if (/android/i.test(ua)) fallbackOs = 'Android';
+            else if (/ipad|iphone|ipod/i.test(ua)) fallbackOs = 'iOS';
+            else if (/windows/i.test(ua)) fallbackOs = 'Windows';
+            else if (/mac/i.test(ua)) fallbackOs = 'macOS';
+            else if (/linux/i.test(ua)) fallbackOs = 'Linux';
+            deviceEl.innerText = `${fallbackOs} ${/mobile/i.test(ua) ? 'Mobile' : 'Client'}`;
+
             const themeBtn = document.getElementById('theme-btn');
             const themeIcon = document.getElementById('theme-icon');
-            // Default to dark as requested
-            let isDark = localStorage.getItem('meow_dl_theme') !== 'light'; 
-            
+            let isDark = localStorage.getItem('meow_dl_theme') !== 'light';
+
             function applyTheme() {
                 document.body.setAttribute('data-theme', isDark ? 'dark' : 'light');
-                themeIcon.innerText = isDark ? 'light_mode' : 'dark_mode'; // icon shows the *opposite* theme to switch to
+                themeIcon.innerText = isDark ? 'light_mode' : 'dark_mode';
             }
             applyTheme();
 
@@ -457,144 +271,728 @@
                 applyTheme();
             });
 
-            // --- 4. API ENDPOINTS UI ---
+            const canvas = document.getElementById('bg-canvas');
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            let mouse = { x: -1000, y: -1000 };
+
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            window.addEventListener('mousemove', e => {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+            });
+
+            for (let i = 0; i < 55; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 0.65,
+                    vy: (Math.random() - 0.5) * 0.65,
+                    r: Math.random() * 2.5 + 1,
+                    bubbleR: Math.random() * 18 + 8,
+                    hue: Math.random() * 60 + 180
+                });
+            }
+
+            function renderBackground() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    if (p.x < 0) p.x = canvas.width;
+                    if (p.x > canvas.width) p.x = 0;
+                    if (p.y < 0) p.y = canvas.height;
+                    if (p.y > canvas.height) p.y = 0;
+
+                    if (isDark) {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(0, 229, 255, 0.55)';
+                        ctx.fill();
+
+                        for (let j = i + 1; j < particles.length; j++) {
+                            const p2 = particles[j];
+                            const dx = p.x - p2.x;
+                            const dy = p.y - p2.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            if (dist < 130) {
+                                ctx.beginPath();
+                                ctx.moveTo(p.x, p.y);
+                                ctx.lineTo(p2.x, p2.y);
+                                ctx.strokeStyle = `rgba(0, 229, 255, ${(1 - dist / 130) * 0.16})`;
+                                ctx.lineWidth = 1;
+                                ctx.stroke();
+                            }
+                        }
+                    } else {
+                        const grad = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, p.bubbleR);
+                        grad.addColorStop(0, `hsla(${p.hue}, 90%, 65%, 0.22)`);
+                        grad.addColorStop(0.7, `hsla(${p.hue + 30}, 85%, 75%, 0.08)`);
+                        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.bubbleR, 0, Math.PI * 2);
+                        ctx.fillStyle = grad;
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                        ctx.lineWidth = 0.8;
+                        ctx.stroke();
+                    }
+                }
+                requestAnimationFrame(renderBackground);
+            }
+            renderBackground();
+
             const endpoints = [
-                { id: 'yt', title: 'YouTube Engine', icon: 'smart_display', desc: '4K Video & Audio extraction. Bypasses standard bot detection blocks automatically.', url: '/api/yt' },
-                { id: 'insta', title: 'IG Scraper V2', icon: 'photo_camera', desc: 'Reels, Stories, and Post downloader. Real-time media extraction without auth.', url: '/api/insta' },
-                { id: 'tik', title: 'TikTok Extractor', icon: 'music_video', desc: 'Pulls pure HD video chunks and metadata directly from the source without watermarks.', url: '/api/tt' },
-                { id: 'pin', title: 'Pinterest Puller', icon: 'push_pin', desc: 'Extracts full resolution images and video pins via direct URI.', url: '/api/pin' },
-                { id: 'x', title: 'X (Twitter) Fetch', icon: 'chat', desc: 'Retrieves media attachments and videos from X posts natively.', url: '/api/x' },
-                { id: 'fb', title: 'Facebook Media', icon: 'public', desc: 'High-speed video blob extraction for FB Watch and timeline posts.', url: '/api/fb' }
+                {
+                    id: 'yt',
+                    category: 'youtube',
+                    method: 'GET',
+                    title: 'YouTube Extractor',
+                    icon: 'smart_display',
+                    desc: 'Multi-threaded adaptive stream downloader with WebPO token minting & FFmpeg remuxing into Ngrok tunnels.',
+                    url: '/yt',
+                    fields: [
+                        { name: 'url', label: 'YouTube Video / Shorts URL', type: 'text', placeholder: 'https://www.youtube.com/watch?v=...', required: true },
+                        { name: 'quality', label: 'Target Quality', type: 'select', options: [
+                            { value: '', label: 'All Available Formats (Default)' },
+                            { value: '1080p', label: '1080p Full HD' },
+                            { value: '720p', label: '720p HD' },
+                            { value: '480p', label: '480p Standard' },
+                            { value: '360p', label: '360p Medium' },
+                            { value: '240p', label: '240p Low' },
+                            { value: '144p', label: '144p Ultra Low' }
+                        ]},
+                        { name: 'format', label: 'Container Format', type: 'select', options: [
+                            { value: '', label: 'Video + Audio' },
+                            { value: 'mp4', label: 'MP4 Video Only' },
+                            { value: 'm4a', label: 'M4A Audio Stream Only' }
+                        ]}
+                    ]
+                },
+                {
+                    id: 'search',
+                    category: 'youtube',
+                    method: 'GET',
+                    title: 'YouTube Search & Grab',
+                    icon: 'manage_search',
+                    desc: 'Search YouTube videos by keyword or immediately resolve download tunnels for the top matching video.',
+                    url: '/search',
+                    fields: [
+                        { name: 'q', label: 'Search Query', type: 'text', placeholder: 'Alan Walker Faded...', required: true },
+                        { name: 'num', label: 'Result Mode', type: 'select', options: [
+                            { value: '10', label: 'Return Top 10 Search Results' },
+                            { value: 'all', label: 'Return All Search Results' },
+                            { value: '', label: 'Direct Extract First Video Match' }
+                        ]},
+                        { name: 'quality', label: 'Direct Extract Quality', type: 'select', options: [
+                            { value: '', label: 'All Qualities' },
+                            { value: '1080p', label: '1080p' },
+                            { value: '720p', label: '720p' },
+                            { value: '480p', label: '480p' }
+                        ]},
+                        { name: 'format', label: 'Direct Extract Format', type: 'select', options: [
+                            { value: '', label: 'Auto' },
+                            { value: 'mp4', label: 'MP4' },
+                            { value: 'm4a', label: 'M4A Audio' }
+                        ]}
+                    ]
+                },
+                {
+                    id: 'music',
+                    category: 'youtube',
+                    method: 'GET',
+                    title: 'YouTube Music Resolver',
+                    icon: 'library_music',
+                    desc: 'Queries YouTube Music catalog for official song streams and generates high-bitrate audio/video tunnels.',
+                    url: '/music',
+                    fields: [
+                        { name: 'q', label: 'Song Name / Artist', type: 'text', placeholder: 'Starboy The Weeknd...', required: true },
+                        { name: 'format', label: 'Stream Format', type: 'select', options: [
+                            { value: 'm4a', label: 'M4A Best Audio (Recommended)' },
+                            { value: '', label: 'All Video & Audio Formats' }
+                        ]},
+                        { name: 'quality', label: 'Video Quality (Optional)', type: 'select', options: [
+                            { value: '', label: 'All Qualities' },
+                            { value: '1080p', label: '1080p' },
+                            { value: '720p', label: '720p' }
+                        ]}
+                    ]
+                },
+                {
+                    id: 'insta',
+                    category: 'social',
+                    method: 'GET',
+                    title: 'Instagram Extractor V1',
+                    icon: 'photo_camera',
+                    desc: 'Fast extraction for Instagram Reels, Posts, and Carousels with direct CDN media links.',
+                    url: '/insta',
+                    fields: [
+                        { name: 'url', label: 'Instagram Post / Reel URL', type: 'text', placeholder: 'https://www.instagram.com/reel/...', required: true }
+                    ]
+                },
+                {
+                    id: 'instav2',
+                    category: 'social',
+                    method: 'GET',
+                    title: 'Instagram Scraper V2',
+                    icon: 'camera_enhance',
+                    desc: 'Secondary high-resilience Instagram engine for Stories, Reels, and multi-slide media posts.',
+                    url: '/instav2',
+                    fields: [
+                        { name: 'url', label: 'Instagram URL', type: 'text', placeholder: 'https://www.instagram.com/p/...', required: true }
+                    ]
+                },
+                {
+                    id: 'tt',
+                    category: 'social',
+                    method: 'GET',
+                    title: 'TikTok No-Watermark',
+                    icon: 'music_video',
+                    desc: 'Extracts pure HD video streams, original audio tracks, and author metadata from TikTok links.',
+                    url: '/tt',
+                    fields: [
+                        { name: 'url', label: 'TikTok Video URL', type: 'text', placeholder: 'https://www.tiktok.com/@user/video/...', required: true }
+                    ]
+                },
+                {
+                    id: 'pin',
+                    category: 'social',
+                    method: 'GET',
+                    title: 'Pinterest Media & Search',
+                    icon: 'push_pin',
+                    desc: 'Download full-resolution Pinterest video/image pins by URL or search boards by keyword.',
+                    url: '/pin',
+                    fields: [
+                        { name: 'url', label: 'Pinterest Pin URL (Leave blank if searching)', type: 'text', placeholder: 'https://pin.it/... or https://www.pinterest.com/pin/...' },
+                        { name: 'search', label: 'Or Search Keywords', type: 'text', placeholder: 'Cyberpunk aesthetic wallpaper...' },
+                        { name: 'limit', label: 'Search Limit (1 - 50)', type: 'text', placeholder: '20' }
+                    ]
+                },
+                {
+                    id: 'fb',
+                    category: 'social',
+                    method: 'GET',
+                    title: 'Facebook HD Extractor',
+                    icon: 'public',
+                    desc: 'Resolves SD and HD downloadable MP4 streams from Facebook Watch, Reels, and public posts.',
+                    url: '/fb',
+                    fields: [
+                        { name: 'url', label: 'Facebook Video / Reel URL', type: 'text', placeholder: 'https://www.facebook.com/watch/?v=...', required: true }
+                    ]
+                },
+                {
+                    id: 'x',
+                    category: 'social',
+                    method: 'GET',
+                    title: 'X (Twitter) Media Fetch',
+                    icon: 'chat',
+                    desc: 'Extracts multi-bitrate video variants and high-resolution images from X / Twitter statuses.',
+                    url: '/x',
+                    fields: [
+                        { name: 'url', label: 'X / Twitter Status URL', type: 'text', placeholder: 'https://x.com/user/status/...', required: true }
+                    ]
+                },
+                {
+                    id: 'api-stats',
+                    category: 'system',
+                    method: 'GET',
+                    title: 'System Telemetry',
+                    icon: 'monitoring',
+                    desc: 'Real-time server CPU, RAM, runtime metrics, and active node health from /api/stats.',
+                    url: '/api/stats',
+                    fields: []
+                },
+                {
+                    id: 'pin-stats',
+                    category: 'system',
+                    method: 'GET',
+                    title: 'Pinterest Cache Stats',
+                    icon: 'analytics',
+                    desc: 'Inspect Pinterest scraper cache hit ratios, stored keys, and rate-limiter telemetry.',
+                    url: '/pin/stats',
+                    fields: []
+                },
+                {
+                    id: 'pin-clear',
+                    category: 'system',
+                    method: 'POST',
+                    title: 'Purge Pinterest Cache',
+                    icon: 'delete_sweep',
+                    desc: 'Flush all cached Pinterest search and pin lookup entries from server memory.',
+                    url: '/pin/cache/clear',
+                    fields: []
+                },
+                {
+                    id: 'api-ip',
+                    category: 'system',
+                    method: 'GET',
+                    title: 'Client IP Geolocation',
+                    icon: 'radar',
+                    desc: 'Inspect your connection IP and geolocation headers as seen by the Elysia gateway.',
+                    url: '/api/ip',
+                    fields: []
+                },
+                {
+                    id: 'api-device',
+                    category: 'system',
+                    method: 'GET',
+                    title: 'Device Fingerprint',
+                    icon: 'devices',
+                    desc: 'Analyze parsed User-Agent, OS signature, and client headers via /api/device.',
+                    url: '/api/device',
+                    fields: []
+                }
             ];
 
             const grid = document.getElementById('cards-grid');
-            endpoints.forEach(ep => {
-                const card = document.createElement('div');
-                card.className = 'api-card';
-                card.innerHTML = `
-                    <div class="card-header">
-                        <div class="card-icon-wrapper"><span class="material-symbols-rounded card-icon">${ep.icon}</span></div>
-                    </div>
-                    <h3 class="card-title">${ep.title}</h3>
-                    <p class="card-desc">${ep.desc}</p>
-                    <div class="method-badge"><span class="method-type">GET</span> ${ep.url}</div>
-                `;
-                card.addEventListener('click', () => openModal(ep));
-                grid.appendChild(card);
+
+            function renderCards(filter = 'all') {
+                grid.innerHTML = '';
+                const filtered = filter === 'all' ? endpoints : endpoints.filter(e => e.category === filter);
+
+                filtered.forEach(ep => {
+                    const card = document.createElement('div');
+                    card.className = 'api-card';
+                    card.innerHTML = `
+                        <div class="card-header">
+                            <div class="card-icon-wrapper">
+                                <span class="material-symbols-rounded card-icon">${ep.icon}</span>
+                            </div>
+                            <span class="card-category-tag">${ep.category}</span>
+                        </div>
+                        <h3 class="card-title">${ep.title}</h3>
+                        <p class="card-desc">${ep.desc}</p>
+                        <div class="card-footer">
+                            <div class="method-badge">
+                                <span class="method-type ${ep.method === 'POST' ? 'post' : ''}">${ep.method}</span>
+                                <span>${ep.url}</span>
+                            </div>
+                            <div class="launch-arrow">
+                                <span class="material-symbols-rounded" style="font-size:18px;">arrow_outward</span>
+                            </div>
+                        </div>
+                    `;
+                    card.addEventListener('click', () => openModal(ep));
+                    grid.appendChild(card);
+                });
+
+                animateCardsEntrance();
+            }
+
+            function animateCardsEntrance() {
+                if (typeof anime !== 'undefined') {
+                    anime({
+                        targets: '.api-card',
+                        opacity: [0, 1],
+                        translateY: [24, 0],
+                        delay: anime.stagger(55),
+                        duration: 600,
+                        easing: 'easeOutCubic'
+                    });
+                }
+            }
+
+            renderCards('all');
+
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderCards(btn.dataset.category);
+                });
             });
 
-            // --- 5. MODAL & REAL API LOGIC ---
             const modal = document.getElementById('api-modal');
             const closeBtn = document.getElementById('close-modal');
+            const dynamicForm = document.getElementById('dynamic-form');
             let activeEp = null;
-            
-            // Global vars for copy buttons
-            window.currentApiUrl = "";
-            window.currentApiResponse = "";
+
+            window.currentApiUrl = '';
+            window.currentApiResponse = '';
+
+            window.switchResponseTab = (tab) => {
+                const visualEl = document.getElementById('visual-result');
+                const jsonEl = document.getElementById('api-result');
+                const tabVisual = document.getElementById('tab-visual');
+                const tabJson = document.getElementById('tab-json');
+
+                if (tab === 'visual') {
+                    visualEl.style.display = 'flex';
+                    jsonEl.classList.remove('active');
+                    tabVisual.classList.add('active');
+                    tabJson.classList.remove('active');
+                } else {
+                    visualEl.style.display = 'none';
+                    jsonEl.classList.add('active');
+                    tabVisual.classList.remove('active');
+                    tabJson.classList.add('active');
+                }
+            };
 
             function openModal(ep) {
                 activeEp = ep;
                 document.getElementById('modal-icon').innerText = ep.icon;
                 document.getElementById('modal-text').innerText = ep.title;
-                document.getElementById('api-input').value = '';
+                document.getElementById('modal-endpoint-path').innerText = `${ep.method} ${ep.url}`;
                 document.getElementById('response-container').style.display = 'none';
-                
+
+                dynamicForm.innerHTML = '';
+                if (ep.fields.length === 0) {
+                    dynamicForm.innerHTML = `
+                        <div class="kv-box">
+                            <span class="kv-key">Direct Endpoint Execution</span>
+                            <span class="kv-val">No query parameters required for ${ep.method} ${ep.url}</span>
+                        </div>
+                    `;
+                } else {
+                    const textFields = ep.fields.filter(f => f.type === 'text');
+                    const selectFields = ep.fields.filter(f => f.type === 'select');
+
+                    textFields.forEach(f => {
+                        const group = document.createElement('div');
+                        group.className = 'field-group';
+                        group.innerHTML = `
+                            <label class="field-label">${f.label}</label>
+                            <input type="text" class="m3-input" data-param="${f.name}" placeholder="${f.placeholder || ''}" autocomplete="off">
+                        `;
+                        dynamicForm.appendChild(group);
+                    });
+
+                    if (selectFields.length > 0) {
+                        const row = document.createElement('div');
+                        row.className = 'param-row';
+                        selectFields.forEach(f => {
+                            const group = document.createElement('div');
+                            group.className = 'field-group';
+                            const optionsHtml = f.options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+                            group.innerHTML = `
+                                <label class="field-label">${f.label}</label>
+                                <select class="m3-select" data-param="${f.name}">${optionsHtml}</select>
+                            `;
+                            row.appendChild(group);
+                        });
+                        dynamicForm.appendChild(row);
+                    }
+                }
+
                 modal.classList.add('active');
-                setTimeout(() => document.getElementById('api-input').focus(), 100);
+                const firstInput = dynamicForm.querySelector('input');
+                if (firstInput) setTimeout(() => firstInput.focus(), 120);
             }
 
             closeBtn.onclick = () => modal.classList.remove('active');
-            modal.onclick = (e) => { if(e.target === modal) modal.classList.remove('active'); };
+            modal.onclick = (e) => { if (e.target === modal) modal.classList.remove('active'); };
 
-            // Real Fetch Execution
-            document.getElementById('execute-btn').onclick = async () => {
-                const btn = document.getElementById('execute-btn');
-                const inp = document.getElementById('api-input').value.trim();
-                const resContainer = document.getElementById('response-container');
-                const resBox = document.getElementById('api-result');
+            window.quickExtractYt = (videoId, format = '') => {
+                const ytEp = endpoints.find(e => e.id === 'yt');
+                openModal(ytEp);
+                const urlInput = dynamicForm.querySelector('[data-param="url"]');
+                const formatSelect = dynamicForm.querySelector('[data-param="format"]');
+                if (urlInput) urlInput.value = `https://www.youtube.com/watch?v=${videoId}`;
+                if (formatSelect && format) formatSelect.value = format;
+                document.getElementById('execute-btn').click();
+            };
 
-                if(!inp) {
-                    resContainer.style.display = 'block'; 
-                    resBox.style.color = '#ef4444'; 
-                    resBox.innerText = '> Error: Target URL cannot be empty.'; 
-                    document.querySelector('.result-actions').style.display = 'none';
+            function collectMediaLinks(obj, collected = []) {
+                if (!obj || typeof obj !== 'object') return collected;
+                for (const [k, v] of Object.entries(obj)) {
+                    if (typeof v === 'string' && /^https?:\/\//i.test(v)) {
+                        if (!/thumbnail|avatar|profile|cover/i.test(k) || collected.length === 0) {
+                            collected.push({ label: k, url: v });
+                        }
+                    } else if (typeof v === 'object') {
+                        collectMediaLinks(v, collected);
+                    }
+                }
+                return collected;
+            }
+
+            function renderVisualResponse(data) {
+                const container = document.getElementById('visual-result');
+                container.innerHTML = '';
+
+                if (data && (data.media || data.downloadLink) && data.videoId) {
+                    const hero = document.createElement('div');
+                    hero.className = 'media-hero-card';
+                    hero.innerHTML = `
+                        <div class="media-thumb-wrap">
+                            <img class="media-thumb" src="${data.thumbnail || ''}" alt="Thumbnail">
+                        </div>
+                        <div class="media-meta">
+                            <div class="media-title">${data.title || 'YouTube Media'}</div>
+                            <div class="media-sub">
+                                <span>${data.channel || 'YouTube'}</span>
+                                ${data.expires ? `<span class="meta-pill">${data.expires}</span>` : ''}
+                                ${data.infoFetchTime ? `<span class="meta-pill">${data.infoFetchTime}</span>` : ''}
+                                ${data.cached ? `<span class="meta-pill">Cached</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(hero);
+
+                    const formatsGrid = document.createElement('div');
+                    formatsGrid.className = 'formats-grid';
+
+                    if (data.downloadLink) {
+                        const card = document.createElement('div');
+                        card.className = 'format-card';
+                        card.innerHTML = `
+                            <div class="format-top">
+                                <span class="format-quality">
+                                    <span class="material-symbols-rounded" style="font-size:18px;color:var(--md-primary);">
+                                        ${data.quality === 'audio' ? 'headphones' : 'videocam'}
+                                    </span>
+                                    ${data.quality || 'Stream'}
+                                </span>
+                                <span class="format-codec">TUNNEL</span>
+                            </div>
+                            <div class="format-size">Size: ${data.size || 'N/A'}</div>
+                            <div class="format-actions">
+                                <a href="${data.downloadLink}" target="_blank" download class="action-chip-btn primary">
+                                    <span class="material-symbols-rounded" style="font-size:16px;">download</span> Download
+                                </a>
+                                <button class="action-chip-btn" onclick="copyText('${data.downloadLink}', 'Tunnel URL Copied!')">
+                                    <span class="material-symbols-rounded" style="font-size:16px;">content_copy</span>
+                                </button>
+                            </div>
+                        `;
+                        formatsGrid.appendChild(card);
+                    }
+
+                    if (Array.isArray(data.media)) {
+                        data.media.forEach(item => {
+                            const isAudio = item.quality === 'audio';
+                            const card = document.createElement('div');
+                            card.className = 'format-card';
+                            card.innerHTML = `
+                                <div class="format-top">
+                                    <span class="format-quality">
+                                        <span class="material-symbols-rounded" style="font-size:18px;color:var(--md-primary);">
+                                            ${isAudio ? 'headphones' : 'hd'}
+                                        </span>
+                                        ${item.quality || 'Stream'}
+                                    </span>
+                                    <span class="format-codec">${item.codec || 'MP4'}</span>
+                                </div>
+                                <div class="format-size">Size: ${item.size || 'N/A'}</div>
+                                <div class="format-actions">
+                                    <a href="${item.url}" target="_blank" download class="action-chip-btn primary">
+                                        <span class="material-symbols-rounded" style="font-size:16px;">download</span> Download
+                                    </a>
+                                    <button class="action-chip-btn" onclick="copyText('${item.url}', 'Tunnel Link Copied!')" title="Copy Ngrok Tunnel Link">
+                                        <span class="material-symbols-rounded" style="font-size:16px;">link</span>
+                                    </button>
+                                </div>
+                            `;
+                            formatsGrid.appendChild(card);
+                        });
+                    }
+
+                    container.appendChild(formatsGrid);
                     return;
                 }
 
-                // Show loading state on button
-                btn.innerHTML = '<span class="material-symbols-rounded" style="animation: spinRing 1s linear infinite;">sync</span> Fetching...';
+                if (data && Array.isArray(data.results)) {
+                    const list = document.createElement('div');
+                    list.className = 'search-results-list';
+                    data.results.forEach(item => {
+                        const row = document.createElement('div');
+                        row.className = 'search-item-card';
+                        const vid = item.videoId || item.id || '';
+                        row.innerHTML = `
+                            <div class="media-thumb-wrap">
+                                <img class="media-thumb" src="${item.thumbnail || item.image || ''}" alt="Thumb">
+                            </div>
+                            <div class="media-meta">
+                                <div class="media-title">${item.title || 'Untitled'}</div>
+                                <div class="media-sub">
+                                    <span>${item.author || 'Unknown'}</span>
+                                    ${item.duration ? `<span class="meta-pill">${item.duration}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="result-actions">
+                                ${vid ? `
+                                    <button class="action-chip-btn primary" onclick="quickExtractYt('${vid}')">
+                                        <span class="material-symbols-rounded" style="font-size:16px;">download</span> Formats
+                                    </button>
+                                    <button class="action-chip-btn" onclick="quickExtractYt('${vid}', 'm4a')">
+                                        <span class="material-symbols-rounded" style="font-size:16px;">music_note</span> M4A
+                                    </button>
+                                ` : ''}
+                            </div>
+                        `;
+                        list.appendChild(row);
+                    });
+                    container.appendChild(list);
+                    return;
+                }
+
+                const extractedLinks = collectMediaLinks(data).slice(0, 12);
+                if (extractedLinks.length > 0) {
+                    const formatsGrid = document.createElement('div');
+                    formatsGrid.className = 'formats-grid';
+                    extractedLinks.forEach((link, idx) => {
+                        const card = document.createElement('div');
+                        card.className = 'format-card';
+                        card.innerHTML = `
+                            <div class="format-top">
+                                <span class="format-quality">
+                                    <span class="material-symbols-rounded" style="font-size:18px;color:var(--md-primary);">cloud_download</span>
+                                    Media #${idx + 1}
+                                </span>
+                                <span class="format-codec">${link.label}</span>
+                            </div>
+                            <div class="format-actions">
+                                <a href="${link.url}" target="_blank" rel="noopener" class="action-chip-btn primary">
+                                    <span class="material-symbols-rounded" style="font-size:16px;">open_in_new</span> Open / Save
+                                </a>
+                                <button class="action-chip-btn" onclick="copyText('${link.url}', 'Media Link Copied!')">
+                                    <span class="material-symbols-rounded" style="font-size:16px;">content_copy</span>
+                                </button>
+                            </div>
+                        `;
+                        formatsGrid.appendChild(card);
+                    });
+                    container.appendChild(formatsGrid);
+                }
+
+                if (data && typeof data === 'object') {
+                    const kvGrid = document.createElement('div');
+                    kvGrid.className = 'kv-stats-grid';
+                    Object.entries(data).slice(0, 12).forEach(([k, v]) => {
+                        if (typeof v !== 'object' || v === null) {
+                            const box = document.createElement('div');
+                            box.className = 'kv-box';
+                            box.innerHTML = `
+                                <span class="kv-key">${k}</span>
+                                <span class="kv-val">${String(v)}</span>
+                            `;
+                            kvGrid.appendChild(box);
+                        }
+                    });
+                    if (kvGrid.children.length > 0) {
+                        container.appendChild(kvGrid);
+                    }
+                }
+            }
+
+            document.getElementById('execute-btn').onclick = async () => {
+                const btn = document.getElementById('execute-btn');
+                const resContainer = document.getElementById('response-container');
+                const resBox = document.getElementById('api-result');
+
+                const params = new URLSearchParams();
+                let missingRequired = false;
+
+                if (activeEp.fields.length > 0) {
+                    activeEp.fields.forEach(f => {
+                        const el = dynamicForm.querySelector(`[data-param="${f.name}"]`);
+                        const val = el ? el.value.trim() : '';
+                        if (f.required && !val) missingRequired = true;
+                        if (val) params.set(f.name, val);
+                    });
+
+                    if (activeEp.id === 'pin' && !params.has('url') && !params.has('search')) {
+                        missingRequired = true;
+                    }
+                }
+
+                if (missingRequired) {
+                    showToast('Please fill in the required input field');
+                    return;
+                }
+
+                btn.innerHTML = '<span class="material-symbols-rounded" style="animation: spinRing 1s linear infinite;">sync</span> Processing on Engine...';
                 btn.disabled = true;
                 resContainer.style.display = 'none';
 
                 try {
-                    // Construct Real URL
-                    const currentHost = window.location.origin;
-                    window.currentApiUrl = `${currentHost}${activeEp.url}?url=${encodeURIComponent(inp)}`;
-                    
-                    // Actually fetch the data from your real backend endpoints
-                    const response = await fetch(window.currentApiUrl);
+                    const queryString = params.toString();
+                    window.currentApiUrl = `${window.location.origin}${activeEp.url}${queryString ? `?${queryString}` : ''}`;
+
+                    const response = await fetch(window.currentApiUrl, {
+                        method: activeEp.method
+                    });
                     const data = await response.json();
-                    
+
                     window.currentApiResponse = JSON.stringify(data, null, 2);
-                    
-                    resBox.style.color = 'var(--md-primary)';
+                    resBox.style.color = response.ok ? '#34d399' : '#f87171';
                     resBox.innerText = window.currentApiResponse;
-                    document.querySelector('.result-actions').style.display = 'flex';
 
-                    // Update local mockup stats counter
+                    renderVisualResponse(data);
+                    switchResponseTab('visual');
+
                     const countEl = document.getElementById('stat-req');
-                    let c = parseInt(countEl.innerText.replace(/,/g,''));
+                    let c = parseInt(countEl.innerText.replace(/,/g, '')) || 0;
                     countEl.innerText = (c + 1).toLocaleString();
-
                 } catch (error) {
-                    // Handle network or server errors
-                    resBox.style.color = '#ef4444';
-                    resBox.innerText = JSON.stringify({ 
-                        success: false, 
-                        error: "Failed to connect to API endpoint.",
-                        details: error.message 
-                    }, null, 2);
-                    window.currentApiResponse = resBox.innerText;
-                    document.querySelector('.result-actions').style.display = 'flex';
+                    const errPayload = {
+                        success: false,
+                        error: 'Failed to communicate with API endpoint.',
+                        details: error.message
+                    };
+                    window.currentApiResponse = JSON.stringify(errPayload, null, 2);
+                    resBox.style.color = '#f87171';
+                    resBox.innerText = window.currentApiResponse;
+                    renderVisualResponse(errPayload);
+                    switchResponseTab('json');
                 } finally {
                     resContainer.style.display = 'block';
-                    btn.innerHTML = '<span class="material-symbols-rounded">bolt</span> Extract Media';
+                    btn.innerHTML = '<span class="material-symbols-rounded">bolt</span> Execute Request';
                     btn.disabled = false;
                 }
             };
 
-            // --- 6. ACTION BUTTONS & TOAST ---
+            window.copyText = (text, message = 'Copied!') => {
+                navigator.clipboard.writeText(text).then(() => showToast(message));
+            };
+
             window.copyAction = (type) => {
                 const text = type === 'url' ? window.currentApiUrl : window.currentApiResponse;
                 navigator.clipboard.writeText(text).then(() => {
-                    showToast(type === 'url' ? 'API URL Copied!' : 'JSON Data Copied!');
-                }).catch(err => {
-                    showToast('Failed to copy');
+                    showToast(type === 'url' ? 'Endpoint URL Copied!' : 'JSON Response Copied!');
                 });
             };
 
             window.openAction = () => {
-                if(window.currentApiUrl) window.open(window.currentApiUrl, '_blank');
+                if (window.currentApiUrl) window.open(window.currentApiUrl, '_blank');
             };
 
             function showToast(msg) {
                 const toast = document.getElementById('toast');
                 document.getElementById('toast-msg').innerText = msg;
                 toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 2500);
+                setTimeout(() => toast.classList.remove('show'), 2600);
             }
 
-            // --- 7. BACKGROUND ANIMATIONS (Stats) ---
             function startLiveStats() {
                 setInterval(() => {
-                    document.getElementById('stat-ping').innerText = Math.floor(Math.random() * 20 + 8) + ' ms';
-                    const userEl = document.getElementById('stat-users');
-                    let currentUsers = parseInt(userEl.innerText.replace(/,/g,'')) || 8421;
-                    currentUsers += Math.floor(Math.random() * 8 - 3);
-                    userEl.innerText = currentUsers.toLocaleString();
-                }, 2000);
+                    const start = performance.now();
+                    fetch('/api/stats')
+                        .then(r => r.json())
+                        .then(() => {
+                            const ping = Math.max(4, Math.round(performance.now() - start));
+                            document.getElementById('stat-ping').innerText = `${ping} ms`;
+                        })
+                        .catch(() => {
+                            document.getElementById('stat-ping').innerText = `${Math.floor(Math.random() * 14 + 8)} ms`;
+                        });
 
-                // Initial burst animation
+                    const userEl = document.getElementById('stat-users');
+                    let currentUsers = parseInt(userEl.innerText.replace(/,/g, '')) || 8421;
+                    currentUsers += Math.floor(Math.random() * 7 - 3);
+                    userEl.innerText = currentUsers.toLocaleString();
+                }, 3500);
+
                 anime({ targets: '#stat-users', innerHTML: [0, 8421], round: 1, easing: 'easeOutExpo', duration: 2500 });
                 anime({ targets: '#stat-req', innerHTML: [0, 1204892], round: 1, easing: 'easeOutExpo', duration: 3000 });
             }
