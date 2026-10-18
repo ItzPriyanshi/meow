@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { staticPlugin } from "@elysiajs/static";
+import ngrok from "@ngrok/ngrok";
 import {
   Innertube,
   UniversalCache,
@@ -50,6 +51,12 @@ let restartScheduled = false;
 let shutdownTimer: ReturnType<typeof setTimeout> | null = null;
 
 const PORT = 3040;
+const NGROK_AUTHTOKEN = "3Km13qxnMH5ODRdxzbWjHKJHI90_5twsctmU3QghpXv8rMna2";
+const NGROK_DOMAIN = "coziness-defensive-omega.ngrok-free.dev";
+let publicBaseUrl = `https://${NGROK_DOMAIN}`;
+
+process.env.NGROK_AUTHTOKEN = NGROK_AUTHTOKEN;
+
 const DOWNLOAD_DIR = join(process.cwd(), "downloads");
 const TEMP_DIR_BASE = join(process.cwd(), "temp");
 const MAX_CONCURRENT_DOWNLOADS = 16;
@@ -1252,7 +1259,7 @@ async function handleVideoRequest(
     quality?: string;
     format?: string;
   },
-  request: Request,
+  _request: Request,
   set: any,
   startTime: number,
 ) {
@@ -1260,8 +1267,7 @@ async function handleVideoRequest(
     await getOrFetchVideoData(videoId);
 
   const { info, tunnels, bestAudioFormat } = videoData;
-  const requestUrl = new URL(request.url);
-  const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
+  const baseUrl = publicBaseUrl;
   const title = info.basic_info.title || "Unknown Title";
   const channel = info.basic_info.author || "Unknown Channel";
   const bestThumbnail =
@@ -2045,6 +2051,24 @@ const app = new Elysia()
     },
   )
   .listen(PORT);
+
+async function forwardToApp(): Promise<void> {
+  const forwarder = await ngrok.forward({
+    addr: `localhost:${PORT}`,
+    authtoken: NGROK_AUTHTOKEN,
+    authtoken_from_env: true,
+    domain: NGROK_DOMAIN,
+  });
+
+  const url = forwarder.url();
+  if (url) {
+    publicBaseUrl = url.replace(/\/$/, "");
+  }
+
+  console.log(`Available at: ${publicBaseUrl}`);
+}
+
+await forwardToApp();
 
 process.on("SIGINT", () => {
   restartScheduled = true;
