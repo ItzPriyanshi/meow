@@ -1,6 +1,6 @@
 {
   "name": "elysia-youtube-downloader",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "A simple YouTube video/audio downloader API using Elysia and youtubei.js",
   "main": "index.ts",
   "type": "module",
@@ -13,6 +13,7 @@
     "@elysiajs/static": "latest",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@ngrok/ngrok": "latest",
     "autoprefixer": "^10.4.22",
     "axios": "latest",
     "bgutils-js": "latest",
